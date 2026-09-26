@@ -14,6 +14,18 @@ repositories {
     maven("https://repo.papermc.io/repository/maven-public/") {
         name = "papermc"
     }
+    maven("https://repo.codemc.io/repository/maven-releases/") {
+        name = "CodeMC"
+    }
+    maven("https://repo.extendedclip.com/releases/") {
+        name = "PlaceholderAPI"
+    }
+    maven("https://repo.xenondevs.xyz/releases") {
+        name = "InvUI"
+    }
+    maven("https://jitpack.io") {
+        name = "JitPack"
+    }
 }
 
 val rebarVersion = providers.gradleProperty("rebar.version").get()
