@@ -21,6 +21,13 @@ item:
       <arrow> Nearby vanilla redstone cannot take over its state
       <arrow> Link it to a Redstone Sensor with a GridWorks Linker
 
+  control_relay:
+    name: "Control Relay"
+    lore: |-
+      <arrow> Converts a Control Bus boolean into vanilla redstone output
+      <arrow> Its lever state is controlled by GridWorks, not manual clicks
+      <arrow> Link it to a sensor or future controller with a Linker
+
   gridworks_linker:
     name: "GridWorks Linker"
     lore: |-

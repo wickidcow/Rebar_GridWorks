@@ -1,0 +1,95 @@
+package io.github.wickidcow.gridworks.content.block;
+
+import io.github.pylonmc.rebar.block.context.BlockCreateContext;
+import io.github.pylonmc.rebar.block.interfaces.InteractRebarBlockHandler;
+import io.github.pylonmc.rebar.event.api.annotation.MultiHandler;
+import io.github.wickidcow.gridworks.api.control.ControlChannel;
+import io.github.wickidcow.gridworks.api.control.ControlSignal;
+import io.github.wickidcow.gridworks.api.control.ControlValue;
+import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
+import java.util.Objects;
+import org.bukkit.NamespacedKey;
+import org.bukkit.block.Block;
+import org.bukkit.block.data.type.Switch;
+import org.bukkit.event.Event;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
+import org.jetbrains.annotations.NotNull;
+
+public final class ControlRelayBlock extends PhysicalControlNodeBlock
+        implements InteractRebarBlockHandler {
+
+    private static final NamespacedKey POWERED_KEY = Objects.requireNonNull(
+            NamespacedKey.fromString("gridworks:relay_powered")
+    );
+
+    private boolean powered;
+
+    public ControlRelayBlock(@NotNull Block block, @NotNull BlockCreateContext context) {
+        super(block, context);
+        this.powered = false;
+    }
+
+    public ControlRelayBlock(@NotNull Block block, @NotNull PersistentDataContainer pdc) {
+        super(block, pdc);
+        Byte stored = pdc.get(POWERED_KEY, PersistentDataType.BYTE);
+        this.powered = stored != null && stored != 0;
+    }
+
+    @Override
+    public boolean accepts(@NotNull ControlChannel channel) {
+        return GridWorksChannels.REDSTONE_POWERED.equals(channel);
+    }
+
+    @Override
+    protected void afterActivated() {
+        applyOutputState();
+    }
+
+    @Override
+    protected void handleSignal(@NotNull ControlSignal signal) {
+        if (signal.value() instanceof ControlValue.BooleanValue booleanValue) {
+            setPowered(booleanValue.value());
+        }
+    }
+
+    @Override
+    protected void writeNodeData(@NotNull PersistentDataContainer pdc) {
+        pdc.set(POWERED_KEY, PersistentDataType.BYTE, powered ? (byte) 1 : (byte) 0);
+    }
+
+    @Override
+    @MultiHandler(priorities = EventPriority.LOWEST)
+    public void onInteractedWith(@NotNull PlayerInteractEvent event, @NotNull EventPriority priority) {
+        if (event.getAction() == Action.RIGHT_CLICK_BLOCK && event.getHand() == EquipmentSlot.HAND) {
+            event.setUseInteractedBlock(Event.Result.DENY);
+        }
+    }
+
+    public boolean isPowered() {
+        return powered;
+    }
+
+    public void setPowered(boolean powered) {
+        if (this.powered == powered) {
+            applyOutputState();
+            return;
+        }
+
+        this.powered = powered;
+        applyOutputState();
+    }
+
+    private void applyOutputState() {
+        Switch current = getBlockDataAs(Switch.class);
+        if (current.isPowered() == powered) {
+            return;
+        }
+
+        editBlockDataAs(Switch.class, data -> data.setPowered(powered));
+    }
+}

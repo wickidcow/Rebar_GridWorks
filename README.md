@@ -4,7 +4,7 @@
 
 GridWorks is a Rebar addon focused on making factories smarter rather than simply making machines faster. Its long-term goal is to connect sensors, controllers, power systems, cargo, fluids, machines, and redstone through a common automation layer.
 
-> GridWorks is in early development. The Control Bus, persistent physical network, and first end-to-end redstone automation path are implemented.
+> GridWorks is in early development. The Control Bus, persistent physical network, and first end-to-end redstone automation devices are implemented.
 
 ## Current foundation
 
@@ -12,18 +12,14 @@ The Control Bus provides namespaced and typed signals, cycle-safe graph propagat
 
 The physical layer provides persistent node UUIDs, atomic link persistence, a GridWorks Linker, chunk-safe live topology, and reconnection without world scans or forced chunk loads.
 
-## First automation path
+## Redstone automation
 
-GridWorks now has a complete event-driven signal path:
+GridWorks now supports both display and real redstone output:
 
 ```text
-Redstone source
-      |
-Redstone Sensor
-      |
-GridWorks Control Bus
-      |
- Status Light
+                     +--> Status Light
+Redstone Sensor -----|
+                     +--> Control Relay --> vanilla redstone
 ```
 
 The **Redstone Sensor** publishes:
@@ -31,13 +27,13 @@ The **Redstone Sensor** publishes:
 - `gridworks:redstone/strength` — numeric value from 0 through 15;
 - `gridworks:redstone/powered` — boolean state.
 
-The **Status Light** subscribes to the boolean channel and persists its last commanded state. It is kept under Control Bus ownership rather than allowing adjacent vanilla redstone to take over its state.
+The **Status Light** subscribes to the boolean channel and persists its last commanded state. It is kept under Control Bus ownership rather than allowing adjacent vanilla redstone to take over its state.\n\nThe **Control Relay** subscribes to the same boolean channel and drives a lever-backed Rebar block, producing actual vanilla redstone output. Manual lever use is blocked so the Control Bus remains the source of truth.
 
 Physical nodes are notified when a persisted linked peer becomes available. State-producing sensors use that hook to re-publish their current value, so a receiver that loads later does not have to wait for another redstone transition.
 
 ## Planned systems
 
-The next gameplay milestones are a Relay, Inventory Sensor, and Fluid Sensor, followed by a survival-friendly Factory Controller. Smart power meters, breakers, branch limits, priority/load shedding, and factory-wide monitoring will follow the Rebar electricity API as it stabilizes.
+The next gameplay milestones are Inventory Sensor and Fluid Sensor, followed by configurable logic and a survival-friendly Factory Controller. Smart power meters, breakers, branch limits, priority/load shedding, and factory-wide monitoring will follow the Rebar electricity API as it stabilizes.
 
 See [Architecture](docs/ARCHITECTURE.md) for the design rules and API boundaries.
 

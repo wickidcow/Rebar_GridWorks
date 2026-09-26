@@ -8,7 +8,7 @@ import io.github.pylonmc.rebar.item.interfaces.BlockInteractRebarItemHandler;
 import io.github.wickidcow.gridworks.GridWorks;
 import io.github.wickidcow.gridworks.api.control.ControlSignal;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
-import io.github.wickidcow.gridworks.content.block.PhysicalControlNodeBlock;
+import io.github.wickidcow.gridworks.content.block.ControlRelayBlock;\nimport io.github.wickidcow.gridworks.content.block.PhysicalControlNodeBlock;
 import io.github.wickidcow.gridworks.content.block.RedstoneSensorBlock;
 import io.github.wickidcow.gridworks.content.block.StatusLightBlock;
 import io.github.wickidcow.gridworks.physical.ControlNetworkSnapshot;
@@ -133,16 +133,18 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
 
         if (controlNode instanceof RedstoneSensorBlock sensor) {
             event.getPlayer().sendMessage(
-                    Component.text("Redstone: ", NamedTextColor.GRAY)
+                    Component.text("Redstone input: ", NamedTextColor.GRAY)
                             .append(Component.text(Integer.toString(sensor.getLastPower()), NamedTextColor.RED))
             );
         } else if (controlNode instanceof StatusLightBlock statusLight) {
             event.getPlayer().sendMessage(
                     Component.text("Status light: ", NamedTextColor.GRAY)
-                            .append(Component.text(
-                                    statusLight.isLit() ? "ON" : "OFF",
-                                    statusLight.isLit() ? NamedTextColor.GREEN : NamedTextColor.RED
-                            ))
+                            .append(onOff(statusLight.isLit()))
+            );
+        } else if (controlNode instanceof ControlRelayBlock relay) {
+            event.getPlayer().sendMessage(
+                    Component.text("Redstone output: ", NamedTextColor.GRAY)
+                            .append(onOff(relay.isPowered()))
             );
         }
 
@@ -154,6 +156,13 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
                                         NamedTextColor.WHITE
                                 ))
                 )
+        );
+    }
+
+    private static Component onOff(boolean enabled) {
+        return Component.text(
+                enabled ? "ON" : "OFF",
+                enabled ? NamedTextColor.GREEN : NamedTextColor.RED
         );
     }
 
