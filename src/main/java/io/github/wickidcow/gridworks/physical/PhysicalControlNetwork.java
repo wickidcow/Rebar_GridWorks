@@ -12,44 +12,55 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 public final class PhysicalControlNetwork implements AutoCloseable {
     private final ControlBus controlBus;
     private final PersistentConnectionStore connectionStore;
+    private final Consumer<RuntimeException> callbackFailureHandler;
     private final Map<UUID, ControlNode> activeNodes = new HashMap<>();
 
     public PhysicalControlNetwork(
             ControlBus controlBus,
-            PersistentConnectionStore connectionStore
+            PersistentConnectionStore connectionStore,
+            Consumer<RuntimeException> callbackFailureHandler
     ) {
         this.controlBus = Objects.requireNonNull(controlBus, "controlBus");
         this.connectionStore = Objects.requireNonNull(connectionStore, "connectionStore");
+        this.callbackFailureHandler = Objects.requireNonNull(callbackFailureHandler, "callbackFailureHandler");
     }
 
-    public synchronized void activate(ControlNode node) {
+    public void activate(ControlNode node) {
         Objects.requireNonNull(node, "node");
         UUID nodeId = Objects.requireNonNull(node.id(), "node.id()");
+        List<ControlNode> availablePeers = new ArrayList<>();
 
-        ControlNode existing = activeNodes.get(nodeId);
-        if (existing != null && existing != node) {
-            throw new IllegalStateException(
-                    "Duplicate loaded GridWorks node id " + nodeId
-                            + ". This usually means persistent block data was duplicated."
-            );
-        }
+        synchronized (this) {
+            ControlNode existing = activeNodes.get(nodeId);
+            if (existing != null && existing != node) {
+                throw new IllegalStateException(
+                        "Duplicate loaded GridWorks node id " + nodeId
+                                + ". This usually means persistent block data was duplicated."
+                );
+            }
 
-        if (existing == node) {
-            return;
-        }
+            if (existing == node) {
+                return;
+            }
 
-        activeNodes.put(nodeId, node);
-        controlBus.register(node);
+            activeNodes.put(nodeId, node);
+            controlBus.register(node);
 
-        for (UUID neighborId : connectionStore.neighbors(nodeId)) {
-            if (activeNodes.containsKey(neighborId)) {
-                controlBus.connect(nodeId, neighborId);
+            for (UUID neighborId : connectionStore.neighbors(nodeId)) {
+                ControlNode neighbor = activeNodes.get(neighborId);
+                if (neighbor != null) {
+                    controlBus.connect(nodeId, neighborId);
+                    availablePeers.add(neighbor);
+                }
             }
         }
+
+        notifyPeersAvailable(node, availablePeers);
     }
 
     public synchronized void deactivate(UUID nodeId, ControlNode expectedNode) {
@@ -78,15 +89,26 @@ public final class PhysicalControlNetwork implements AutoCloseable {
         }
     }
 
-    public synchronized boolean toggleLink(UUID first, UUID second) throws IOException {
-        requireActive(first);
-        requireActive(second);
+    public boolean toggleLink(UUID first, UUID second) throws IOException {
+        ControlNode firstNode;
+        ControlNode secondNode;
+        boolean connected;
 
-        boolean connected = connectionStore.toggle(first, second);
+        synchronized (this) {
+            firstNode = requireActive(first);
+            secondNode = requireActive(second);
+
+            connected = connectionStore.toggle(first, second);
+            if (connected) {
+                controlBus.connect(first, second);
+            } else {
+                controlBus.disconnect(first, second);
+            }
+        }
+
         if (connected) {
-            controlBus.connect(first, second);
-        } else {
-            controlBus.disconnect(first, second);
+            notifyPeerAvailable(firstNode, second);
+            notifyPeerAvailable(secondNode, first);
         }
         return connected;
     }
@@ -120,9 +142,30 @@ public final class PhysicalControlNetwork implements AutoCloseable {
         );
     }
 
-    private void requireActive(UUID nodeId) {
-        if (!activeNodes.containsKey(nodeId)) {
+    private ControlNode requireActive(UUID nodeId) {
+        ControlNode node = activeNodes.get(nodeId);
+        if (node == null) {
             throw new IllegalArgumentException("Control node is not loaded: " + nodeId);
+        }
+        return node;
+    }
+
+    private void notifyPeersAvailable(ControlNode node, List<ControlNode> peers) {
+        for (ControlNode peer : peers) {
+            notifyPeerAvailable(node, peer.id());
+            notifyPeerAvailable(peer, node.id());
+        }
+    }
+
+    private void notifyPeerAvailable(ControlNode node, UUID peerId) {
+        if (!(node instanceof PhysicalControlEndpoint endpoint)) {
+            return;
+        }
+
+        try {
+            endpoint.onControlPeerAvailable(peerId);
+        } catch (RuntimeException exception) {
+            callbackFailureHandler.accept(exception);
         }
     }
 

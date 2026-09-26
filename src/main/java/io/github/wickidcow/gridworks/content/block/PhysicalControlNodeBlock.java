@@ -7,8 +7,8 @@ import io.github.pylonmc.rebar.block.interfaces.BlockBreakRebarBlockHandler;
 import io.github.pylonmc.rebar.block.interfaces.UnloadRebarBlockHandler;
 import io.github.pylonmc.rebar.event.RebarBlockUnloadEvent;
 import io.github.wickidcow.gridworks.GridWorks;
-import io.github.wickidcow.gridworks.api.control.ControlNode;
 import io.github.wickidcow.gridworks.api.control.ControlSignal;
+import io.github.wickidcow.gridworks.physical.PhysicalControlEndpoint;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.Optional;
@@ -21,7 +21,7 @@ import org.bukkit.persistence.PersistentDataType;
 import org.jetbrains.annotations.NotNull;
 
 public abstract class PhysicalControlNodeBlock extends RebarBlock
-        implements ControlNode, UnloadRebarBlockHandler, BlockBreakRebarBlockHandler {
+        implements PhysicalControlEndpoint, UnloadRebarBlockHandler, BlockBreakRebarBlockHandler {
 
     private static final NamespacedKey NODE_ID_KEY = Objects.requireNonNull(
             NamespacedKey.fromString("gridworks:node_id")

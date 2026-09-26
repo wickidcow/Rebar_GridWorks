@@ -8,6 +8,7 @@ import io.github.wickidcow.gridworks.physical.PersistentConnectionStore;
 import io.github.wickidcow.gridworks.physical.PhysicalControlNetwork;
 import java.io.IOException;
 import java.util.Locale;
+import java.util.logging.Level;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.plugin.ServicePriority;
@@ -41,7 +42,15 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
             PersistentConnectionStore connectionStore = new PersistentConnectionStore(
                     getDataFolder().toPath().resolve("control-network.txt")
             );
-            physicalControlNetwork = new PhysicalControlNetwork(controlBus, connectionStore);
+            physicalControlNetwork = new PhysicalControlNetwork(
+                    controlBus,
+                    connectionStore,
+                    exception -> getLogger().log(
+                            Level.SEVERE,
+                            "A GridWorks physical-node availability callback failed",
+                            exception
+                    )
+            );
         } catch (IOException exception) {
             throw new IllegalStateException("Could not load GridWorks control-network data", exception);
         }

@@ -4,43 +4,40 @@
 
 GridWorks is a Rebar addon focused on making factories smarter rather than simply making machines faster. Its long-term goal is to connect sensors, controllers, power systems, cargo, fluids, machines, and redstone through a common automation layer.
 
-> GridWorks is in early development. The Control Bus, persistent physical network, and first event-driven sensor are implemented.
+> GridWorks is in early development. The Control Bus, persistent physical network, and first end-to-end redstone automation path are implemented.
 
 ## Current foundation
 
-The Control Bus provides:
+The Control Bus provides namespaced and typed signals, cycle-safe graph propagation, a configurable safety cap, receiver isolation, and a Bukkit service API for other addons.
 
-- namespaced signal channels such as `gridworks:power/load`;
-- built-in boolean, number, and text signal values;
-- an addon-extensible `ControlValue` API;
-- graph-based node registration and connections;
-- cycle-safe, duplicate-free signal propagation;
-- a configurable propagation safety cap;
-- isolated receiver failures so one broken endpoint does not stop the rest of a network;
-- a Bukkit `ServicesManager` registration so other addons can discover the `ControlBus` API.
+The physical layer provides persistent node UUIDs, atomic link persistence, a GridWorks Linker, chunk-safe live topology, and reconnection without world scans or forced chunk loads.
 
-The physical layer provides:
+## First automation path
 
-- persistent UUID identity for every physical GridWorks control node;
-- a Rebar **Control Interface** block;
-- a **GridWorks Linker** for creating/removing links and inspecting networks;
-- persistent link storage with atomic file replacement;
-- chunk-safe activation/deactivation that never loads a chunk just to reconnect a network;
-- automatic reconnection when both endpoints become loaded again;
-- shared lifecycle code for future sensors, controllers, and actuators.
+GridWorks now has a complete event-driven signal path:
 
-## Redstone Sensor
+```text
+Redstone source
+      |
+Redstone Sensor
+      |
+GridWorks Control Bus
+      |
+ Status Light
+```
 
-The first automation device is an event-driven **Redstone Sensor**. It uses normal redstone updates rather than a global tick loop and publishes:
+The **Redstone Sensor** publishes:
 
-- `gridworks:redstone/strength` — numeric signal from 0 through 15;
-- `gridworks:redstone/powered` — boolean signal.
+- `gridworks:redstone/strength` — numeric value from 0 through 15;
+- `gridworks:redstone/powered` — boolean state.
 
-It also publishes its current state once after activation so a loaded factory does not have to wait for the next redstone transition.
+The **Status Light** subscribes to the boolean channel and persists its last commanded state. It is kept under Control Bus ownership rather than allowing adjacent vanilla redstone to take over its state.
+
+Physical nodes are notified when a persisted linked peer becomes available. State-producing sensors use that hook to re-publish their current value, so a receiver that loads later does not have to wait for another redstone transition.
 
 ## Planned systems
 
-The next gameplay milestones are Status Light/Relay, Inventory Sensor, and Fluid Sensor, followed by a survival-friendly Factory Controller. Smart power meters, breakers, branch limits, priority/load shedding, and factory-wide monitoring will follow the Rebar electricity API as it stabilizes.
+The next gameplay milestones are a Relay, Inventory Sensor, and Fluid Sensor, followed by a survival-friendly Factory Controller. Smart power meters, breakers, branch limits, priority/load shedding, and factory-wide monitoring will follow the Rebar electricity API as it stabilizes.
 
 See [Architecture](docs/ARCHITECTURE.md) for the design rules and API boundaries.
 

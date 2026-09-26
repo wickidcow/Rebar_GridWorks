@@ -4,6 +4,7 @@ import io.github.pylonmc.rebar.block.context.BlockCreateContext;
 import io.github.wickidcow.gridworks.GridWorks;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
+import java.util.UUID;
 import org.bukkit.block.Block;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.jetbrains.annotations.NotNull;
@@ -24,6 +25,13 @@ public final class RedstoneSensorBlock extends PhysicalControlNodeBlock {
         updatePower(getBlock().getBlockPower());
     }
 
+    @Override
+    public void onControlPeerAvailable(@NotNull UUID peerId) {
+        if (lastPower >= 0) {
+            publishPower(lastPower);
+        }
+    }
+
     public void updatePower(int newPower) {
         int power = Math.clamp(newPower, 0, 15);
         if (power == lastPower) {
@@ -31,6 +39,10 @@ public final class RedstoneSensorBlock extends PhysicalControlNodeBlock {
         }
 
         lastPower = power;
+        publishPower(power);
+    }
+
+    private void publishPower(int power) {
         GridWorks.getInstance().getControlBus().publish(
                 getNodeId(),
                 GridWorksChannels.REDSTONE_STRENGTH,

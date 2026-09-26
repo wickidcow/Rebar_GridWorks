@@ -10,6 +10,7 @@ import io.github.wickidcow.gridworks.api.control.ControlSignal;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.content.block.PhysicalControlNodeBlock;
 import io.github.wickidcow.gridworks.content.block.RedstoneSensorBlock;
+import io.github.wickidcow.gridworks.content.block.StatusLightBlock;
 import io.github.wickidcow.gridworks.physical.ControlNetworkSnapshot;
 import io.github.wickidcow.gridworks.physical.PhysicalControlNetwork;
 import java.io.IOException;
@@ -134,6 +135,14 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
             event.getPlayer().sendMessage(
                     Component.text("Redstone: ", NamedTextColor.GRAY)
                             .append(Component.text(Integer.toString(sensor.getLastPower()), NamedTextColor.RED))
+            );
+        } else if (controlNode instanceof StatusLightBlock statusLight) {
+            event.getPlayer().sendMessage(
+                    Component.text("Status light: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    statusLight.isLit() ? "ON" : "OFF",
+                                    statusLight.isLit() ? NamedTextColor.GREEN : NamedTextColor.RED
+                            ))
             );
         }
 

@@ -12,7 +12,14 @@ item:
     lore: |-
       <arrow> Reads redstone power without polling every tick
       <arrow> Publishes powered state and signal strength
-      <arrow> Link it to other GridWorks nodes with a Linker
+      <arrow> Re-sends current state when a linked peer reconnects
+
+  status_light:
+    name: "Status Light"
+    lore: |-
+      <arrow> Displays the boolean redstone state from the Control Bus
+      <arrow> Nearby vanilla redstone cannot take over its state
+      <arrow> Link it to a Redstone Sensor with a GridWorks Linker
 
   gridworks_linker:
     name: "GridWorks Linker"
