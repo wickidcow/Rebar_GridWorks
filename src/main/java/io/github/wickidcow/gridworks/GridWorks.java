@@ -3,6 +3,10 @@ package io.github.wickidcow.gridworks;
 import io.github.pylonmc.rebar.addon.RebarAddon;
 import io.github.wickidcow.gridworks.api.control.ControlBus;
 import io.github.wickidcow.gridworks.control.GraphControlBus;
+import io.github.wickidcow.gridworks.content.GridWorksContent;
+import io.github.wickidcow.gridworks.physical.PersistentConnectionStore;
+import io.github.wickidcow.gridworks.physical.PhysicalControlNetwork;
+import java.io.IOException;
 import java.util.Locale;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -11,7 +15,15 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
 public final class GridWorks extends JavaPlugin implements RebarAddon {
+    private static GridWorks instance;
+
     private GraphControlBus controlBus;
+    private PhysicalControlNetwork physicalControlNetwork;
+
+    @Override
+    public void onLoad() {
+        instance = this;
+    }
 
     @Override
     public void onEnable() {
@@ -24,17 +36,45 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
         );
 
         controlBus = new GraphControlBus(maxPropagationNodes);
-        Bukkit.getServicesManager().register(ControlBus.class, controlBus, this, ServicePriority.Normal);
 
+        try {
+            PersistentConnectionStore connectionStore = new PersistentConnectionStore(
+                    getDataFolder().toPath().resolve("control-network.txt")
+            );
+            physicalControlNetwork = new PhysicalControlNetwork(controlBus, connectionStore);
+        } catch (IOException exception) {
+            throw new IllegalStateException("Could not load GridWorks control-network data", exception);
+        }
+
+        GridWorksContent.register(this);
+
+        Bukkit.getServicesManager().register(ControlBus.class, controlBus, this, ServicePriority.Normal);
         getLogger().info("GridWorks control bus initialized (max propagation: " + maxPropagationNodes + " nodes).");
     }
 
     @Override
     public void onDisable() {
         Bukkit.getServicesManager().unregisterAll(this);
+
+        if (physicalControlNetwork != null) {
+            physicalControlNetwork.close();
+            physicalControlNetwork = null;
+        }
+
         if (controlBus != null) {
             controlBus.clear();
+            controlBus = null;
         }
+
+        instance = null;
+    }
+
+    public static @NotNull GridWorks getInstance() {
+        GridWorks current = instance;
+        if (current == null) {
+            throw new IllegalStateException("GridWorks is not loaded");
+        }
+        return current;
     }
 
     public @NotNull ControlBus getControlBus() {
@@ -42,6 +82,13 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
             throw new IllegalStateException("GridWorks is not enabled");
         }
         return controlBus;
+    }
+
+    public @NotNull PhysicalControlNetwork getPhysicalControlNetwork() {
+        if (physicalControlNetwork == null) {
+            throw new IllegalStateException("GridWorks is not enabled");
+        }
+        return physicalControlNetwork;
     }
 
     @Override

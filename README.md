@@ -4,11 +4,11 @@
 
 GridWorks is a Rebar addon focused on making factories smarter rather than simply making machines faster. Its long-term goal is to connect sensors, controllers, power systems, cargo, fluids, machines, and redstone through a common automation layer.
 
-> GridWorks is in early development. The current foundation establishes the addon and its Control Bus API; gameplay blocks are the next stage.
+> GridWorks is in early development. The Control Bus foundation and first physical Control Interface/Linker layer are now implemented; sensors and actuators are the next stage.
 
 ## Current foundation
 
-The initial Control Bus provides:
+The Control Bus provides:
 
 - namespaced signal channels such as `gridworks:power/load`;
 - built-in boolean, number, and text signal values;
@@ -19,11 +19,21 @@ The initial Control Bus provides:
 - isolated receiver failures so one broken endpoint does not stop the rest of a network;
 - a Bukkit `ServicesManager` registration so other addons can discover the `ControlBus` API.
 
+The first physical layer adds:
+
+- a Rebar **Control Interface** block with a persistent UUID identity;
+- a **GridWorks Linker** for creating/removing Control Bus links;
+- sneak-right-click network inspection;
+- persistent link storage with atomic file replacement;
+- chunk-safe activation/deactivation that never loads a chunk just to reconnect a network;
+- automatic reconnection when both endpoints become loaded again;
+- separate counts for persistent network size and currently loaded nodes.
+
 The core graph deliberately has no dependency on Bukkit, Pylon, or Rebar. Platform-specific behavior is added through adapters, which keeps the automation system testable and prevents unstable upstream APIs from leaking through GridWorks.
 
 ## Planned systems
 
-The first gameplay milestones are physical Control Bus connections and tools, inventory/fluid/redstone sensors, actuators and relays, and a survival-friendly Factory Controller. Smart power meters, breakers, branch limits, priority/load shedding, and factory-wide monitoring will follow the Rebar electricity API as it stabilizes.
+The next gameplay milestones are Redstone Interface, Inventory Sensor, Fluid Sensor, Status Light, and Relay, followed by a survival-friendly Factory Controller. Smart power meters, breakers, branch limits, priority/load shedding, and factory-wide monitoring will follow the Rebar electricity API as it stabilizes.
 
 See [Architecture](docs/ARCHITECTURE.md) for the design rules and API boundaries.
 

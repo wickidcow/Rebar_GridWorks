@@ -1,1 +1,15 @@
 addon: "GridWorks"
+
+item:
+  control_interface:
+    name: "Control Interface"
+    lore: |-
+      <arrow> Connects a device to the GridWorks Control Bus
+      <arrow> Use a GridWorks Linker to connect interfaces
+
+  gridworks_linker:
+    name: "GridWorks Linker"
+    lore: |-
+      <arrow> <insn>Right click</insn> an interface to select it
+      <arrow> <insn>Right click</insn> another to link or unlink
+      <arrow> <insn>Sneak + right click</insn> to inspect the network

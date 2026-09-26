@@ -10,8 +10,9 @@ GridWorks is designed as an automation layer for the Rebar ecosystem rather than
 4. **Bound all propagation.** A configurable hard cap prevents a single signal from traversing an unexpectedly huge network in one dispatch.
 5. **Suppress graph duplicates.** A node receives a publication at most once even when the network contains cycles.
 6. **Prefer events over global polling.** Future sensors should use native change events where available and use configurable scheduled sampling only when necessary.
-7. **Do not force chunk loads.** Future physical networks should operate on loaded state and recover cleanly as chunks load and unload.
+7. **Do not force chunk loads.** Physical networks operate only on currently loaded Rebar blocks and recover when chunks load naturally.
 8. **Keep upstream-sensitive code isolated.** Rebar electricity is under active development, so electricity-specific code belongs behind a bridge instead of leaking into the core API.
+9. **Persist topology separately from live routing.** A saved physical link can exist while one or both endpoint chunks are unloaded; the live graph contains loaded endpoints only.
 
 ## Layers
 
@@ -27,7 +28,7 @@ Rebar/Pylon machines, inventories, tanks, redstone, electricity
 
 ## Control bus
 
-The first implementation is an undirected graph of registered `ControlNode` endpoints. A publication contains:
+The core implementation is an undirected graph of registered `ControlNode` endpoints. A publication contains:
 
 - a UUID identifying its source node;
 - a namespaced `ControlChannel`;
@@ -35,6 +36,19 @@ The first implementation is an undirected graph of registered `ControlNode` endp
 - a monotonically assigned sequence number for that server session.
 
 A breadth-first traversal snapshots reachable recipients. The source is not sent its own signal. Cycles are de-duplicated by node UUID. Receiver exceptions are isolated and reported in `ControlDispatchResult` without preventing delivery to healthy recipients.
+
+## Physical control network
+
+Each Control Interface owns a UUID persisted in its Rebar block PDC. Connections between UUIDs are stored in `control-network.txt`.
+
+The persistent connection store and the live graph intentionally represent different things:
+
+- **Persistent store:** intended topology, including endpoints in unloaded chunks.
+- **Live graph:** only nodes whose Rebar blocks are currently loaded.
+
+When a Control Interface loads, it registers its node and reconnects only to persistent neighbors that are already active. When it unloads, it is removed from the live graph without deleting persistent links. No lookup path loads a chunk.
+
+Connection-file writes use a temporary sibling file and atomic replacement where the filesystem supports it. Mutations are rolled back in memory if a write fails.
 
 ## Public API
 
@@ -44,4 +58,4 @@ GridWorks publishes its `ControlBus` through Bukkit's `ServicesManager`, allowin
 
 ## Electricity
 
-Electricity integration is intentionally not compiled into the first foundation build. Rebar's electricity implementation is still evolving upstream. When its addon-facing contract stabilizes, GridWorks will add a bridge for grid measurements, smart breakers, branch limits, load shedding, and power-aware factory rules without changing the control-bus core.
+Electricity integration is intentionally not compiled into the current build. Rebar's electricity implementation is still evolving upstream. When its addon-facing contract stabilizes, GridWorks will add a bridge for grid measurements, smart breakers, branch limits, load shedding, and power-aware factory rules without changing the control-bus core.
