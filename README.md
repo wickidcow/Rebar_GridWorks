@@ -1,32 +1,48 @@
-<div align="center">
+# Rebar GridWorks
 
-# ⚡ Rebar GridWorks
+**Industrial automation, smart power management, and factory control systems for Pylon/Rebar.**
 
-### Power the world. Build the grid. Automate everything.
+GridWorks is a Rebar addon focused on making factories smarter rather than simply making machines faster. Its long-term goal is to connect sensors, controllers, power systems, cargo, fluids, machines, and redstone through a common automation layer.
 
-**A new automation and electrical expansion for Rebar + Pylon.**
+> GridWorks is in early development. The current foundation establishes the addon and its Control Bus API; gameplay blocks are the next stage.
 
-<br>
+## Current foundation
 
-![Status](https://img.shields.io/badge/STATUS-COMING%20SOON-orange?style=for-the-badge)
-![Platform](https://img.shields.io/badge/PLATFORM-MINECRAFT-62B47A?style=for-the-badge)
-![Rebar](https://img.shields.io/badge/BUILT%20FOR-REBAR-4B5563?style=for-the-badge)
-![Pylon](https://img.shields.io/badge/POWERED%20BY-PYLON-7C3AED?style=for-the-badge)
+The initial Control Bus provides:
 
-<br>
+- namespaced signal channels such as `gridworks:power/load`;
+- built-in boolean, number, and text signal values;
+- an addon-extensible `ControlValue` API;
+- graph-based node registration and connections;
+- cycle-safe, duplicate-free signal propagation;
+- a configurable propagation safety cap;
+- isolated receiver failures so one broken endpoint does not stop the rest of a network;
+- a Bukkit `ServicesManager` registration so other addons can discover the `ControlBus` API.
 
-> **The next layer of automation is being built.**
+The core graph deliberately has no dependency on Bukkit, Pylon, or Rebar. Platform-specific behavior is added through adapters, which keeps the automation system testable and prevents unstable upstream APIs from leaking through GridWorks.
 
-</div>
+## Planned systems
 
----
+The first gameplay milestones are physical Control Bus connections and tools, inventory/fluid/redstone sensors, actuators and relays, and a survival-friendly Factory Controller. Smart power meters, breakers, branch limits, priority/load shedding, and factory-wide monitoring will follow the Rebar electricity API as it stabilizes.
 
-## ⚙️ What is GridWorks?
+See [Architecture](docs/ARCHITECTURE.md) for the design rules and API boundaries.
 
-**Rebar GridWorks** is an upcoming addon for **Rebar and Pylon** focused on bringing a deeper layer of electrical infrastructure, automation, machines, and interconnected systems to Minecraft.
+## Requirements
 
-Rather than turning Rebar or Pylon themselves into another massive tech plugin, GridWorks is being designed as an **optional expansion** — allowing servers and players to add more advanced technology only when they want it.
+- Paper 26.2
+- Java 25
+- Rebar 0.43.0-26.2
 
-GridWorks will build upon the modern systems provided by Rebar and Pylon to create something that feels integrated with Minecraft while still offering the depth expected from a full automation ecosystem.
+Pylon is the primary gameplay ecosystem GridWorks is being designed to complement, but the foundation depends only on Rebar.
 
----
+## Building
+
+```bash
+./gradlew build
+```
+
+The plugin jar is written to `build/libs/`.
+
+## License
+
+GridWorks is licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE).

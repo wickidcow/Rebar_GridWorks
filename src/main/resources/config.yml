@@ -1,0 +1,5 @@
+control-bus:
+  # Safety cap for the number of recipient nodes a single signal may traverse.
+  # This prevents a malformed or unexpectedly huge control network from doing
+  # unbounded work in one dispatch.
+  max-propagation-nodes: 4096
