@@ -35,7 +35,9 @@ dependencies {
     compileOnly("io.papermc.paper:paper-api:$minecraftVersion.build.+")
     compileOnly("io.github.pylonmc:rebar:$rebarVersion")
 
-    testImplementation("org.junit.jupiter:junit-jupiter:5.13.4")
+    testImplementation(platform("org.junit:junit-bom:5.13.4"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 java {
