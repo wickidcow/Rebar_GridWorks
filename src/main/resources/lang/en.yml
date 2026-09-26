@@ -5,11 +5,18 @@ item:
     name: "Control Interface"
     lore: |-
       <arrow> Connects a device to the GridWorks Control Bus
-      <arrow> Use a GridWorks Linker to connect interfaces
+      <arrow> Use a GridWorks Linker to connect control nodes
+
+  redstone_sensor:
+    name: "Redstone Sensor"
+    lore: |-
+      <arrow> Reads redstone power without polling every tick
+      <arrow> Publishes powered state and signal strength
+      <arrow> Link it to other GridWorks nodes with a Linker
 
   gridworks_linker:
     name: "GridWorks Linker"
     lore: |-
-      <arrow> <insn>Right click</insn> an interface to select it
+      <arrow> <insn>Right click</insn> a control node to select it
       <arrow> <insn>Right click</insn> another to link or unlink
       <arrow> <insn>Sneak + right click</insn> to inspect the network

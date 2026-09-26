@@ -9,10 +9,11 @@ GridWorks is designed as an automation layer for the Rebar ecosystem rather than
 3. **Do not call addon code while holding topology locks.** Dispatch snapshots its route first, then invokes receivers after releasing the graph lock.
 4. **Bound all propagation.** A configurable hard cap prevents a single signal from traversing an unexpectedly huge network in one dispatch.
 5. **Suppress graph duplicates.** A node receives a publication at most once even when the network contains cycles.
-6. **Prefer events over global polling.** Future sensors should use native change events where available and use configurable scheduled sampling only when necessary.
+6. **Prefer events over global polling.** Sensors use native change events where available and use configurable scheduled sampling only when the source has no event model.
 7. **Do not force chunk loads.** Physical networks operate only on currently loaded Rebar blocks and recover when chunks load naturally.
 8. **Keep upstream-sensitive code isolated.** Rebar electricity is under active development, so electricity-specific code belongs behind a bridge instead of leaking into the core API.
 9. **Persist topology separately from live routing.** A saved physical link can exist while one or both endpoint chunks are unloaded; the live graph contains loaded endpoints only.
+10. **Centralize block lifecycle behavior.** Physical GridWorks node blocks inherit UUID persistence, activation, unload, break cleanup, and last-signal capture from one base class.
 
 ## Layers
 
@@ -39,22 +40,28 @@ A breadth-first traversal snapshots reachable recipients. The source is not sent
 
 ## Physical control network
 
-Each Control Interface owns a UUID persisted in its Rebar block PDC. Connections between UUIDs are stored in `control-network.txt`.
+Every physical GridWorks node inherits `PhysicalControlNodeBlock`. The base class owns a UUID persisted in its Rebar block PDC and handles live graph activation, chunk unload, block break cleanup, and last-signal capture.
+
+Connections between UUIDs are stored in `control-network.txt`.
 
 The persistent connection store and the live graph intentionally represent different things:
 
 - **Persistent store:** intended topology, including endpoints in unloaded chunks.
 - **Live graph:** only nodes whose Rebar blocks are currently loaded.
 
-When a Control Interface loads, it registers its node and reconnects only to persistent neighbors that are already active. When it unloads, it is removed from the live graph without deleting persistent links. No lookup path loads a chunk.
+When a control node loads, it registers and reconnects only to persistent neighbors that are already active. When it unloads, it is removed from the live graph without deleting persistent links. No lookup path loads a chunk.
 
 Connection-file writes use a temporary sibling file and atomic replacement where the filesystem supports it. Mutations are rolled back in memory if a write fails.
+
+## Sensors
+
+Sensors should publish only on meaningful state changes whenever an event exists. The Redstone Sensor is the reference implementation: it listens to `BlockRedstoneEvent` and publishes both analog strength and boolean powered state. It does not participate in a per-tick sensor loop.
 
 ## Public API
 
 Public addon contracts live under `io.github.wickidcow.gridworks.api`.
 
-GridWorks publishes its `ControlBus` through Bukkit's `ServicesManager`, allowing another plugin to obtain the service without depending on the concrete graph implementation.
+GridWorks publishes its `ControlBus` through Bukkit's `ServicesManager`, allowing another plugin to obtain the service without depending on the concrete graph implementation. Stable built-in channel names live in `GridWorksChannels`.
 
 ## Electricity
 

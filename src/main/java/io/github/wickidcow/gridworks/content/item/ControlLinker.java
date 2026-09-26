@@ -8,7 +8,8 @@ import io.github.pylonmc.rebar.item.interfaces.BlockInteractRebarItemHandler;
 import io.github.wickidcow.gridworks.GridWorks;
 import io.github.wickidcow.gridworks.api.control.ControlSignal;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
-import io.github.wickidcow.gridworks.content.block.ControlInterfaceBlock;
+import io.github.wickidcow.gridworks.content.block.PhysicalControlNodeBlock;
+import io.github.wickidcow.gridworks.content.block.RedstoneSensorBlock;
 import io.github.wickidcow.gridworks.physical.ControlNetworkSnapshot;
 import io.github.wickidcow.gridworks.physical.PhysicalControlNetwork;
 import java.io.IOException;
@@ -42,7 +43,7 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
         }
 
         RebarBlock rebarBlock = BlockStorage.get(event.getClickedBlock());
-        if (!(rebarBlock instanceof ControlInterfaceBlock controlInterface)) {
+        if (!(rebarBlock instanceof PhysicalControlNodeBlock controlNode)) {
             return;
         }
 
@@ -50,10 +51,10 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
         event.setUseItemInHand(Event.Result.DENY);
 
         PhysicalControlNetwork network = GridWorks.getInstance().getPhysicalControlNetwork();
-        UUID clickedNode = controlInterface.getNodeId();
+        UUID clickedNode = controlNode.getNodeId();
 
         if (event.getPlayer().isSneaking()) {
-            showNetworkInfo(event, network, controlInterface);
+            showNetworkInfo(event, network, controlNode);
             return;
         }
 
@@ -61,9 +62,9 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
         if (selectedNode == null) {
             setSelectedNode(clickedNode);
             event.getPlayer().sendMessage(
-                    Component.text("Selected Control Interface ", NamedTextColor.GRAY)
+                    Component.text("Selected GridWorks node ", NamedTextColor.GRAY)
                             .append(Component.text(shortNodeId(clickedNode), NamedTextColor.AQUA))
-                            .append(Component.text(". Right-click another interface to link or unlink.", NamedTextColor.GRAY))
+                            .append(Component.text(". Right-click another node to link or unlink.", NamedTextColor.GRAY))
             );
             return;
         }
@@ -77,7 +78,7 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
         if (!network.isActive(selectedNode)) {
             clearSelectedNode();
             event.getPlayer().sendMessage(
-                    Component.text("The selected interface is no longer loaded. Select it again.", NamedTextColor.RED)
+                    Component.text("The selected node is no longer loaded. Select it again.", NamedTextColor.RED)
             );
             return;
         }
@@ -88,15 +89,15 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
 
             event.getPlayer().sendMessage(
                     connected
-                            ? Component.text("Control Interfaces linked.", NamedTextColor.GREEN)
-                            : Component.text("Control Interfaces unlinked.", NamedTextColor.YELLOW)
+                            ? Component.text("GridWorks nodes linked.", NamedTextColor.GREEN)
+                            : Component.text("GridWorks nodes unlinked.", NamedTextColor.YELLOW)
             );
         } catch (IOException exception) {
             event.getPlayer().sendMessage(
                     Component.text("GridWorks could not save that connection. No topology change was kept.", NamedTextColor.RED)
             );
             GridWorks.getInstance().getLogger().severe(
-                    "Failed to persist Control Interface link change: " + exception.getMessage()
+                    "Failed to persist GridWorks link change: " + exception.getMessage()
             );
         }
     }
@@ -104,9 +105,9 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
     private void showNetworkInfo(
             PlayerInteractEvent event,
             PhysicalControlNetwork network,
-            ControlInterfaceBlock controlInterface
+            PhysicalControlNodeBlock controlNode
     ) {
-        ControlNetworkSnapshot snapshot = network.snapshot(controlInterface.getNodeId());
+        ControlNetworkSnapshot snapshot = network.snapshot(controlNode.getNodeId());
 
         event.getPlayer().sendMessage(Component.text("GridWorks Control Network", NamedTextColor.GOLD));
         event.getPlayer().sendMessage(
@@ -126,10 +127,17 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
         );
         event.getPlayer().sendMessage(
                 Component.text("Node: ", NamedTextColor.GRAY)
-                        .append(Component.text(shortNodeId(controlInterface.getNodeId()), NamedTextColor.WHITE))
+                        .append(Component.text(shortNodeId(controlNode.getNodeId()), NamedTextColor.WHITE))
         );
 
-        controlInterface.getLastSignal().ifPresent(signal ->
+        if (controlNode instanceof RedstoneSensorBlock sensor) {
+            event.getPlayer().sendMessage(
+                    Component.text("Redstone: ", NamedTextColor.GRAY)
+                            .append(Component.text(Integer.toString(sensor.getLastPower()), NamedTextColor.RED))
+            );
+        }
+
+        controlNode.getLastSignal().ifPresent(signal ->
                 event.getPlayer().sendMessage(
                         Component.text("Last signal: ", NamedTextColor.GRAY)
                                 .append(Component.text(
