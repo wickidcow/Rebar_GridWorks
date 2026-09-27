@@ -66,3 +66,10 @@ GridWorks publishes its `ControlBus` through Bukkit's `ServicesManager`, allowin
 ## Electricity
 
 Electricity integration is intentionally not compiled into the current build. Rebar's electricity implementation is still evolving upstream. When its addon-facing contract stabilizes, GridWorks will add a bridge for grid measurements, smart breakers, branch limits, load shedding, and power-aware factory rules without changing the control-bus core.
+
+
+## Controller rules
+
+Numeric controller logic is represented independently from GUI and block code by `NumericControlRule`. Rules match one exact `ControlChannel`, require a numeric value, and apply a `ComparisonOperator` to the observed value and configured threshold.
+
+Controller output uses `gridworks:control/enabled` rather than re-emitting a sensor channel. This keeps measurement channels and command channels separate and avoids accidental feedback loops when controllers share a Control Bus with their sources.

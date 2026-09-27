@@ -41,9 +41,15 @@ The Fluid Tank Sensor faces an adjacent block implementing Rebar's released `Flu
 
 It samples loaded sensor targets only and never loads another chunk. The first implementation intentionally targets Rebar fluid tanks rather than using reflection to inspect arbitrary internal multi-fluid buffers that Rebar does not publicly enumerate.
 
+## Logic foundation
+
+GridWorks now has a tested numeric-rule API for controller logic. A rule consists of an input channel, comparison operator, and finite threshold. Rules ignore unrelated channels and non-numeric values rather than coercing data unexpectedly.
+
+Controllers will publish their boolean result on `gridworks:control/enabled`. The existing Status Light and Control Relay already accept that channel in addition to direct Redstone Sensor input, so controller logic does not need to masquerade as redstone input.
+
 ## Planned systems
 
-The next major milestone is configurable logic: threshold/comparison rules and a survival-friendly Factory Controller. After that, GridWorks can connect inventory/fluid/redstone measurements to relays and eventually to smart electricity controls as Rebar's electricity API stabilizes.
+The next major milestone is the survival-friendly Factory Controller GUI over this rule engine. After that, GridWorks can connect inventory/fluid/redstone measurements to relays and eventually to smart electricity controls as Rebar's electricity API stabilizes.
 
 ## Requirements
 

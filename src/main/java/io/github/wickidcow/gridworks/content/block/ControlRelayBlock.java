@@ -43,7 +43,8 @@ public final class ControlRelayBlock extends PhysicalControlNodeBlock
 
     @Override
     public boolean accepts(@NotNull ControlChannel channel) {
-        return GridWorksChannels.REDSTONE_POWERED.equals(channel);
+        return GridWorksChannels.REDSTONE_POWERED.equals(channel)
+                || GridWorksChannels.CONTROL_ENABLED.equals(channel);
     }
 
     @Override

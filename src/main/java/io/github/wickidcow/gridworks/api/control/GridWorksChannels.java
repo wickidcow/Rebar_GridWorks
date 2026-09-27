@@ -40,6 +40,9 @@ public final class GridWorksChannels {
     public static final ControlChannel FLUID_FILL_RATIO =
             ControlChannel.of("gridworks", "fluid/fill_ratio");
 
+    public static final ControlChannel CONTROL_ENABLED =
+            ControlChannel.of("gridworks", "control/enabled");
+
     private GridWorksChannels() {
         throw new AssertionError("Utility class");
     }
