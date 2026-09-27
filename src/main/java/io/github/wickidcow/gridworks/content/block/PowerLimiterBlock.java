@@ -646,7 +646,7 @@ public final class PowerLimiterBlock extends PhysicalControlNodeBlock
                 @NotNull Player player,
                 @NotNull Click click
         ) {
-            if (routeMode != ControlInputRouteMode.ADDRESS) {
+            if (inputRoute.mode() != ControlInputRouteMode.ADDRESS) {
                 return;
             }
 
