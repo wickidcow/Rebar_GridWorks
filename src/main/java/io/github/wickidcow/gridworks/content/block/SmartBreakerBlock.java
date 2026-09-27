@@ -70,7 +70,7 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
         this.routeMode = ControlInputRouteMode.CIRCUIT;
         this.circuit = ControlCommandChannel.DEFAULT;
         this.address = ControlAddress.defaultFor(getNodeId(), "breaker");
-        this.desiredEnabled = true;
+        this.desiredEnabled = false;
     }
 
     public SmartBreakerBlock(
@@ -91,7 +91,7 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
         );
 
         Byte storedDesired = pdc.get(DESIRED_ENABLED_KEY, PersistentDataType.BYTE);
-        this.desiredEnabled = storedDesired == null || storedDesired != 0;
+        this.desiredEnabled = storedDesired != null && storedDesired != 0;
     }
 
     @Override
@@ -292,14 +292,14 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
     }
 
     private void toggleRouteMode() {
+        desiredEnabled = false;
         routeMode = routeMode.toggle();
+        reconcileBranch();
         routeModeItem.notifyWindows();
         circuitItem.notifyWindows();
         addressItem.notifyWindows();
 
-        GridWorks.getInstance()
-                .getPhysicalControlNetwork()
-                .replayStateSources(getNodeId());
+        requestStateReplay();
     }
 
     private void changeCircuit(int direction) {
@@ -307,23 +307,37 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
             return;
         }
 
+        desiredEnabled = false;
         circuit = circuit.cycle(direction);
+        reconcileBranch();
         circuitItem.notifyWindows();
 
-        GridWorks.getInstance()
-                .getPhysicalControlNetwork()
-                .replayStateSources(getNodeId());
+        requestStateReplay();
     }
 
     private void setAddress(ControlAddress next) {
+        if (address.equals(next)) {
+            return;
+        }
+
+        boolean activeAddressRoute = routeMode == ControlInputRouteMode.ADDRESS;
+        if (activeAddressRoute) {
+            desiredEnabled = false;
+        }
+
         address = next;
         addressItem.notifyWindows();
 
-        if (routeMode == ControlInputRouteMode.ADDRESS) {
-            GridWorks.getInstance()
-                    .getPhysicalControlNetwork()
-                    .replayStateSources(getNodeId());
+        if (activeAddressRoute) {
+            reconcileBranch();
+            requestStateReplay();
         }
+    }
+
+    private void requestStateReplay() {
+        GridWorks.getInstance()
+                .getPhysicalControlNetwork()
+                .replayStateSources(getNodeId());
     }
 
     private ControlChannel activeInputChannel() {

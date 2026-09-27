@@ -363,7 +363,7 @@ Smart Breaker persists desired branch state and input routing, not a provider-sp
 
 A Smart Breaker can receive either a compact Default/A-D command circuit or an addressed boolean command. This lets Load Shedding Controller route Essential/Normal/Optional group states directly to branch breakers.
 
-`SmartBreakerManager` has no repeating task. It reconciles loaded breakers on block activation, PowerBranchProvider registration/unregistration, and matching target-chunk load events. Target chunk unload marks the readback unavailable while keeping the desired state. When the target/provider returns, the desired state is applied before readback is accepted as synchronized.
+`PowerBranchDeviceManager` has no repeating task. It reconciles loaded branch devices on block activation, PowerBranchProvider registration/unregistration, and matching target-chunk load events. Target chunk unload marks the readback unavailable while keeping the desired state. When the target/provider returns, the desired state is applied before readback is accepted as synchronized.
 
 The provider contract requires an APPLIED result to be immediately visible in a subsequent snapshot. GridWorks verifies that readback and surfaces mismatches instead of assuming the command worked.
 
@@ -381,3 +381,10 @@ Limiter readback uses a small relative floating-point tolerance for finite limit
 ## Shared power-branch device lifecycle
 
 Smart Breaker and Power Limiter implement the internal `PowerBranchDevice` contract and register with one `PowerBranchDeviceManager`. Provider registration/unregistration and target chunk load/unload events therefore have one reconciliation path and no duplicate listeners or polling tasks.
+
+
+## Branch-device route-change fail-safe
+
+Control input routing is configuration state, not an implicit command. Smart Breaker therefore resets its desired state to OPEN before changing route mode, circuit, or active address. Power Limiter resets to BYPASS before the equivalent route change. After the safe state has been reconciled to the provider, normal component state replay may establish a command from the newly selected route.
+
+A newly placed Smart Breaker also defaults OPEN. Missing persistent desired-state data loads OPEN, which gives migrations and partially configured devices the same fail-safe baseline.

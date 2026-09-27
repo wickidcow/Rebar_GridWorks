@@ -327,7 +327,9 @@ public final class PowerLimiterBlock extends PhysicalControlNodeBlock
     }
 
     private void toggleRouteMode() {
+        setting = setting.withEnabled(false);
         routeMode = routeMode.toggle();
+        reconcileBranch();
         notifyItems();
         requestStateReplay();
     }
@@ -337,16 +339,30 @@ public final class PowerLimiterBlock extends PhysicalControlNodeBlock
             return;
         }
 
+        setting = setting.withEnabled(false);
         circuit = circuit.cycle(direction);
+        reconcileBranch();
         circuitItem.notifyWindows();
+        toggleItem.notifyWindows();
         requestStateReplay();
     }
 
     private void setAddress(ControlAddress next) {
+        if (address.equals(next)) {
+            return;
+        }
+
+        boolean activeAddressRoute = routeMode == ControlInputRouteMode.ADDRESS;
+        if (activeAddressRoute) {
+            setting = setting.withEnabled(false);
+        }
+
         address = next;
         addressItem.notifyWindows();
 
-        if (routeMode == ControlInputRouteMode.ADDRESS) {
+        if (activeAddressRoute) {
+            reconcileBranch();
+            toggleItem.notifyWindows();
             requestStateReplay();
         }
     }

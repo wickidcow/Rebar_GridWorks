@@ -213,3 +213,10 @@ The **Power Limiter** uses the same `PowerBranchProvider` target model as Smart 
 The configured cap is persisted and adjustable from 1 W through 1 TW. A Control Bus boolean chooses whether the cap is active: `true` applies the configured limit and `false` requests provider-neutral unlimited/bypass (`Double.MAX_VALUE`). Circuit and addressed input routing match Smart Breaker.
 
 Providers may support switching without supporting limits; the limiter surfaces that capability cleanly rather than pretending the command worked. Smart Breaker and Power Limiter now share one event-driven `PowerBranchDeviceManager` for provider hot-plug and target-chunk lifecycle.
+
+
+### Fail-safe input-route changes
+
+Smart Breaker and Power Limiter now clear transient command state before switching their Control Bus input route. Changing a breaker from one circuit/address to another first requests **OPEN**; changing a limiter route first requests **BYPASS**. Component state replay then establishes the new route's actual command if a state source exists.
+
+New Smart Breakers also start OPEN rather than automatically closing an adjacent branch on placement. This prevents configuration work or a missing upstream command from energizing a branch implicitly.
