@@ -28,6 +28,13 @@ item:
       <arrow> Its lever state is controlled by GridWorks, not manual clicks
       <arrow> Link it to a sensor or future controller with a Linker
 
+  delay_relay:
+    name: "Delay Relay"
+    lore: |-
+      <arrow> Delays ON and OFF transitions independently
+      <arrow> Input changes cancel stale pending transitions automatically
+      <arrow> Configure each delay from instant to 60 seconds
+
   pulse_relay:
     name: "Pulse Relay"
     lore: |-

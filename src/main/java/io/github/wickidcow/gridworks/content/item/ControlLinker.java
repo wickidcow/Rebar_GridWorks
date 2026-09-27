@@ -9,6 +9,7 @@ import io.github.wickidcow.gridworks.GridWorks;
 import io.github.wickidcow.gridworks.api.control.ControlSignal;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.content.block.ControlRelayBlock;
+import io.github.wickidcow.gridworks.content.block.DelayRelayBlock;
 import io.github.wickidcow.gridworks.content.block.FactoryControllerBlock;
 import io.github.wickidcow.gridworks.content.block.FactoryMonitorBlock;
 import io.github.wickidcow.gridworks.content.block.FluidSensorBlock;
@@ -151,6 +152,16 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
             event.getPlayer().sendMessage(
                     Component.text("Redstone output: ", NamedTextColor.GRAY)
                             .append(onOff(relay.isPowered()))
+            );
+        } else if (controlNode instanceof DelayRelayBlock delayRelay) {
+            event.getPlayer().sendMessage(
+                    Component.text("Delay relay: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    (delayRelay.isPowered() ? "ON" : "OFF")
+                                            + " / on " + delayRelay.getOnDelayTicks()
+                                            + "t / off " + delayRelay.getOffDelayTicks() + "t",
+                                    delayRelay.isPowered() ? NamedTextColor.GREEN : NamedTextColor.WHITE
+                            ))
             );
         } else if (controlNode instanceof PulseRelayBlock pulseRelay) {
             event.getPlayer().sendMessage(

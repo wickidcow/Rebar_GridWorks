@@ -120,3 +120,10 @@ Status Light, steady Control Relay, Pulse Relay, Factory Controller GUI updates,
 Pulse Relay is edge-triggered rather than level-triggered. A small pure `RisingEdgeTrigger` treats the first observed state as a baseline and only fires on a later false-to-true transition. This deliberately prevents topology replay or server restart from manufacturing a fake rising edge.
 
 The relay uses Bukkit's delayed scheduler only when a pulse is active; there is no repeating timer. Retriggering after an intervening false state cancels the previous shutoff task and schedules a new one from the latest edge.
+
+
+## Delay Relay
+
+Delay Relay uses a pure `DelayedBooleanTransition` state machine plus at most one Bukkit delayed task. ON and OFF delays are configured independently. Repeated identical inputs do not schedule duplicate work, and reversing an input before its pending transition fires cancels that stale transition.
+
+The output starts fail-safe OFF after load; current component state replay then establishes the desired level and applies the configured delay. No repeating ticker is used.
