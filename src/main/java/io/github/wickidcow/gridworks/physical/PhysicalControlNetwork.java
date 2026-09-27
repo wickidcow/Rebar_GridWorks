@@ -2,7 +2,6 @@ package io.github.wickidcow.gridworks.physical;
 
 import io.github.wickidcow.gridworks.api.control.ControlBus;
 import io.github.wickidcow.gridworks.api.control.ControlNode;
-import io.github.wickidcow.gridworks.api.control.ControlStateSource;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -13,24 +12,28 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 public final class PhysicalControlNetwork implements AutoCloseable {
     private final ControlBus controlBus;
     private final PersistentConnectionStore connectionStore;
+    private final Consumer<RuntimeException> callbackFailureHandler;
     private final Map<UUID, ControlNode> activeNodes = new HashMap<>();
 
     public PhysicalControlNetwork(
             ControlBus controlBus,
-            PersistentConnectionStore connectionStore
+            PersistentConnectionStore connectionStore,
+            Consumer<RuntimeException> callbackFailureHandler
     ) {
         this.controlBus = Objects.requireNonNull(controlBus, "controlBus");
         this.connectionStore = Objects.requireNonNull(connectionStore, "connectionStore");
+        this.callbackFailureHandler = Objects.requireNonNull(callbackFailureHandler, "callbackFailureHandler");
     }
 
     public void activate(ControlNode node) {
         Objects.requireNonNull(node, "node");
         UUID nodeId = Objects.requireNonNull(node.id(), "node.id()");
-        boolean changed = false;
+        List<ControlNode> availablePeers = new ArrayList<>();
 
         synchronized (this) {
             ControlNode existing = activeNodes.get(nodeId);
@@ -41,22 +44,23 @@ public final class PhysicalControlNetwork implements AutoCloseable {
                 );
             }
 
-            if (existing != node) {
-                activeNodes.put(nodeId, node);
-                controlBus.register(node);
+            if (existing == node) {
+                return;
+            }
 
-                for (UUID neighborId : connectionStore.neighbors(nodeId)) {
-                    if (activeNodes.containsKey(neighborId)) {
-                        controlBus.connect(nodeId, neighborId);
-                    }
+            activeNodes.put(nodeId, node);
+            controlBus.register(node);
+
+            for (UUID neighborId : connectionStore.neighbors(nodeId)) {
+                ControlNode neighbor = activeNodes.get(neighborId);
+                if (neighbor != null) {
+                    controlBus.connect(nodeId, neighborId);
+                    availablePeers.add(neighbor);
                 }
-                changed = true;
             }
         }
 
-        if (changed) {
-            resyncComponent(nodeId);
-        }
+        notifyPeersAvailable(node, availablePeers);
     }
 
     public synchronized void deactivate(UUID nodeId, ControlNode expectedNode) {
@@ -86,11 +90,13 @@ public final class PhysicalControlNetwork implements AutoCloseable {
     }
 
     public boolean toggleLink(UUID first, UUID second) throws IOException {
+        ControlNode firstNode;
+        ControlNode secondNode;
         boolean connected;
 
         synchronized (this) {
-            requireActive(first);
-            requireActive(second);
+            firstNode = requireActive(first);
+            secondNode = requireActive(second);
 
             connected = connectionStore.toggle(first, second);
             if (connected) {
@@ -101,7 +107,8 @@ public final class PhysicalControlNetwork implements AutoCloseable {
         }
 
         if (connected) {
-            resyncComponent(first);
+            notifyPeerAvailable(firstNode, second);
+            notifyPeerAvailable(secondNode, first);
         }
         return connected;
     }
@@ -135,30 +142,30 @@ public final class PhysicalControlNetwork implements AutoCloseable {
         );
     }
 
-    public void resyncComponent(UUID nodeId) {
-        List<ControlStateSource> stateSources = new ArrayList<>();
-
-        synchronized (this) {
-            if (!activeNodes.containsKey(nodeId)) {
-                return;
-            }
-
-            for (UUID componentNode : controlBus.componentOf(nodeId)) {
-                ControlNode active = activeNodes.get(componentNode);
-                if (active instanceof ControlStateSource stateSource) {
-                    stateSources.add(stateSource);
-                }
-            }
+    private ControlNode requireActive(UUID nodeId) {
+        ControlNode node = activeNodes.get(nodeId);
+        if (node == null) {
+            throw new IllegalArgumentException("Control node is not loaded: " + nodeId);
         }
+        return node;
+    }
 
-        for (ControlStateSource stateSource : stateSources) {
-            stateSource.publishCurrentState();
+    private void notifyPeersAvailable(ControlNode node, List<ControlNode> peers) {
+        for (ControlNode peer : peers) {
+            notifyPeerAvailable(node, peer.id());
+            notifyPeerAvailable(peer, node.id());
         }
     }
 
-    private void requireActive(UUID nodeId) {
-        if (!activeNodes.containsKey(nodeId)) {
-            throw new IllegalArgumentException("Control node is not loaded: " + nodeId);
+    private void notifyPeerAvailable(ControlNode node, UUID peerId) {
+        if (!(node instanceof PhysicalControlEndpoint endpoint)) {
+            return;
+        }
+
+        try {
+            endpoint.onControlPeerAvailable(peerId);
+        } catch (RuntimeException exception) {
+            callbackFailureHandler.accept(exception);
         }
     }
 
