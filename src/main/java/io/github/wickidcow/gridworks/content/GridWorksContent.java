@@ -9,6 +9,7 @@ import io.github.wickidcow.gridworks.content.block.AlarmIndicatorBlock;
 import io.github.wickidcow.gridworks.content.block.AddressedRelayBlock;
 import io.github.wickidcow.gridworks.content.block.ControlInterfaceBlock;
 import io.github.wickidcow.gridworks.content.block.ControlRelayBlock;
+import io.github.wickidcow.gridworks.content.block.CargoIsolatorBlock;
 import io.github.wickidcow.gridworks.content.block.DelayRelayBlock;
 import io.github.wickidcow.gridworks.content.block.FactoryControllerBlock;
 import io.github.wickidcow.gridworks.content.block.FactoryMonitorBlock;
@@ -37,6 +38,7 @@ public final class GridWorksContent {
     public static NamespacedKey REDSTONE_SENSOR;
     public static NamespacedKey STATUS_LIGHT;
     public static NamespacedKey CONTROL_RELAY;
+    public static NamespacedKey CARGO_ISOLATOR;
     public static NamespacedKey ADDRESSED_RELAY;
     public static NamespacedKey DELAY_RELAY;
     public static NamespacedKey INVENTORY_SENSOR;
@@ -58,6 +60,7 @@ public final class GridWorksContent {
     public static ItemStack REDSTONE_SENSOR_ITEM;
     public static ItemStack STATUS_LIGHT_ITEM;
     public static ItemStack CONTROL_RELAY_ITEM;
+    public static ItemStack CARGO_ISOLATOR_ITEM;
     public static ItemStack ADDRESSED_RELAY_ITEM;
     public static ItemStack DELAY_RELAY_ITEM;
     public static ItemStack INVENTORY_SENSOR_ITEM;
@@ -84,6 +87,7 @@ public final class GridWorksContent {
         REDSTONE_SENSOR = new NamespacedKey(plugin, "redstone_sensor");
         STATUS_LIGHT = new NamespacedKey(plugin, "status_light");
         CONTROL_RELAY = new NamespacedKey(plugin, "control_relay");
+        CARGO_ISOLATOR = new NamespacedKey(plugin, "cargo_isolator");
         ADDRESSED_RELAY = new NamespacedKey(plugin, "addressed_relay");
         DELAY_RELAY = new NamespacedKey(plugin, "delay_relay");
         INVENTORY_SENSOR = new NamespacedKey(plugin, "inventory_sensor");
@@ -105,6 +109,7 @@ public final class GridWorksContent {
         RebarBlock.register(REDSTONE_SENSOR, Material.REDSTONE_LAMP, RedstoneSensorBlock.class);
         RebarBlock.register(STATUS_LIGHT, Material.REDSTONE_LAMP, StatusLightBlock.class);
         RebarBlock.register(CONTROL_RELAY, Material.LEVER, ControlRelayBlock.class);
+        RebarBlock.register(CARGO_ISOLATOR, Material.STONECUTTER, CargoIsolatorBlock.class);
         RebarBlock.register(ADDRESSED_RELAY, Material.LEVER, AddressedRelayBlock.class);
         RebarBlock.register(DELAY_RELAY, Material.LEVER, DelayRelayBlock.class);
         RebarBlock.register(INVENTORY_SENSOR, Material.CYAN_GLAZED_TERRACOTTA, InventorySensorBlock.class);
@@ -133,6 +138,7 @@ public final class GridWorksContent {
         REDSTONE_SENSOR_ITEM = ItemStackBuilder.rebar(Material.REDSTONE_LAMP, REDSTONE_SENSOR).build();
         STATUS_LIGHT_ITEM = ItemStackBuilder.rebar(Material.REDSTONE_LAMP, STATUS_LIGHT).build();
         CONTROL_RELAY_ITEM = ItemStackBuilder.rebar(Material.LEVER, CONTROL_RELAY).build();
+        CARGO_ISOLATOR_ITEM = ItemStackBuilder.rebar(Material.STONECUTTER, CARGO_ISOLATOR).build();
         ADDRESSED_RELAY_ITEM = ItemStackBuilder.rebar(Material.LEVER, ADDRESSED_RELAY).build();
         DELAY_RELAY_ITEM = ItemStackBuilder.rebar(Material.LEVER, DELAY_RELAY).build();
         INVENTORY_SENSOR_ITEM = ItemStackBuilder.rebar(Material.CYAN_GLAZED_TERRACOTTA, INVENTORY_SENSOR).build();
@@ -163,6 +169,7 @@ public final class GridWorksContent {
         RebarItem.register(RebarItem.class, REDSTONE_SENSOR_ITEM, REDSTONE_SENSOR);
         RebarItem.register(RebarItem.class, STATUS_LIGHT_ITEM, STATUS_LIGHT);
         RebarItem.register(RebarItem.class, CONTROL_RELAY_ITEM, CONTROL_RELAY);
+        RebarItem.register(RebarItem.class, CARGO_ISOLATOR_ITEM, CARGO_ISOLATOR);
         RebarItem.register(RebarItem.class, ADDRESSED_RELAY_ITEM, ADDRESSED_RELAY);
         RebarItem.register(RebarItem.class, DELAY_RELAY_ITEM, DELAY_RELAY);
         RebarItem.register(RebarItem.class, INVENTORY_SENSOR_ITEM, INVENTORY_SENSOR);

@@ -397,3 +397,12 @@ Fluid Valve deliberately avoids Rebar's internal `FluidManager`. It implements t
 The flow policy is simple and testable: CLOSED means requested amount = 0 and supplied amount = 0; OPEN means request only compatible fluid up to remaining tank space and supply the currently stored amount. Closing does not discard buffered fluid.
 
 The input point is on the rear face and output point on the valve's facing side. Because the valve is an endpoint bridge rather than an in-place pipe mutation, no CargoRoutes/FluidManager internals or chunk-forcing behavior are required.
+
+
+## Cargo Isolator versus Pylon Cargo Gate
+
+Pylon's existing `CargoGate` is a threshold-based splitter that alternates item batches between left and right paths. GridWorks does not duplicate that machine.
+
+Cargo Isolator is a controlled inline shutoff. It implements the public `CargoRebarBlock` and `VirtualInventoryRebarBlock` contracts with one persisted virtual inventory slot. The inbound logistic slot dynamically rejects writes while isolated, and the block's public cargo transfer rate is set to 0 so its own outbound ticker cannot move buffered items.
+
+When open, the configured positive transfer rate is restored. Route changes force the isolator closed before state replay. No internal `CargoRoutes` calls, cache invalidation, route scanning, or custom cargo ticker is used.

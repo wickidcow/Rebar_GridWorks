@@ -229,3 +229,12 @@ The **Fluid Valve** is implemented entirely on released Rebar fluid interfaces; 
 When OPEN, the valve requests compatible fluid up to its remaining buffer space and exposes stored fluid to the output network. When CLOSED, it requests and supplies exactly 0 mB while preserving whatever fluid is already inside. This gives the valve a real isolation behavior without disconnecting or rewriting Rebar's pipe graph.
 
 Fluid Valve accepts Default/A-D circuits or an addressed boolean command and defaults CLOSED. Input-route changes close it before normal state replay, matching the fail-safe behavior of Smart Breaker and Power Limiter.
+
+
+### Cargo Isolator
+
+Pylon already has a **Cargo Gate**, but that machine is a threshold-driven left/right splitter. GridWorks therefore uses the distinct **Cargo Isolator** name for its automation-controlled shutoff device.
+
+Cargo Isolator is a one-stack public Rebar cargo buffer with rear input and facing-side output. OPEN uses the configured cargo transfer rate. ISOLATED rejects new inbound writes at the public logistic slot and sets its own outbound cargo transfer rate to zero, so items do not cross either side while closed. A stack already inside remains buffered safely.
+
+Like Fluid Valve, it accepts Default/A-D circuits or an addressed boolean command and fails safe ISOLATED when its input route changes. The implementation uses `CargoRebarBlock`, `VirtualInventoryRebarBlock`, and `VirtualInventoryLogisticSlot`; it never calls the internal `CargoRoutes` cache.

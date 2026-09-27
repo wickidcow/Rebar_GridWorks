@@ -45,6 +45,14 @@ item:
       <arrow> Give it a human-readable address such as ore_line_1
       <arrow> Multiple relays may share an address to form a control group
 
+  cargo_isolator:
+    name: "Cargo Isolator"
+    lore: |-
+      <arrow> Controlled one-stack cargo pass-through built on public Rebar APIs
+      <arrow> CLOSED rejects inbound insertion and sets outbound transfer rate to zero
+      <arrow> OPEN uses the configured cargo transfer rate
+      <arrow> Distinct from Pylon's Cargo Gate, which is a threshold left/right splitter
+
   control_relay:
     name: "Control Relay"
     lore: |-

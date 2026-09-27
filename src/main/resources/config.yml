@@ -32,3 +32,10 @@ sensors:
     # One shared task services loaded Power Grid Sensors only.
     # 20 ticks = 1 second at 20 TPS.
     sample-interval-ticks: 20
+
+
+cargo:
+  isolator:
+    # Rebar cargo transfer-rate units. Closed isolators always force this to 0.
+    # Keep this conservative by default; server owners can raise it if desired.
+    transfer-rate: 1

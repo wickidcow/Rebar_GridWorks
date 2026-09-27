@@ -14,6 +14,7 @@ import io.github.wickidcow.gridworks.content.block.AddressedRelayBlock;
 import io.github.wickidcow.gridworks.content.block.AlarmConsoleBlock;
 import io.github.wickidcow.gridworks.content.block.AlarmIndicatorBlock;
 import io.github.wickidcow.gridworks.content.block.ControlRelayBlock;
+import io.github.wickidcow.gridworks.content.block.CargoIsolatorBlock;
 import io.github.wickidcow.gridworks.content.block.DelayRelayBlock;
 import io.github.wickidcow.gridworks.content.block.FactoryControllerBlock;
 import io.github.wickidcow.gridworks.content.block.FactoryMonitorBlock;
@@ -170,6 +171,28 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
                 Component.text("Node: ", NamedTextColor.GRAY)
                         .append(Component.text(shortNodeId(controlNode.getNodeId()), NamedTextColor.WHITE))
         );
+
+        if (controlNode instanceof CargoIsolatorBlock isolator) {
+            event.getPlayer().sendMessage(
+                    Component.text("Cargo isolator: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    isolator.describeIsolator(),
+                                    NamedTextColor.WHITE
+                            ))
+            );
+            event.getPlayer().sendMessage(
+                    Component.text("Cargo input: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    isolator.getRouteMode().displayName()
+                                            + " / "
+                                            + (isolator.getRouteMode()
+                                                    == io.github.wickidcow.gridworks.api.control.ControlInputRouteMode.ADDRESS
+                                                    ? isolator.getAddress().channel()
+                                                    : isolator.getCircuit().channel()),
+                                    NamedTextColor.AQUA
+                            ))
+            );
+        }
 
         if (controlNode instanceof AddressedRelayBlock addressedRelay) {
             event.getPlayer().sendMessage(
