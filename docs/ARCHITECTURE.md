@@ -96,3 +96,14 @@ A WAITING controller is logically unknown but electrically fail-safe OFF. When a
 Factory Controller presets are configuration templates, not alternate execution paths. Applying a preset writes the same condition/operator/threshold state used by Custom controllers, resets both sources to AUTO, clears prior observations, and forces fresh sensor data before the rule can become known.
 
 Manual edits to rule semantics mark the controller Custom again. Source selection and controller naming do not, because they do not change the preset's logical rule.
+
+
+## Component-wide state replay
+
+Stateful nodes implement the public `ControlStateSource` contract. On node activation or link creation, the physical network snapshots all loaded state sources in the affected live component and invokes them outside its synchronization boundary.
+
+This is not a polling loop. It only runs on topology changes and prevents multi-hop receivers from waiting indefinitely for an otherwise unchanged sensor value.
+
+## Factory Monitor
+
+The Factory Monitor subscribes only to a bounded set of built-in GridWorks channels and keeps one latest signal per channel. Its memory use therefore does not grow with event volume. GUI refreshes are marshalled onto the primary server thread when a signal is published asynchronously.

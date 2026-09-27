@@ -2,6 +2,7 @@ package io.github.wickidcow.gridworks.physical;
 
 import io.github.wickidcow.gridworks.api.control.ControlBus;
 import io.github.wickidcow.gridworks.api.control.ControlNode;
+import io.github.wickidcow.gridworks.api.control.ControlStateSource;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -61,6 +62,7 @@ public final class PhysicalControlNetwork implements AutoCloseable {
         }
 
         notifyPeersAvailable(node, availablePeers);
+        replayStateSources(nodeId);
     }
 
     public synchronized void deactivate(UUID nodeId, ControlNode expectedNode) {
@@ -109,6 +111,7 @@ public final class PhysicalControlNetwork implements AutoCloseable {
         if (connected) {
             notifyPeerAvailable(firstNode, second);
             notifyPeerAvailable(secondNode, first);
+            replayStateSources(first);
         }
         return connected;
     }
@@ -155,6 +158,35 @@ public final class PhysicalControlNetwork implements AutoCloseable {
                 loaded,
                 connectionStore.edgeCount(component)
         );
+    }
+
+    /**
+     * Replays all loaded state sources in the live component containing nodeId.
+     * No chunks are loaded and callbacks execute outside the topology monitor.
+     */
+    public void replayStateSources(UUID nodeId) {
+        List<ControlStateSource> sources = new ArrayList<>();
+
+        synchronized (this) {
+            if (!activeNodes.containsKey(nodeId)) {
+                return;
+            }
+
+            for (UUID componentNode : controlBus.componentOf(nodeId)) {
+                ControlNode node = activeNodes.get(componentNode);
+                if (node instanceof ControlStateSource stateSource) {
+                    sources.add(stateSource);
+                }
+            }
+        }
+
+        for (ControlStateSource source : sources) {
+            try {
+                source.publishCurrentState();
+            } catch (RuntimeException exception) {
+                callbackFailureHandler.accept(exception);
+            }
+        }
     }
 
     private ControlNode requireActive(UUID nodeId) {

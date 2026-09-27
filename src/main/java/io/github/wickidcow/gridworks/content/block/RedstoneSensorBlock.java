@@ -2,14 +2,14 @@ package io.github.wickidcow.gridworks.content.block;
 
 import io.github.pylonmc.rebar.block.context.BlockCreateContext;
 import io.github.wickidcow.gridworks.GridWorks;
+import io.github.wickidcow.gridworks.api.control.ControlStateSource;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
-import java.util.UUID;
 import org.bukkit.block.Block;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.jetbrains.annotations.NotNull;
 
-public final class RedstoneSensorBlock extends PhysicalControlNodeBlock {
+public final class RedstoneSensorBlock extends PhysicalControlNodeBlock implements ControlStateSource {
     private int lastPower = -1;
 
     public RedstoneSensorBlock(@NotNull Block block, @NotNull BlockCreateContext context) {
@@ -26,10 +26,12 @@ public final class RedstoneSensorBlock extends PhysicalControlNodeBlock {
     }
 
     @Override
-    public void onControlPeerAvailable(@NotNull UUID peerId) {
-        if (lastPower >= 0) {
-            publishPower(lastPower);
-        }
+    public void publishCurrentState() {
+        int power = lastPower >= 0
+                ? lastPower
+                : Math.clamp(getBlock().getBlockPower(), 0, 15);
+        lastPower = power;
+        publishPower(power);
     }
 
     public void updatePower(int newPower) {

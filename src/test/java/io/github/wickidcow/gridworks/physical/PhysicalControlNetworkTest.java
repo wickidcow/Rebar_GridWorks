@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.wickidcow.gridworks.api.control.ControlChannel;
 import io.github.wickidcow.gridworks.api.control.ControlSignal;
+import io.github.wickidcow.gridworks.api.control.ControlStateSource;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.control.GraphControlBus;
 import java.nio.file.Path;
@@ -93,6 +94,31 @@ class PhysicalControlNetworkTest {
     }
 
     @Test
+    void stateSourcesReplayAcrossLoadedComponentWhenTopologyExpands() throws Exception {
+        GraphControlBus bus = new GraphControlBus(32);
+        PersistentConnectionStore store = new PersistentConnectionStore(tempDir.resolve("network.txt"));
+        PhysicalControlNetwork network = new PhysicalControlNetwork(bus, store, ignored -> {});
+
+        StatefulTestNode source = new StatefulTestNode(bus, true);
+        TestNode middle = new TestNode();
+        TestNode receiver = new TestNode();
+
+        network.activate(source);
+        network.activate(middle);
+        network.activate(receiver);
+
+        network.toggleLink(source.id(), middle.id());
+        receiver.received.clear();
+
+        // The source is not directly linked to receiver. Expanding the loaded
+        // component must still replay source state through the whole bus.
+        network.toggleLink(middle.id(), receiver.id());
+
+        assertEquals(1, receiver.received.size());
+        assertEquals(ControlValue.of(true), receiver.received.getFirst().value());
+    }
+
+    @Test
     void peerCallbackFailuresDoNotBreakTopologyChanges() throws Exception {
         GraphControlBus bus = new GraphControlBus(32);
         PersistentConnectionStore store = new PersistentConnectionStore(tempDir.resolve("network.txt"));
@@ -111,6 +137,35 @@ class PhysicalControlNetworkTest {
         assertTrue(network.isLinked(a.id(), b.id()));
         assertEquals(1, failures.size());
         assertEquals(List.of(a.id()), b.availablePeers);
+    }
+
+    private static final class StatefulTestNode implements ControlStateSource {
+        private final UUID id = UUID.randomUUID();
+        private final GraphControlBus bus;
+        private final boolean state;
+
+        private StatefulTestNode(GraphControlBus bus, boolean state) {
+            this.bus = bus;
+            this.state = state;
+        }
+
+        @Override
+        public UUID id() {
+            return id;
+        }
+
+        @Override
+        public void onSignal(ControlSignal signal) {
+        }
+
+        @Override
+        public void publishCurrentState() {
+            bus.publish(
+                    id,
+                    ControlChannel.of("gridworks", "test/state"),
+                    ControlValue.of(state)
+            );
+        }
     }
 
     private static final class TestNode implements PhysicalControlEndpoint {

@@ -2,11 +2,11 @@ package io.github.wickidcow.gridworks.content.block;
 
 import io.github.pylonmc.rebar.block.context.BlockCreateContext;
 import io.github.wickidcow.gridworks.GridWorks;
+import io.github.wickidcow.gridworks.api.control.ControlStateSource;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
 import io.github.wickidcow.gridworks.inventory.InventoryProbe;
 import io.github.wickidcow.gridworks.inventory.InventorySnapshot;
-import java.util.UUID;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -15,7 +15,7 @@ import org.bukkit.block.data.Directional;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.jetbrains.annotations.NotNull;
 
-public final class InventorySensorBlock extends PhysicalControlNodeBlock {
+public final class InventorySensorBlock extends PhysicalControlNodeBlock implements ControlStateSource {
     private InventorySnapshot lastSnapshot;
 
     public InventorySensorBlock(@NotNull Block block, @NotNull BlockCreateContext context) {
@@ -43,8 +43,10 @@ public final class InventorySensorBlock extends PhysicalControlNodeBlock {
     }
 
     @Override
-    public void onControlPeerAvailable(@NotNull UUID peerId) {
-        if (lastSnapshot != null) {
+    public void publishCurrentState() {
+        if (lastSnapshot == null) {
+            sampleNow();
+        } else {
             publish(lastSnapshot);
         }
     }

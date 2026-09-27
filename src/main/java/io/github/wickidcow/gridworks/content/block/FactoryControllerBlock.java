@@ -8,6 +8,7 @@ import io.github.wickidcow.gridworks.GridWorks;
 import io.github.wickidcow.gridworks.api.control.ComparisonOperator;
 import io.github.wickidcow.gridworks.api.control.ControlChannel;
 import io.github.wickidcow.gridworks.api.control.ControlSignal;
+import io.github.wickidcow.gridworks.api.control.ControlStateSource;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
 import io.github.wickidcow.gridworks.api.control.LogicOperator;
@@ -32,7 +33,8 @@ import xyz.xenondevs.invui.item.AbstractItem;
 import xyz.xenondevs.invui.item.ItemProvider;
 import xyz.xenondevs.invui.window.AnvilWindow;
 
-public final class FactoryControllerBlock extends PhysicalControlNodeBlock implements GuiRebarBlock {
+public final class FactoryControllerBlock extends PhysicalControlNodeBlock
+        implements GuiRebarBlock, ControlStateSource {
     // Condition A intentionally keeps the original persistent keys for compatibility.
     private static final NamespacedKey CHANNEL_A_KEY = key("factory_controller_channel");
     private static final NamespacedKey OPERATOR_A_KEY = key("factory_controller_operator");
@@ -223,15 +225,9 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
     }
 
     @Override
-    public void onControlPeerAvailable(@NotNull UUID peerId) {
-        boolean isInputSource = Objects.equals(conditionA.sourceId, peerId)
-                || (conditionBEnabled && Objects.equals(conditionB.sourceId, peerId));
-
-        if (!isInputSource) {
-            // WAITING is represented as fail-safe OFF on the wire, so newly
-            // loaded actuators must receive false even when outputKnown is false.
-            publishOutput(outputEnabled);
-        }
+    public void publishCurrentState() {
+        // WAITING is represented as fail-safe OFF on the wire.
+        publishOutput(outputEnabled);
     }
 
     @Override

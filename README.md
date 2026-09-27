@@ -4,7 +4,7 @@
 
 GridWorks is a Rebar addon focused on making factories smarter rather than simply making machines faster. Its long-term goal is to connect sensors, controllers, power systems, cargo, fluids, machines, and redstone through a common automation layer.
 
-> GridWorks is in early development. The Control Bus, persistent physical network, redstone I/O, and first inventory/fluid sensors are implemented.
+> GridWorks is in early development. The Control Bus, persistent physical network, redstone I/O, sensors, controllers, presets, and Factory Monitor are implemented.
 
 ## Current systems
 
@@ -79,9 +79,15 @@ Fluid Tank Sensor ---/       A: items >= 64
                               B: fluid fill >= 25%
 ```
 
+## Factory Monitor
+
+The Factory Monitor is a passive diagnostic node. It displays the latest built-in redstone, inventory, fluid, and controller-output signals seen on its loaded Control Bus component, including the source node ID and signal sequence. It does not poll machines.
+
+Stateful devices implement `ControlStateSource`. When loaded topology expands, GridWorks replays current state from every loaded state source in that component. This means a monitor or actuator joining through an intermediate Control Interface receives current state even when the original sensor is several hops away.
+
 ## Planned systems
 
-The next controller work is more than two conditions, controller-to-device actions beyond redstone, and richer power-grid controls as Rebar's electricity API stabilizes. After that, GridWorks can connect inventory/fluid/redstone measurements to relays and eventually to smart electricity controls as Rebar's electricity API stabilizes.
+The next work is controller-to-device actions beyond redstone and richer power-grid controls as Rebar's electricity API stabilizes. After that, GridWorks can connect inventory/fluid/redstone measurements to relays and eventually to smart electricity controls as Rebar's electricity API stabilizes.
 
 ## Requirements
 

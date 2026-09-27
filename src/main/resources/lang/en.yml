@@ -49,6 +49,13 @@ item:
       <arrow> AUTO-bind or explicitly choose directly linked sources
       <arrow> Right click to configure rules, presets, sources, and name
 
+  factory_monitor:
+    name: "Factory Monitor"
+    lore: |-
+      <arrow> Displays live Control Bus signals across a loaded network
+      <arrow> Shows values and source node IDs without polling machines
+      <arrow> Useful for debugging sensors, rules, and actuators
+
   gridworks_linker:
     name: "GridWorks Linker"
     lore: |-

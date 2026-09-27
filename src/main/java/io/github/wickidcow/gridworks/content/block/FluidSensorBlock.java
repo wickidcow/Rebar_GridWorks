@@ -2,12 +2,12 @@ package io.github.wickidcow.gridworks.content.block;
 
 import io.github.pylonmc.rebar.block.context.BlockCreateContext;
 import io.github.wickidcow.gridworks.GridWorks;
+import io.github.wickidcow.gridworks.api.control.ControlStateSource;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
 import io.github.wickidcow.gridworks.fluid.FluidProbe;
 import io.github.wickidcow.gridworks.fluid.FluidSnapshot;
 import java.util.Locale;
-import java.util.UUID;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -16,7 +16,7 @@ import org.bukkit.block.data.Directional;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.jetbrains.annotations.NotNull;
 
-public final class FluidSensorBlock extends PhysicalControlNodeBlock {
+public final class FluidSensorBlock extends PhysicalControlNodeBlock implements ControlStateSource {
     private FluidSnapshot lastSnapshot;
 
     public FluidSensorBlock(@NotNull Block block, @NotNull BlockCreateContext context) {
@@ -44,8 +44,10 @@ public final class FluidSensorBlock extends PhysicalControlNodeBlock {
     }
 
     @Override
-    public void onControlPeerAvailable(@NotNull UUID peerId) {
-        if (lastSnapshot != null) {
+    public void publishCurrentState() {
+        if (lastSnapshot == null) {
+            sampleNow();
+        } else {
             publish(lastSnapshot);
         }
     }
