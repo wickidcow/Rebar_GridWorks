@@ -4,6 +4,7 @@ import io.github.pylonmc.rebar.addon.RebarAddon;
 import io.github.wickidcow.gridworks.api.control.ControlBus;
 import io.github.wickidcow.gridworks.control.GraphControlBus;
 import io.github.wickidcow.gridworks.content.GridWorksContent;
+import io.github.wickidcow.gridworks.content.GridWorksRecipes;
 import io.github.wickidcow.gridworks.fluid.FluidSensorManager;
 import io.github.wickidcow.gridworks.inventory.InventorySensorManager;
 import io.github.wickidcow.gridworks.machine.MachineSensorManager;
@@ -124,6 +125,7 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
 
     @Override
     public void onDisable() {
+        GridWorksRecipes.unregister();
         Bukkit.getServicesManager().unregisterAll(this);
 
         if (fluidSensorManager != null) {

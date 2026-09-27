@@ -406,3 +406,12 @@ Pylon's existing `CargoGate` is a threshold-based splitter that alternates item 
 Cargo Isolator is a controlled inline shutoff. It implements the public `CargoRebarBlock` and `VirtualInventoryRebarBlock` contracts with one persisted virtual inventory slot. The inbound logistic slot dynamically rejects writes while isolated, and the block's public cargo transfer rate is set to 0 so its own outbound ticker cannot move buffered items.
 
 When open, the configured positive transfer rate is restored. Route changes force the isolator closed before state replay. No internal `CargoRoutes` calls, cache invalidation, route scanning, or custom cargo ticker is used.
+
+
+## Recipe registration
+
+GridWorks recipes are registered through Rebar's released vanilla-shaped recipe type by converting Bukkit `ShapedRecipe` instances with `ShapedRebarRecipe.fromVanilla`. This gives Minecraft recipe registration and Rebar recipe/guide discovery one authoritative recipe definition.
+
+Foundational recipes use vanilla materials only. Higher-tier recipes may use exact GridWorks `ItemStack` ingredients, allowing Rebar's item-aware recipe matcher to preserve custom item identity rather than accepting any vanilla item with the same base material.
+
+`GridWorksRecipes` tracks every registered key and removes those recipes on plugin disable. All recipe keys use the GridWorks plugin namespace and a shared `gridworks` crafting-book group.

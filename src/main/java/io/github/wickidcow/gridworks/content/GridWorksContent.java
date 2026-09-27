@@ -189,6 +189,8 @@ public final class GridWorksContent {
         RebarItem.register(RebarItem.class, FACTORY_MONITOR_ITEM, FACTORY_MONITOR);
         RebarItem.register(ControlLinker.class, GRIDWORKS_LINKER_ITEM);
 
+        GridWorksRecipes.register(plugin);
+
         plugin.getServer().getPluginManager().registerEvents(new RedstoneSensorListener(), plugin);
         plugin.getServer().getPluginManager().registerEvents(new StatusLightListener(), plugin);
     }
