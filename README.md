@@ -268,3 +268,10 @@ The intentionally unresolved piece is the **native Rebar electricity adapter**. 
 Successful builds from `main` publish a rolling **GridWorks Development Build** prerelease. The release asset is the raw `.jar` file itself (for example `Rebar_GridWorks-0.3.0-SNAPSHOT.jar`), so server owners can download it directly without unpacking a GitHub Actions ZIP.
 
 Pull-request builds still run the full compile/test gate but do not publish a downloadable development JAR.
+
+
+## Content integrity checks
+
+GridWorks now has a canonical catalog for all 21 player-facing content IDs. Startup validates that every catalog entry has a registered survival recipe and bundled English item metadata; a mismatch stops enablement with the exact missing/extra IDs instead of leaving a partially usable addon.
+
+CI also source-checks the actual `NamespacedKey` registrations, recipe declarations, and `lang/en.yml` item keys against that same catalog. Adding a future machine while forgetting its recipe or language entry therefore fails tests before the rolling development JAR is published.

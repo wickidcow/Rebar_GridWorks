@@ -190,6 +190,7 @@ public final class GridWorksContent {
         RebarItem.register(ControlLinker.class, GRIDWORKS_LINKER_ITEM);
 
         GridWorksRecipes.register(plugin);
+        GridWorksContentValidator.validate(plugin);
 
         plugin.getServer().getPluginManager().registerEvents(new RedstoneSensorListener(), plugin);
         plugin.getServer().getPluginManager().registerEvents(new StatusLightListener(), plugin);

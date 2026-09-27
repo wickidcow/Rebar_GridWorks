@@ -431,3 +431,10 @@ Persistent parsing continues to use the existing conservative fallbacks: invalid
 Part 3's GridWorks-owned architecture is now in place: branch switching/limiting contracts, event-driven provider lifecycle, safe Circuit/Address routing, cargo isolation, fluid isolation, and survival recipe registration all compile against released Rebar APIs.
 
 The remaining dependency-specific work is a native Rebar electricity adapter. It must wait for a released Rebar version exposing the electricity graph/edge API. Until then, third-party electricity addons may integrate through the public Bukkit service contracts without requiring GridWorks core changes.
+
+
+## Content registration integrity
+
+`GridWorksContentCatalog` is the canonical list of player-facing item IDs. Runtime validation occurs immediately after Rebar item/recipe registration and compares the catalog with registered recipe keys and bundled English item metadata.
+
+A JUnit source-consistency check additionally parses `GridWorksContent.java` NamespacedKey assignments and `GridWorksRecipes.java` recipe declarations. This intentionally guards procedural registration code: an item added to one subsystem but omitted from another makes CI fail rather than silently shipping an unobtainable or untranslated device.

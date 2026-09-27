@@ -217,6 +217,12 @@ public final class GridWorksRecipes {
         return List.copyOf(REGISTERED_KEYS);
     }
 
+    public static List<String> registeredIds() {
+        return REGISTERED_KEYS.stream()
+                .map(NamespacedKey::getKey)
+                .toList();
+    }
+
     private static ShapedRecipe recipe(
             GridWorks plugin,
             String key,
