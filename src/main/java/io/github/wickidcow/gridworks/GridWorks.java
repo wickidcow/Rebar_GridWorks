@@ -21,6 +21,7 @@ import java.util.Locale;
 import java.util.logging.Level;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
@@ -45,6 +46,20 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
 
     @Override
     public void onEnable() {
+        try {
+            enableRuntime();
+        } catch (RuntimeException | Error failure) {
+            getLogger().log(
+                    Level.SEVERE,
+                    "GridWorks failed to enable; rolling back partial runtime state",
+                    failure
+            );
+            cleanupRuntime();
+            throw failure;
+        }
+    }
+
+    private void enableRuntime() {
         registerWithRebar();
 
         saveDefaultConfig();
@@ -125,48 +140,92 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
 
     @Override
     public void onDisable() {
-        GridWorksRecipes.unregister();
-        Bukkit.getServicesManager().unregisterAll(this);
+        cleanupRuntime();
+    }
 
-        if (fluidSensorManager != null) {
-            fluidSensorManager.close();
-            fluidSensorManager = null;
-        }
+    private void cleanupRuntime() {
+        cleanupStep("recipes", GridWorksRecipes::unregister);
+        cleanupStep(
+                "Bukkit services",
+                () -> Bukkit.getServicesManager().unregisterAll(this)
+        );
 
-        if (inventorySensorManager != null) {
-            inventorySensorManager.close();
-            inventorySensorManager = null;
-        }
+        cleanupStep("fluid sensor manager", () -> {
+            if (fluidSensorManager != null) {
+                fluidSensorManager.close();
+                fluidSensorManager = null;
+            }
+        });
 
-        if (machineSensorManager != null) {
-            machineSensorManager.close();
-            machineSensorManager = null;
-        }
+        cleanupStep("inventory sensor manager", () -> {
+            if (inventorySensorManager != null) {
+                inventorySensorManager.close();
+                inventorySensorManager = null;
+            }
+        });
 
-        if (powerGridSensorManager != null) {
-            powerGridSensorManager.close();
-            powerGridSensorManager = null;
-        }
+        cleanupStep("machine sensor manager", () -> {
+            if (machineSensorManager != null) {
+                machineSensorManager.close();
+                machineSensorManager = null;
+            }
+        });
 
-        if (powerBranchDeviceManager != null) {
-            powerBranchDeviceManager.close();
-            powerBranchDeviceManager = null;
-        }
+        cleanupStep("power-grid sensor manager", () -> {
+            if (powerGridSensorManager != null) {
+                powerGridSensorManager.close();
+                powerGridSensorManager = null;
+            }
+        });
+
+        cleanupStep("power-branch device manager", () -> {
+            if (powerBranchDeviceManager != null) {
+                powerBranchDeviceManager.close();
+                powerBranchDeviceManager = null;
+            }
+        });
+
+        // Cancel any device-owned delayed tasks (for example alarm escalation)
+        // even when startup failed before normal Bukkit disable cleanup runs.
+        cleanupStep(
+                "remaining scheduled tasks",
+                () -> Bukkit.getScheduler().cancelTasks(this)
+        );
+        cleanupStep(
+                "registered listeners",
+                () -> HandlerList.unregisterAll(this)
+        );
 
         powerBranchBridge = null;
         powerGridBridge = null;
 
-        if (physicalControlNetwork != null) {
-            physicalControlNetwork.close();
-            physicalControlNetwork = null;
-        }
+        cleanupStep("physical control network", () -> {
+            if (physicalControlNetwork != null) {
+                physicalControlNetwork.close();
+                physicalControlNetwork = null;
+            }
+        });
 
-        if (controlBus != null) {
-            controlBus.clear();
-            controlBus = null;
-        }
+        cleanupStep("control bus", () -> {
+            if (controlBus != null) {
+                controlBus.clear();
+                controlBus = null;
+            }
+        });
 
         instance = null;
+    }
+
+    private void cleanupStep(String label, Runnable cleanup) {
+        try {
+            cleanup.run();
+        } catch (RuntimeException exception) {
+            getLogger().log(
+                    Level.SEVERE,
+                    "GridWorks cleanup failed for " + label,
+                    exception
+            );
+        }
     }
 
     public static @NotNull GridWorks getInstance() {

@@ -275,3 +275,10 @@ Pull-request builds still run the full compile/test gate but do not publish a do
 GridWorks now has a canonical catalog for all 21 player-facing content IDs. Startup validates that every catalog entry has a registered survival recipe and bundled English item metadata; a mismatch stops enablement with the exact missing/extra IDs instead of leaving a partially usable addon.
 
 CI also source-checks the actual `NamespacedKey` registrations, recipe declarations, and `lang/en.yml` item keys against that same catalog. Adding a future machine while forgetting its recipe or language entry therefore fails tests before the rolling development JAR is published.
+
+
+## Deterministic startup rollback
+
+GridWorks now owns its partial-startup cleanup instead of relying solely on the server to invoke disable after an enable exception. If config loading, network persistence, content registration, recipe validation, or any later initialization step fails, GridWorks immediately rolls back registered recipes/services/listeners, closes every initialized sensor/device manager, cancels remaining plugin scheduler tasks, clears the live physical/control graphs, and releases the static plugin instance before rethrowing the original failure.
+
+Normal plugin disable uses the same idempotent cleanup path, so cleanup behavior does not drift between failed startup and ordinary shutdown.

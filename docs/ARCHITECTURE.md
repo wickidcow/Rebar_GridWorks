@@ -438,3 +438,10 @@ The remaining dependency-specific work is a native Rebar electricity adapter. It
 `GridWorksContentCatalog` is the canonical list of player-facing item IDs. Runtime validation occurs immediately after Rebar item/recipe registration and compares the catalog with registered recipe keys and bundled English item metadata.
 
 A JUnit source-consistency check additionally parses `GridWorksContent.java` NamespacedKey assignments and `GridWorksRecipes.java` recipe declarations. This intentionally guards procedural registration code: an item added to one subsystem but omitted from another makes CI fail rather than silently shipping an unobtainable or untranslated device.
+
+
+## Runtime lifecycle rollback
+
+`GridWorks.onEnable` delegates to a single runtime initializer wrapped in an exception boundary. Any `RuntimeException` or `Error` triggers the same cleanup routine used by normal disable and is then rethrown so Bukkit still records the real enable failure.
+
+Cleanup is intentionally idempotent and step-isolated. One cleanup failure is logged but does not prevent later resources from being released. The sequence removes recipes and Bukkit services, closes initialized sensor/branch managers, cancels all remaining plugin-owned scheduler tasks (including per-device delayed work), unregisters listeners, closes the physical graph, clears the Control Bus, and finally nulls the static plugin instance.
