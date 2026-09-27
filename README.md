@@ -296,3 +296,6 @@ This catches enable-time API/linkage problems, Rebar registration failures, bund
 Operators with `gridworks.admin` can run `/gridworks doctor` for a compact live health snapshot. It reports the plugin version, registered recipe/content count, active Control Bus nodes/live links/persisted links, loaded inventory/fluid/machine/power sensors, power-grid and branch-provider availability, loaded branch-control devices, and the number of pending GridWorks scheduler tasks.
 
 The real-server CI smoke test now executes the doctor command after startup and requires it to complete before shutdown. After `stop`, CI also scans the log for GridWorks cleanup/disable errors before the raw development JAR is allowed to publish.
+
+
+The rolling `dev-build` release metadata is updated to the exact smoke-tested commit on every successful publish, in addition to moving the tag and replacing the raw JAR. This keeps the release page, tag target, build provenance, and downloadable file aligned.

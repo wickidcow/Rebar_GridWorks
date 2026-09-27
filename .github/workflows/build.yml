@@ -141,12 +141,18 @@ jobs:
 
           if gh release view dev-build --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh api --method PATCH "/repos/$GITHUB_REPOSITORY/git/refs/tags/dev-build" -f sha="$GITHUB_SHA" -F force=true >/dev/null
+
+            RELEASE_ID="$(gh api "/repos/$GITHUB_REPOSITORY/releases/tags/dev-build" --jq '.id')"
+            gh api --method PATCH "/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
+              -f target_commitish="$GITHUB_SHA" \
+              -f body="Rolling raw JAR from the latest successful smoke-tested main build. Tested commit: $GITHUB_SHA. Development snapshot; not a stable release." >/dev/null
+
             gh release upload dev-build "$JAR" --repo "$GITHUB_REPOSITORY" --clobber
           else
             gh release create dev-build "$JAR" \
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
               --title "GridWorks Development Build" \
-              --notes "Rolling raw JAR from the latest successful main build. Development snapshot; not a stable release." \
+              --notes "Rolling raw JAR from the latest successful smoke-tested main build. Tested commit: $GITHUB_SHA. Development snapshot; not a stable release." \
               --prerelease
           fi
