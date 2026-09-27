@@ -5,6 +5,8 @@ import io.github.pylonmc.rebar.block.interfaces.GuiRebarBlock;
 import io.github.pylonmc.rebar.item.builder.ItemStackBuilder;
 import io.github.pylonmc.rebar.util.gui.GuiItems;
 import io.github.wickidcow.gridworks.GridWorks;
+import io.github.wickidcow.gridworks.api.control.BooleanInputConfigurable;
+import io.github.wickidcow.gridworks.api.control.BooleanInputMode;
 import io.github.wickidcow.gridworks.api.control.ControlChannel;
 import io.github.wickidcow.gridworks.api.control.ControlSignal;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
@@ -30,7 +32,8 @@ import xyz.xenondevs.invui.gui.Gui;
 import xyz.xenondevs.invui.item.AbstractItem;
 import xyz.xenondevs.invui.item.ItemProvider;
 
-public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock implements GuiRebarBlock {
+public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
+        implements GuiRebarBlock, BooleanInputConfigurable {
     private static final NamespacedKey SOUND_ENABLED_KEY = Objects.requireNonNull(
             NamespacedKey.fromString("gridworks:alarm_sound_enabled")
     );
@@ -40,9 +43,13 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock implemen
     private static final NamespacedKey ACKNOWLEDGED_KEY = Objects.requireNonNull(
             NamespacedKey.fromString("gridworks:alarm_acknowledged")
     );
+    private static final NamespacedKey INPUT_MODE_KEY = Objects.requireNonNull(
+            NamespacedKey.fromString("gridworks:alarm_input_mode")
+    );
 
     private final AlarmLatch alarmLatch;
     private volatile boolean soundEnabled;
+    private volatile BooleanInputMode inputMode;
 
     private final SoundItem soundItem = new SoundItem();
     private final AcknowledgeItem acknowledgeItem = new AcknowledgeItem();
@@ -52,6 +59,7 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock implemen
     public AlarmIndicatorBlock(@NotNull Block block, @NotNull BlockCreateContext context) {
         super(block, context);
         this.soundEnabled = true;
+        this.inputMode = BooleanInputMode.LEGACY;
         this.alarmLatch = new AlarmLatch(false, false);
     }
 
@@ -63,6 +71,9 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock implemen
         Byte storedAcknowledged = pdc.get(ACKNOWLEDGED_KEY, PersistentDataType.BYTE);
 
         this.soundEnabled = storedSound == null || storedSound != 0;
+        this.inputMode = BooleanInputMode.fromStored(
+                pdc.get(INPUT_MODE_KEY, PersistentDataType.STRING)
+        );
         this.alarmLatch = new AlarmLatch(
                 storedLatched != null && storedLatched != 0,
                 storedAcknowledged != null && storedAcknowledged != 0
@@ -71,8 +82,7 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock implemen
 
     @Override
     public boolean accepts(@NotNull ControlChannel channel) {
-        return GridWorksChannels.REDSTONE_POWERED.equals(channel)
-                || GridWorksChannels.CONTROL_ENABLED.equals(channel);
+        return inputMode.accepts(channel);
     }
 
     @Override
@@ -108,6 +118,7 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock implemen
                 PersistentDataType.BYTE,
                 alarmLatch.isAcknowledged() ? (byte) 1 : (byte) 0
         );
+        pdc.set(INPUT_MODE_KEY, PersistentDataType.STRING, inputMode.name());
     }
 
     @Override
@@ -130,6 +141,24 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock implemen
                 .addIngredient('t', testItem)
                 .addIngredient('x', statusItem)
                 .build();
+    }
+
+    @Override
+    public @NotNull BooleanInputMode getBooleanInputMode() {
+        return inputMode;
+    }
+
+    @Override
+    public void setBooleanInputMode(@NotNull BooleanInputMode mode) {
+        inputMode = Objects.requireNonNull(mode, "mode");
+
+        runOnServerThreadIfActive(() -> {
+            alarmLatch.resetObservation();
+            applyVisualState();
+            acknowledgeItem.notifyWindows();
+            statusItem.notifyWindows();
+            GridWorks.getInstance().getPhysicalControlNetwork().replayStateSources(getNodeId());
+        });
     }
 
     public boolean isConditionActive() {

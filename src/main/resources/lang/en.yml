@@ -83,3 +83,4 @@ item:
       <arrow> <insn>Right click</insn> a control node to select it
       <arrow> <insn>Right click</insn> another to link or unlink
       <arrow> <insn>Sneak + right click</insn> to inspect the network
+      <arrow> <insn>Sneak + left click</insn> an actuator to cycle its input circuit

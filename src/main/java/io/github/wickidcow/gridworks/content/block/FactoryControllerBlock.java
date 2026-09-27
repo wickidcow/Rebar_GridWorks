@@ -7,6 +7,7 @@ import io.github.pylonmc.rebar.util.gui.GuiItems;
 import io.github.wickidcow.gridworks.GridWorks;
 import io.github.wickidcow.gridworks.api.control.ComparisonOperator;
 import io.github.wickidcow.gridworks.api.control.ControlChannel;
+import io.github.wickidcow.gridworks.api.control.ControlCommandChannel;
 import io.github.wickidcow.gridworks.api.control.ControlSignal;
 import io.github.wickidcow.gridworks.api.control.ControlStateSource;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
@@ -56,6 +57,8 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
 
     private static final NamespacedKey NAME_KEY = key("factory_controller_name");
     private static final NamespacedKey PRESET_KEY = key("factory_controller_preset");
+    private static final NamespacedKey OUTPUT_CIRCUIT_KEY =
+            key("factory_controller_output_circuit");
     private static final NamespacedKey OUTPUT_KEY = key("factory_controller_output");
     private static final NamespacedKey OUTPUT_KNOWN_KEY = key("factory_controller_output_known");
 
@@ -125,6 +128,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
     private LogicOperator logicOperator;
     private String controllerName;
     private ControllerPreset preset;
+    private ControlCommandChannel outputCircuit;
     private boolean outputEnabled;
     private boolean outputKnown;
 
@@ -141,6 +145,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
     private final OperatorItem operatorBItem = new OperatorItem(1);
     private final ThresholdItem thresholdBItem = new ThresholdItem(1);
     private final SourceItem sourceBItem = new SourceItem(1);
+    private final OutputCircuitItem outputCircuitItem = new OutputCircuitItem();
     private final OutputItem outputItem = new OutputItem();
 
     public FactoryControllerBlock(@NotNull Block block, @NotNull BlockCreateContext context) {
@@ -167,6 +172,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
         this.logicOperator = LogicOperator.AND;
         this.controllerName = DEFAULT_NAME;
         this.preset = ControllerPreset.CUSTOM;
+        this.outputCircuit = ControlCommandChannel.DEFAULT;
     }
 
     public FactoryControllerBlock(
@@ -197,6 +203,9 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
         this.logicOperator = parseLogicOperator(storedLogic);
         this.controllerName = normalizeName(pdc.get(NAME_KEY, PersistentDataType.STRING));
         this.preset = parsePreset(pdc.get(PRESET_KEY, PersistentDataType.STRING));
+        this.outputCircuit = ControlCommandChannel.fromStored(
+                pdc.get(OUTPUT_CIRCUIT_KEY, PersistentDataType.STRING)
+        );
 
         Byte storedOutput = pdc.get(OUTPUT_KEY, PersistentDataType.BYTE);
         Byte storedKnown = pdc.get(OUTPUT_KNOWN_KEY, PersistentDataType.BYTE);
@@ -265,6 +274,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
         );
         pdc.set(NAME_KEY, PersistentDataType.STRING, controllerName);
         pdc.set(PRESET_KEY, PersistentDataType.STRING, preset.name());
+        pdc.set(OUTPUT_CIRCUIT_KEY, PersistentDataType.STRING, outputCircuit.name());
         pdc.set(
                 OUTPUT_KEY,
                 PersistentDataType.BYTE,
@@ -281,7 +291,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
     public @NotNull Gui createGui() {
         return Gui.builder()
                 .setStructure(
-                        "a o t s # # # # x",
+                        "a o t s # # c # x",
                         "n z # # l # # # #",
                         "e b p q r # # # #"
                 )
@@ -290,6 +300,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
                 .addIngredient('o', operatorAItem)
                 .addIngredient('t', thresholdAItem)
                 .addIngredient('s', sourceAItem)
+                .addIngredient('c', outputCircuitItem)
                 .addIngredient('n', nameItem)
                 .addIngredient('z', presetItem)
                 .addIngredient('l', logicItem)
@@ -317,6 +328,10 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
 
     public boolean isOutputEnabled() {
         return outputKnown && outputEnabled;
+    }
+
+    public @NotNull ControlCommandChannel getOutputCircuit() {
+        return outputCircuit;
     }
 
     private boolean acceptForCondition(
@@ -374,15 +389,36 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
         if (stateChanged || forcePublish) {
             publishOutput(enabled);
         }
+        outputCircuitItem.notifyWindows();
         outputItem.notifyWindows();
     }
 
     private void publishOutput(boolean enabled) {
         GridWorks.getInstance().getControlBus().publish(
                 getNodeId(),
-                GridWorksChannels.CONTROL_ENABLED,
+                outputCircuit.channel(),
                 ControlValue.of(enabled)
         );
+    }
+
+    private void changeOutputCircuit(int direction) {
+        ControlCommandChannel previous = outputCircuit;
+        ControlCommandChannel next = outputCircuit.cycle(direction);
+        if (previous == next) {
+            return;
+        }
+
+        // Explicitly clear the old circuit so receivers do not remain latched ON.
+        GridWorks.getInstance().getControlBus().publish(
+                getNodeId(),
+                previous.channel(),
+                ControlValue.of(false)
+        );
+
+        outputCircuit = next;
+        publishOutput(outputEnabled);
+        outputCircuitItem.notifyWindows();
+        outputItem.notifyWindows();
     }
 
     private void changeMetric(int conditionIndex, int direction) {
@@ -560,6 +596,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
         sourceBItem.notifyWindows();
         nameItem.notifyWindows();
         presetItem.notifyWindows();
+        outputCircuitItem.notifyWindows();
         outputItem.notifyWindows();
     }
 
@@ -1107,6 +1144,38 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
         }
     }
 
+    private final class OutputCircuitItem extends ControllerItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            return item(
+                    Material.REDSTONE,
+                    "Output circuit: " + outputCircuit.displayName()
+            ).lore(
+                    Component.text(
+                            outputCircuit.channel().toString(),
+                            NamedTextColor.GRAY
+                    ),
+                    Component.text(
+                            "Left/right click to cycle Default / A / B / C / D",
+                            NamedTextColor.YELLOW
+                    )
+            );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            if (clickType.isLeftClick()) {
+                changeOutputCircuit(1);
+            } else if (clickType.isRightClick()) {
+                changeOutputCircuit(-1);
+            }
+        }
+    }
+
     private final class OutputItem extends ControllerItem {
         @Override
         public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
@@ -1120,7 +1189,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
                     )
                     .name(Component.text("Output: " + output, color))
                     .lore(Component.text(
-                            "Publishes gridworks:control/enabled",
+                            "Publishes " + outputCircuit.channel(),
                             NamedTextColor.GRAY
                     ));
 

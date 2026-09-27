@@ -40,8 +40,23 @@ public final class GridWorksChannels {
     public static final ControlChannel FLUID_FILL_RATIO =
             ControlChannel.of("gridworks", "fluid/fill_ratio");
 
+    /**
+     * Backward-compatible default boolean command circuit.
+     */
     public static final ControlChannel CONTROL_ENABLED =
             ControlChannel.of("gridworks", "control/enabled");
+
+    public static final ControlChannel CONTROL_A =
+            ControlChannel.of("gridworks", "control/a");
+
+    public static final ControlChannel CONTROL_B =
+            ControlChannel.of("gridworks", "control/b");
+
+    public static final ControlChannel CONTROL_C =
+            ControlChannel.of("gridworks", "control/c");
+
+    public static final ControlChannel CONTROL_D =
+            ControlChannel.of("gridworks", "control/d");
 
     private GridWorksChannels() {
         throw new AssertionError("Utility class");

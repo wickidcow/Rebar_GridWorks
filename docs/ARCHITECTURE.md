@@ -141,3 +141,14 @@ Its lamp is protected from ordinary redstone changes in the same listener used b
 `AlarmLatch` is a pure state machine independent of Bukkit. It tracks current fault condition, latched state, and operator acknowledgement.
 
 An unacknowledged fault remains latched after its source condition clears. Acknowledging an already-cleared fault clears the latch immediately. Acknowledging an active fault marks it acknowledged while preserving the visible alarm; it auto-clears when the condition later becomes false. Persisted latch/acknowledgement survives chunk unload and restart, while the live input observation is re-established through normal Control Bus state replay.
+
+
+## Named command circuits
+
+The physical Control Bus is transport; command circuits are logical channels carried across it. GridWorks currently exposes Default plus A-D. Factory Controllers publish one selected command channel, while boolean actuators can filter for one circuit.
+
+Backward compatibility is explicit: an actuator with no stored routing setting loads as `BooleanInputMode.LEGACY`, accepting `redstone/powered` and the original `control/enabled` channel. Existing Factory Controllers default to the Default command circuit.
+
+Changing a controller's output circuit first publishes OFF on the old circuit before publishing its current state on the new one. This prevents downstream devices on the old circuit from being stranded ON.
+
+Changing an actuator input circuit resets transient output/edge/timer state to a safe baseline, then requests component-wide state replay. No chunk loads or polling are introduced.

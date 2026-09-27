@@ -6,6 +6,8 @@ import io.github.pylonmc.rebar.event.api.annotation.MultiHandler;
 import io.github.pylonmc.rebar.item.RebarItem;
 import io.github.pylonmc.rebar.item.interfaces.BlockInteractRebarItemHandler;
 import io.github.wickidcow.gridworks.GridWorks;
+import io.github.wickidcow.gridworks.api.control.BooleanInputConfigurable;
+import io.github.wickidcow.gridworks.api.control.BooleanInputMode;
 import io.github.wickidcow.gridworks.api.control.ControlSignal;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.content.block.AlarmIndicatorBlock;
@@ -29,6 +31,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.NamespacedKey;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventPriority;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
@@ -47,7 +50,7 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
     @Override
     @MultiHandler(priorities = EventPriority.NORMAL)
     public void onInteractWithBlock(@NotNull PlayerInteractEvent event, @NotNull EventPriority priority) {
-        if (!event.getAction().isRightClick() || event.getHand() != EquipmentSlot.HAND) {
+        if (event.getHand() != EquipmentSlot.HAND || event.getClickedBlock() == null) {
             return;
         }
 
@@ -56,11 +59,32 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
             return;
         }
 
-        event.setUseInteractedBlock(Event.Result.DENY);
-        event.setUseItemInHand(Event.Result.DENY);
-
         PhysicalControlNetwork network = GridWorks.getInstance().getPhysicalControlNetwork();
         UUID clickedNode = controlNode.getNodeId();
+
+        if (event.getAction() == Action.LEFT_CLICK_BLOCK
+                && event.getPlayer().isSneaking()
+                && controlNode instanceof BooleanInputConfigurable configurable) {
+            event.setCancelled(true);
+            event.setUseInteractedBlock(Event.Result.DENY);
+            event.setUseItemInHand(Event.Result.DENY);
+
+            BooleanInputMode next = configurable.getBooleanInputMode().cycle(1);
+            configurable.setBooleanInputMode(next);
+
+            event.getPlayer().sendMessage(
+                    Component.text("Input circuit: ", NamedTextColor.GRAY)
+                            .append(Component.text(next.displayName(), NamedTextColor.AQUA))
+            );
+            return;
+        }
+
+        if (!event.getAction().isRightClick()) {
+            return;
+        }
+
+        event.setUseInteractedBlock(Event.Result.DENY);
+        event.setUseItemInHand(Event.Result.DENY);
 
         if (event.getPlayer().isSneaking()) {
             showNetworkInfo(event, network, controlNode);
@@ -138,6 +162,16 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
                 Component.text("Node: ", NamedTextColor.GRAY)
                         .append(Component.text(shortNodeId(controlNode.getNodeId()), NamedTextColor.WHITE))
         );
+
+        if (controlNode instanceof BooleanInputConfigurable configurable) {
+            event.getPlayer().sendMessage(
+                    Component.text("Input circuit: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    configurable.getBooleanInputMode().displayName(),
+                                    NamedTextColor.AQUA
+                            ))
+            );
+        }
 
         if (controlNode instanceof AlarmIndicatorBlock alarm) {
             event.getPlayer().sendMessage(
@@ -217,6 +251,13 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
             event.getPlayer().sendMessage(
                     Component.text("Controller output: ", NamedTextColor.GRAY)
                             .append(onOff(controller.isOutputEnabled()))
+            );
+            event.getPlayer().sendMessage(
+                    Component.text("Output circuit: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    controller.getOutputCircuit().displayName(),
+                                    NamedTextColor.AQUA
+                            ))
             );
         } else if (controlNode instanceof FactoryMonitorBlock monitor) {
             event.getPlayer().sendMessage(

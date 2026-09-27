@@ -30,7 +30,11 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
     private static final List<SignalDefinition> DEFINITIONS = List.of(
             new SignalDefinition(GridWorksChannels.REDSTONE_POWERED, "Redstone Powered", Material.REDSTONE_TORCH),
             new SignalDefinition(GridWorksChannels.REDSTONE_STRENGTH, "Redstone Strength", Material.REDSTONE),
-            new SignalDefinition(GridWorksChannels.CONTROL_ENABLED, "Controller Output", Material.LEVER),
+            new SignalDefinition(GridWorksChannels.CONTROL_ENABLED, "Control Default", Material.LEVER),
+            new SignalDefinition(GridWorksChannels.CONTROL_A, "Control A", Material.LIME_DYE),
+            new SignalDefinition(GridWorksChannels.CONTROL_B, "Control B", Material.CYAN_DYE),
+            new SignalDefinition(GridWorksChannels.CONTROL_C, "Control C", Material.ORANGE_DYE),
+            new SignalDefinition(GridWorksChannels.CONTROL_D, "Control D", Material.PURPLE_DYE),
 
             new SignalDefinition(GridWorksChannels.INVENTORY_AVAILABLE, "Inventory Available", Material.CHEST),
             new SignalDefinition(GridWorksChannels.INVENTORY_ITEMS, "Inventory Items", Material.CHEST),
@@ -78,7 +82,7 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
     public @NotNull Gui createGui() {
         return Gui.builder()
                 .setStructure(
-                        "r s c # # # # # #",
+                        "r s 0 1 2 3 4 # #",
                         "a i o t f # # # #",
                         "v p y m k z # # #",
                         "# # # # # # # # #"
@@ -86,7 +90,11 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
                 .addIngredient('#', GuiItems.background())
                 .addIngredient('r', item(GridWorksChannels.REDSTONE_POWERED))
                 .addIngredient('s', item(GridWorksChannels.REDSTONE_STRENGTH))
-                .addIngredient('c', item(GridWorksChannels.CONTROL_ENABLED))
+                .addIngredient('0', item(GridWorksChannels.CONTROL_ENABLED))
+                .addIngredient('1', item(GridWorksChannels.CONTROL_A))
+                .addIngredient('2', item(GridWorksChannels.CONTROL_B))
+                .addIngredient('3', item(GridWorksChannels.CONTROL_C))
+                .addIngredient('4', item(GridWorksChannels.CONTROL_D))
                 .addIngredient('a', item(GridWorksChannels.INVENTORY_AVAILABLE))
                 .addIngredient('i', item(GridWorksChannels.INVENTORY_ITEMS))
                 .addIngredient('o', item(GridWorksChannels.INVENTORY_OCCUPIED_SLOTS))

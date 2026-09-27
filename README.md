@@ -10,6 +10,8 @@ GridWorks is a Rebar addon focused on making factories smarter rather than simpl
 
 The Control Bus provides namespaced typed signals, cycle-safe graph propagation, a configurable safety cap, receiver isolation, and a Bukkit service API for other addons.
 
+One physical Control Bus can carry five independent boolean command circuits: **Default, A, B, C, and D**. Factory Controllers choose an output circuit in their GUI. Boolean actuators use the GridWorks Linker (sneak + left-click) to cycle their input mode between Legacy, Redstone-only, Default, and A-D. Existing blocks remain Legacy-compatible, accepting the original Redstone + Default inputs until changed.
+
 The physical layer provides persistent node UUIDs, atomic link persistence, a GridWorks Linker, chunk-safe live topology, peer-availability callbacks, and reconnection without world scans or forced chunk loads.
 
 ### Redstone automation
@@ -100,7 +102,7 @@ Control Bus callbacks deliberately run on the publisher's thread. Physical GridW
 
 ## Planned systems
 
-The next work is alarm routing/aggregation and power-grid controls as Rebar's electricity API stabilizes. After that, GridWorks can connect inventory/fluid/redstone measurements to relays and eventually to smart electricity controls as Rebar's electricity API stabilizes.
+The next work is alarm routing/aggregation, richer command addressing, and power-grid controls as Rebar's electricity API stabilizes. After that, GridWorks can connect inventory/fluid/redstone measurements to relays and eventually to smart electricity controls as Rebar's electricity API stabilizes.
 
 ## Requirements
 

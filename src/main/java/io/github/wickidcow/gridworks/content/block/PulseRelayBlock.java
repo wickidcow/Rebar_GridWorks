@@ -5,6 +5,8 @@ import io.github.pylonmc.rebar.block.interfaces.GuiRebarBlock;
 import io.github.pylonmc.rebar.item.builder.ItemStackBuilder;
 import io.github.pylonmc.rebar.util.gui.GuiItems;
 import io.github.wickidcow.gridworks.GridWorks;
+import io.github.wickidcow.gridworks.api.control.BooleanInputConfigurable;
+import io.github.wickidcow.gridworks.api.control.BooleanInputMode;
 import io.github.wickidcow.gridworks.api.control.ControlChannel;
 import io.github.wickidcow.gridworks.api.control.ControlSignal;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
@@ -29,9 +31,13 @@ import xyz.xenondevs.invui.gui.Gui;
 import xyz.xenondevs.invui.item.AbstractItem;
 import xyz.xenondevs.invui.item.ItemProvider;
 
-public final class PulseRelayBlock extends PhysicalControlNodeBlock implements GuiRebarBlock {
+public final class PulseRelayBlock extends PhysicalControlNodeBlock
+        implements GuiRebarBlock, BooleanInputConfigurable {
     private static final NamespacedKey PULSE_TICKS_KEY = Objects.requireNonNull(
             NamespacedKey.fromString("gridworks:pulse_relay_ticks")
+    );
+    private static final NamespacedKey INPUT_MODE_KEY = Objects.requireNonNull(
+            NamespacedKey.fromString("gridworks:pulse_relay_input_mode")
     );
 
     private static final long DEFAULT_PULSE_TICKS = 20L;
@@ -41,6 +47,7 @@ public final class PulseRelayBlock extends PhysicalControlNodeBlock implements G
     private final RisingEdgeTrigger edgeTrigger = new RisingEdgeTrigger();
     private volatile long pulseTicks;
     private volatile boolean powered;
+    private volatile BooleanInputMode inputMode;
     private BukkitTask pulseTask;
 
     private final DurationItem durationItem = new DurationItem();
@@ -51,6 +58,7 @@ public final class PulseRelayBlock extends PhysicalControlNodeBlock implements G
         super(block, context);
         this.pulseTicks = DEFAULT_PULSE_TICKS;
         this.powered = false;
+        this.inputMode = BooleanInputMode.LEGACY;
     }
 
     public PulseRelayBlock(@NotNull Block block, @NotNull PersistentDataContainer pdc) {
@@ -58,12 +66,14 @@ public final class PulseRelayBlock extends PhysicalControlNodeBlock implements G
         Long stored = pdc.get(PULSE_TICKS_KEY, PersistentDataType.LONG);
         this.pulseTicks = clampPulseTicks(stored == null ? DEFAULT_PULSE_TICKS : stored);
         this.powered = false;
+        this.inputMode = BooleanInputMode.fromStored(
+                pdc.get(INPUT_MODE_KEY, PersistentDataType.STRING)
+        );
     }
 
     @Override
     public boolean accepts(@NotNull ControlChannel channel) {
-        return GridWorksChannels.REDSTONE_POWERED.equals(channel)
-                || GridWorksChannels.CONTROL_ENABLED.equals(channel);
+        return inputMode.accepts(channel);
     }
 
     @Override
@@ -86,6 +96,7 @@ public final class PulseRelayBlock extends PhysicalControlNodeBlock implements G
     @Override
     protected void writeNodeData(@NotNull PersistentDataContainer pdc) {
         pdc.set(PULSE_TICKS_KEY, PersistentDataType.LONG, pulseTicks);
+        pdc.set(INPUT_MODE_KEY, PersistentDataType.STRING, inputMode.name());
     }
 
     @Override
@@ -111,6 +122,25 @@ public final class PulseRelayBlock extends PhysicalControlNodeBlock implements G
                 .addIngredient('t', testPulseItem)
                 .addIngredient('x', outputItem)
                 .build();
+    }
+
+    @Override
+    public @NotNull BooleanInputMode getBooleanInputMode() {
+        return inputMode;
+    }
+
+    @Override
+    public void setBooleanInputMode(@NotNull BooleanInputMode mode) {
+        inputMode = Objects.requireNonNull(mode, "mode");
+
+        runOnServerThreadIfActive(() -> {
+            cancelPulse();
+            powered = false;
+            edgeTrigger.reset();
+            applyOutputState();
+            outputItem.notifyWindows();
+            GridWorks.getInstance().getPhysicalControlNetwork().replayStateSources(getNodeId());
+        });
     }
 
     public long getPulseTicks() {
