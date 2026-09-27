@@ -143,6 +143,11 @@ public final class PhysicalControlNetwork implements AutoCloseable {
                 .toList();
     }
 
+    public synchronized Set<UUID> activeComponentNodes(UUID nodeId) {
+        requireActive(nodeId);
+        return controlBus.componentOf(nodeId);
+    }
+
     public synchronized ControlNetworkSnapshot snapshot(UUID nodeId) {
         Set<UUID> component = connectionStore.componentOf(nodeId);
         int loaded = 0;

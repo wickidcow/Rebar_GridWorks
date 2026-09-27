@@ -10,6 +10,7 @@ import io.github.wickidcow.gridworks.api.control.BooleanInputConfigurable;
 import io.github.wickidcow.gridworks.api.control.BooleanInputMode;
 import io.github.wickidcow.gridworks.api.control.ControlSignal;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
+import io.github.wickidcow.gridworks.content.block.AlarmConsoleBlock;
 import io.github.wickidcow.gridworks.content.block.AlarmIndicatorBlock;
 import io.github.wickidcow.gridworks.content.block.ControlRelayBlock;
 import io.github.wickidcow.gridworks.content.block.DelayRelayBlock;
@@ -163,6 +164,16 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
                         .append(Component.text(shortNodeId(controlNode.getNodeId()), NamedTextColor.WHITE))
         );
 
+        if (controlNode instanceof AlarmConsoleBlock console) {
+            event.getPlayer().sendMessage(
+                    Component.text("Tracked alarms: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    Integer.toString(console.trackedAlarmCount()),
+                                    NamedTextColor.WHITE
+                            ))
+            );
+        }
+
         if (controlNode instanceof BooleanInputConfigurable configurable) {
             event.getPlayer().sendMessage(
                     Component.text("Input circuit: ", NamedTextColor.GRAY)
@@ -174,6 +185,10 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
         }
 
         if (controlNode instanceof AlarmIndicatorBlock alarm) {
+            event.getPlayer().sendMessage(
+                    Component.text("Alarm name: ", NamedTextColor.GRAY)
+                            .append(Component.text(alarm.getAlarmName(), NamedTextColor.WHITE))
+            );
             event.getPlayer().sendMessage(
                     Component.text("Alarm condition: ", NamedTextColor.GRAY)
                             .append(Component.text(

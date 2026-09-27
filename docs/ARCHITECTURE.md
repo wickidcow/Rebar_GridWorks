@@ -72,7 +72,7 @@ Electricity integration is intentionally not compiled into the current build. Re
 
 Numeric controller logic is represented independently from GUI and block code by `NumericControlRule`. Rules match one exact `ControlChannel`, require a numeric value, and apply a `ComparisonOperator` to the observed value and configured threshold.
 
-Controller output uses `gridworks:control/enabled` rather than re-emitting a sensor channel. This keeps measurement channels and command channels separate and avoids accidental feedback loops when controllers share a Control Bus with their sources.
+Controller output uses a selected command circuit (Default or A-D) rather than re-emitting a sensor channel. This keeps measurement channels and command channels separate and avoids accidental feedback loops when controllers share a Control Bus with their sources.
 
 
 ## Multi-condition controllers
@@ -161,3 +161,12 @@ Alarm Indicator is also a `ControlStateSource`. It publishes three read-only boo
 Telemetry is emitted when the alarm condition changes, when an operator acknowledges it, and during component state replay. These channels are separate from command circuits, so observing alarm state cannot accidentally drive an actuator configured for Default/A-D commands.
 
 Factory Monitor subscribes to these bounded channels like any other built-in measurement; no direct block lookup or alarm polling is required.
+
+
+## Alarm Console and acknowledgement routing
+
+Alarm Indicators publish their name plus condition/latch/acknowledgement state as telemetry and accept a separate `alarm/acknowledge` text command. An acknowledgement value is either one alarm node UUID or `*` for all alarm nodes reachable in the current Control Bus component.
+
+The Alarm Console aggregates telemetry by source UUID rather than by channel alone. Per-field sequence numbers prevent an out-of-order asynchronous callback from overwriting newer state. Its source map is pruned against `activeComponentNodes` whenever telemetry is rebuilt or the operator presses Refresh.
+
+The console does not enumerate worlds, query unloaded Rebar blocks, or keep a polling task. Refresh invokes the same component-wide `ControlStateSource` replay used by other topology recovery paths.

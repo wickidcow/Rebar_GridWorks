@@ -5,6 +5,7 @@ import io.github.pylonmc.rebar.block.interfaces.GuiRebarBlock;
 import io.github.pylonmc.rebar.item.builder.ItemStackBuilder;
 import io.github.pylonmc.rebar.util.gui.GuiItems;
 import io.github.wickidcow.gridworks.GridWorks;
+import io.github.wickidcow.gridworks.alarm.AlarmAcknowledgeRequest;
 import io.github.wickidcow.gridworks.api.control.BooleanInputConfigurable;
 import io.github.wickidcow.gridworks.api.control.BooleanInputMode;
 import io.github.wickidcow.gridworks.api.control.ControlChannel;
@@ -32,9 +33,13 @@ import xyz.xenondevs.invui.Click;
 import xyz.xenondevs.invui.gui.Gui;
 import xyz.xenondevs.invui.item.AbstractItem;
 import xyz.xenondevs.invui.item.ItemProvider;
+import xyz.xenondevs.invui.window.AnvilWindow;
 
 public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
         implements GuiRebarBlock, BooleanInputConfigurable, ControlStateSource {
+    private static final NamespacedKey NAME_KEY = Objects.requireNonNull(
+            NamespacedKey.fromString("gridworks:alarm_name")
+    );
     private static final NamespacedKey SOUND_ENABLED_KEY = Objects.requireNonNull(
             NamespacedKey.fromString("gridworks:alarm_sound_enabled")
     );
@@ -48,10 +53,15 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
             NamespacedKey.fromString("gridworks:alarm_input_mode")
     );
 
+    private static final String DEFAULT_NAME = "Alarm Indicator";
+    private static final int MAX_NAME_LENGTH = 32;
+
     private final AlarmLatch alarmLatch;
+    private volatile String alarmName;
     private volatile boolean soundEnabled;
     private volatile BooleanInputMode inputMode;
 
+    private final NameItem nameItem = new NameItem();
     private final SoundItem soundItem = new SoundItem();
     private final AcknowledgeItem acknowledgeItem = new AcknowledgeItem();
     private final TestItem testItem = new TestItem();
@@ -59,6 +69,7 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
 
     public AlarmIndicatorBlock(@NotNull Block block, @NotNull BlockCreateContext context) {
         super(block, context);
+        this.alarmName = DEFAULT_NAME;
         this.soundEnabled = true;
         this.inputMode = BooleanInputMode.LEGACY;
         this.alarmLatch = new AlarmLatch(false, false);
@@ -67,10 +78,12 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
     public AlarmIndicatorBlock(@NotNull Block block, @NotNull PersistentDataContainer pdc) {
         super(block, pdc);
 
+        String storedName = pdc.get(NAME_KEY, PersistentDataType.STRING);
         Byte storedSound = pdc.get(SOUND_ENABLED_KEY, PersistentDataType.BYTE);
         Byte storedLatched = pdc.get(LATCHED_KEY, PersistentDataType.BYTE);
         Byte storedAcknowledged = pdc.get(ACKNOWLEDGED_KEY, PersistentDataType.BYTE);
 
+        this.alarmName = normalizeName(storedName);
         this.soundEnabled = storedSound == null || storedSound != 0;
         this.inputMode = BooleanInputMode.fromStored(
                 pdc.get(INPUT_MODE_KEY, PersistentDataType.STRING)
@@ -83,7 +96,8 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
 
     @Override
     public boolean accepts(@NotNull ControlChannel channel) {
-        return inputMode.accepts(channel);
+        return inputMode.accepts(channel)
+                || GridWorksChannels.ALARM_ACKNOWLEDGE.equals(channel);
     }
 
     @Override
@@ -94,12 +108,18 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
 
     @Override
     protected void handleSignal(@NotNull ControlSignal signal) {
-        if (!(signal.value() instanceof ControlValue.BooleanValue booleanValue)) {
+        if (GridWorksChannels.ALARM_ACKNOWLEDGE.equals(signal.channel())
+                && signal.value() instanceof ControlValue.TextValue textValue) {
+            if (AlarmAcknowledgeRequest.matches(textValue.value(), getNodeId())) {
+                runOnServerThreadIfActive(this::acknowledge);
+            }
             return;
         }
 
-        boolean input = booleanValue.value();
-        runOnServerThreadIfActive(() -> acceptInput(input));
+        if (signal.value() instanceof ControlValue.BooleanValue booleanValue) {
+            boolean input = booleanValue.value();
+            runOnServerThreadIfActive(() -> acceptInput(input));
+        }
     }
 
     @Override
@@ -109,6 +129,7 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
 
     @Override
     protected void writeNodeData(@NotNull PersistentDataContainer pdc) {
+        pdc.set(NAME_KEY, PersistentDataType.STRING, alarmName);
         pdc.set(
                 SOUND_ENABLED_KEY,
                 PersistentDataType.BYTE,
@@ -140,13 +161,19 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
     @Override
     public @NotNull Gui createGui() {
         return Gui.builder()
-                .setStructure("s # a # t # x")
+                .setStructure("n # s # a # t # x")
                 .addIngredient('#', GuiItems.background())
+                .addIngredient('n', nameItem)
                 .addIngredient('s', soundItem)
                 .addIngredient('a', acknowledgeItem)
                 .addIngredient('t', testItem)
                 .addIngredient('x', statusItem)
                 .build();
+    }
+
+    @Override
+    public @NotNull Component getGuiTitle() {
+        return Component.text(alarmName, NamedTextColor.GOLD);
     }
 
     @Override
@@ -165,6 +192,10 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
             statusItem.notifyWindows();
             GridWorks.getInstance().getPhysicalControlNetwork().replayStateSources(getNodeId());
         });
+    }
+
+    public @NotNull String getAlarmName() {
+        return alarmName;
     }
 
     public boolean isConditionActive() {
@@ -208,6 +239,11 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
 
         bus.publish(
                 getNodeId(),
+                GridWorksChannels.ALARM_NAME,
+                ControlValue.of(alarmName)
+        );
+        bus.publish(
+                getNodeId(),
                 GridWorksChannels.ALARM_CONDITION_ACTIVE,
                 ControlValue.of(alarmLatch.isConditionActive())
         );
@@ -221,6 +257,88 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
                 GridWorksChannels.ALARM_ACKNOWLEDGED,
                 ControlValue.of(alarmLatch.isAcknowledged())
         );
+    }
+
+    private static String normalizeName(String raw) {
+        if (raw == null) {
+            return DEFAULT_NAME;
+        }
+
+        String normalized = raw
+                .replaceAll("\\p{Cntrl}", "")
+                .replaceAll("\\s+", " ")
+                .trim();
+
+        if (normalized.isEmpty()) {
+            return DEFAULT_NAME;
+        }
+        if (normalized.length() > MAX_NAME_LENGTH) {
+            return normalized.substring(0, MAX_NAME_LENGTH);
+        }
+        return normalized;
+    }
+
+    private void openRenameWindow(Player player) {
+        final boolean[] firstRename = {true};
+
+        Gui upperGui = Gui.builder()
+                .setStructure("# n #")
+                .addIngredient('#', GuiItems.background())
+                .addIngredient(
+                        'n',
+                        ItemStackBuilder.of(Material.NAME_TAG)
+                                .name(Component.text(alarmName, NamedTextColor.GOLD))
+                )
+                .build();
+
+        Gui lowerGui = Gui.builder()
+                .setStructure(
+                        "# # # # # # # # #",
+                        "# # # # i # # # #",
+                        "# # # # # # # # #",
+                        "# # # # # # # # #"
+                )
+                .addIngredient('#', GuiItems.background())
+                .addIngredient(
+                        'i',
+                        ItemStackBuilder.of(Material.PAPER)
+                                .name(Component.text("Rename Alarm", NamedTextColor.GOLD))
+                                .lore(Component.text(
+                                        "Type above; changes save immediately.",
+                                        NamedTextColor.GRAY
+                                ))
+                )
+                .build();
+
+        try {
+            AnvilWindow window = AnvilWindow.builder()
+                    .setViewer(player)
+                    .setUpperGui(upperGui)
+                    .setLowerGui(lowerGui)
+                    .setTitle(Component.text("Name Alarm Indicator"))
+                    .addRenameHandler(rawName -> {
+                        if (firstRename[0]) {
+                            firstRename[0] = false;
+                            return;
+                        }
+
+                        alarmName = normalizeName(rawName);
+                        nameItem.notifyWindows();
+                        publishAlarmState();
+                    })
+                    .build(player);
+            window.open();
+        } catch (RuntimeException exception) {
+            GridWorks.getInstance().getLogger().log(
+                    java.util.logging.Level.SEVERE,
+                    "Could not open Alarm Indicator rename window",
+                    exception
+            );
+            player.sendMessage(Component.text(
+                    "GridWorks could not open the rename window.",
+                    NamedTextColor.RED
+            ));
+        }
     }
 
     private void toggleSound() {
@@ -260,6 +378,30 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
         protected ItemStackBuilder item(Material material, String name) {
             return ItemStackBuilder.of(material)
                     .name(Component.text(name, NamedTextColor.GOLD));
+        }
+    }
+
+    private final class NameItem extends AlarmItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            return item(Material.NAME_TAG, "Name: " + alarmName)
+                    .lore(Component.text(
+                            "Click to rename this alarm",
+                            NamedTextColor.YELLOW
+                    ));
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            player.closeInventory();
+            GridWorks.getInstance().getServer().getScheduler().runTask(
+                    GridWorks.getInstance(),
+                    () -> openRenameWindow(player)
+            );
         }
     }
 

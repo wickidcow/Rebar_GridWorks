@@ -58,6 +58,9 @@ public final class GridWorksChannels {
     public static final ControlChannel CONTROL_D =
             ControlChannel.of("gridworks", "control/d");
 
+    public static final ControlChannel ALARM_NAME =
+            ControlChannel.of("gridworks", "alarm/name");
+
     public static final ControlChannel ALARM_CONDITION_ACTIVE =
             ControlChannel.of("gridworks", "alarm/condition_active");
 
@@ -66,6 +69,13 @@ public final class GridWorksChannels {
 
     public static final ControlChannel ALARM_ACKNOWLEDGED =
             ControlChannel.of("gridworks", "alarm/acknowledged");
+
+    /**
+     * Text command. Value is either a target node UUID or "*" for every alarm
+     * in the current Control Bus component.
+     */
+    public static final ControlChannel ALARM_ACKNOWLEDGE =
+            ControlChannel.of("gridworks", "alarm/acknowledge");
 
     private GridWorksChannels() {
         throw new AssertionError("Utility class");

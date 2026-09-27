@@ -7,12 +7,19 @@ item:
       <arrow> Connects a device to the GridWorks Control Bus
       <arrow> Use a GridWorks Linker to connect control nodes
 
+  alarm_console:
+    name: "Alarm Console"
+    lore: |-
+      <arrow> Central view of active Alarm Indicators on the Control Bus
+      <arrow> Shows named alarm state and supports per-alarm acknowledgement
+      <arrow> Refreshes by replaying state; never scans or loads chunks
+
   alarm_indicator:
     name: "Alarm Indicator"
     lore: |-
       <arrow> Latches faults until they are acknowledged or safely cleared
       <arrow> Rings once on a real false-to-true transition
-      <arrow> Acknowledge alarms from the GUI; restart replay stays silent
+      <arrow> Name and acknowledge alarms from the GUI; restart replay stays silent
 
   redstone_sensor:
     name: "Redstone Sensor"

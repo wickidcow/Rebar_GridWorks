@@ -33,7 +33,13 @@ The **Delay Relay** has independently configurable ON and OFF delays from instan
 
 The **Alarm Indicator** is the first non-redstone action device and now uses industrial-style acknowledgement. A new false-to-true fault latches the indicator and optionally rings a local bell once. If the condition clears before an operator acknowledges it, the lamp stays latched so the event is not lost. If the alarm is acknowledged while the condition is still active, it remains visibly acknowledged and clears automatically when the fault later disappears. Replayed state after restart/topology recovery is silent.
 
-Alarm Indicators also publish bounded telemetry on `gridworks:alarm/condition_active`, `gridworks:alarm/latched`, and `gridworks:alarm/acknowledged`. They implement `ControlStateSource`, so a Factory Monitor joining later receives the current alarm state without polling the alarm block.
+Alarm Indicators can be given player-defined names and publish bounded telemetry on `gridworks:alarm/name`, `gridworks:alarm/condition_active`, `gridworks:alarm/latched`, and `gridworks:alarm/acknowledged`. They implement `ControlStateSource`, so a Factory Monitor or Alarm Console joining later receives current state without polling alarm blocks.
+
+### Alarm Console
+
+The **Alarm Console** aggregates alarm telemetry by source UUID across its currently loaded Control Bus component. It sorts latched/unacknowledged faults first, displays up to 18 at once, provides per-alarm acknowledgement, and has an explicit **Acknowledge All** action.
+
+Acknowledgement itself is a Control Bus command (`gridworks:alarm/acknowledge`) carrying either a target alarm UUID or `*`. That means the console does not need to reach into another block's implementation. Refresh prunes sources that are no longer in the loaded component and requests normal state replay; it never scans the world or forces chunks to load.
 
 ### Inventory sensing
 
@@ -58,11 +64,11 @@ It samples loaded sensor targets only and never loads another chunk. The first i
 
 GridWorks now has a tested numeric-rule API for controller logic. A rule consists of an input channel, comparison operator, and finite threshold. Rules ignore unrelated channels and non-numeric values rather than coercing data unexpectedly.
 
-Controllers will publish their boolean result on `gridworks:control/enabled`. The existing Status Light and Control Relay already accept that channel in addition to direct Redstone Sensor input, so controller logic does not need to masquerade as redstone input.
+Controllers publish their boolean result on a selected command circuit (Default or A-D). Legacy actuators continue accepting the original Default command plus direct Redstone Sensor input until their routing is changed.
 
 ## Factory Controller
 
-The Factory Controller is a configurable logic block. It now supports **Condition A** plus an optional **Condition B**, combined with AND or OR, and publishes its result on `gridworks:control/enabled`.
+The Factory Controller is a configurable logic block. It supports **Condition A** plus an optional **Condition B**, combined with AND or OR, and publishes its result on a selectable Default/A-D command circuit.
 
 Its Rebar/InvUI screen configures:
 
@@ -104,7 +110,7 @@ Control Bus callbacks deliberately run on the publisher's thread. Physical GridW
 
 ## Planned systems
 
-The next work is alarm routing/aggregation, richer command addressing, and power-grid controls as Rebar's electricity API stabilizes. After that, GridWorks can connect inventory/fluid/redstone measurements to relays and eventually to smart electricity controls as Rebar's electricity API stabilizes.
+The next work is alarm severity/filtering, richer command addressing, and power-grid controls as Rebar's electricity API stabilizes. After that, GridWorks can connect inventory/fluid/redstone measurements to relays and eventually to smart electricity controls as Rebar's electricity API stabilizes.
 
 ## Requirements
 
