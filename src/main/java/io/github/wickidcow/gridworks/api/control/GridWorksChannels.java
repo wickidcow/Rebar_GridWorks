@@ -91,6 +91,14 @@ public final class GridWorksChannels {
     public static final ControlChannel POWER_POWERED_CONSUMER_RATIO =
             ControlChannel.of("gridworks", "power/powered_consumer_ratio");
 
+    /**
+     * Monotonic per-sensor marker published after all values for a changed
+     * snapshot. Consumers that need a coherent multi-channel sample can react
+     * to this channel instead of to each metric independently.
+     */
+    public static final ControlChannel POWER_SAMPLE_REVISION =
+            ControlChannel.of("gridworks", "power/sample_revision");
+
     public static final ControlChannel ALARM_NAME =
             ControlChannel.of("gridworks", "alarm/name");
 

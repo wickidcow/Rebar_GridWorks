@@ -22,6 +22,7 @@ public final class PowerGridSensorBlock extends PhysicalControlNodeBlock
         implements ControlStateSource {
 
     private Optional<PowerGridSnapshot> lastSnapshot;
+    private long sampleRevision;
 
     public PowerGridSensorBlock(
             @NotNull Block block,
@@ -69,6 +70,7 @@ public final class PowerGridSensorBlock extends PhysicalControlNodeBlock
         }
 
         lastSnapshot = snapshot;
+        sampleRevision = nextRevision(sampleRevision);
         publish(snapshot);
     }
 
@@ -148,6 +150,17 @@ public final class PowerGridSensorBlock extends PhysicalControlNodeBlock
         for (var entry : values.entrySet()) {
             bus.publish(getNodeId(), entry.getKey(), entry.getValue());
         }
+
+        bus.publish(
+                getNodeId(),
+                GridWorksChannels.POWER_SAMPLE_REVISION,
+                ControlValue.of((double) sampleRevision)
+        );
+    }
+
+    private static long nextRevision(long current) {
+        // Keep the numeric ControlValue exactly representable by IEEE-754.
+        return current >= 9_007_199_254_740_991L ? 1L : current + 1L;
     }
 
     private static String format(double value) {

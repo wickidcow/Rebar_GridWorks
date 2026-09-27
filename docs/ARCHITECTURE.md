@@ -278,3 +278,12 @@ Factory Controller treats that availability channel specially for power metrics.
 The physical network now emits both peer-available and peer-unavailable callbacks for directly linked loaded nodes. Unavailability is sent after an unload removes the peer from the live graph and after an explicit unlink disconnects two loaded peers. Callbacks execute outside the topology monitor and failures are isolated through the existing callback failure handler.
 
 Factory Controller uses this lifecycle signal for every metric type, not only power. If its bound source unloads or is unlinked, the controller preserves the selected source UUID but clears the cached observation/result and immediately recomputes through three-state logic. This prevents stale inventory, fluid, redstone, or power measurements from continuing to drive automation while the source is absent.
+
+
+## Power snapshot publication boundary
+
+`PowerGridTelemetry.fromSnapshot` returns an unmodifiable insertion-ordered map rather than `Map.copyOf`, because downstream power logic may care about deterministic publication order.
+
+Power Grid Sensor increments a per-sensor revision only when its snapshot actually changes. It publishes all telemetry fields first and then publishes `power/sample_revision` last. The revision stays within the exactly representable integer range of IEEE-754 doubles and wraps back to 1 only after that extremely large boundary.
+
+Consumers that depend on multiple power fields should cache individual values and evaluate only when the revision marker arrives. Single-metric Factory Controller rules can continue reacting directly to their configured channel.

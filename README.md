@@ -131,6 +131,8 @@ Any addon can register `PowerGridProvider` through Bukkit's `ServicesManager`; B
 
 The **Power Grid Sensor** is provider-neutral and faces one adjacent loaded block. If the active `PowerGridProvider` associates that block with a grid, the sensor publishes the stable `gridworks:power/*` telemetry set. A single shared sampler handles all loaded Power Grid Sensors, defaults to once per second, and publishes only when the snapshot changes.
 
+Power metrics are emitted in deterministic order and each changed snapshot ends with `gridworks:power/sample_revision`. Multi-channel consumers can therefore wait for the revision marker before evaluating a complete sample instead of reacting to intermediate field updates.
+
 When the provider disappears, the target chunk unloads, or the target is no longer a known power grid, the sensor publishes only `power/available=false`. Power-aware Factory Controller conditions bound to that sensor immediately discard their previous numeric observation and return to `WAITING`, preventing stale power data from holding a load-shed command ON or OFF.
 
 ## Planned systems

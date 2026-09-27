@@ -8,6 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
 import io.github.wickidcow.gridworks.api.power.PowerGridSnapshot;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -41,6 +43,39 @@ class PowerGridTelemetryTest {
         assertEquals(
                 new ControlValue.NumberValue(0.75),
                 values.get(GridWorksChannels.POWER_LOAD_RATIO)
+        );
+    }
+
+    @Test
+    void snapshotTelemetryHasDeterministicPublicationOrder() {
+        PowerGridSnapshot snapshot = new PowerGridSnapshot(
+                12,
+                2,
+                8,
+                7,
+                1000.0,
+                750.0
+        );
+
+        List<?> channels = new ArrayList<>(
+                PowerGridTelemetry.fromSnapshot(snapshot).keySet()
+        );
+
+        assertEquals(
+                List.of(
+                        GridWorksChannels.POWER_AVAILABLE,
+                        GridWorksChannels.POWER_NODE_COUNT,
+                        GridWorksChannels.POWER_PRODUCER_COUNT,
+                        GridWorksChannels.POWER_CONSUMER_COUNT,
+                        GridWorksChannels.POWER_POWERED_CONSUMERS,
+                        GridWorksChannels.POWER_UNPOWERED_CONSUMERS,
+                        GridWorksChannels.POWER_PRODUCTION_CAPACITY_WATTS,
+                        GridWorksChannels.POWER_DEMAND_WATTS,
+                        GridWorksChannels.POWER_RESERVE_WATTS,
+                        GridWorksChannels.POWER_LOAD_RATIO,
+                        GridWorksChannels.POWER_POWERED_CONSUMER_RATIO
+                ),
+                channels
         );
     }
 

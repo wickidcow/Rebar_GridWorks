@@ -4,6 +4,7 @@ import io.github.wickidcow.gridworks.api.control.ControlChannel;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
 import io.github.wickidcow.gridworks.api.power.PowerGridSnapshot;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -64,7 +65,7 @@ public final class PowerGridTelemetry {
                 ControlValue.of(snapshot.poweredConsumerRatio())
         );
 
-        return Map.copyOf(values);
+        return Collections.unmodifiableMap(values);
     }
 
     public static Map<ControlChannel, ControlValue> unavailable() {
