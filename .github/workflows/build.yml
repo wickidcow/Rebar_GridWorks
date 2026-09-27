@@ -52,14 +52,28 @@ jobs:
           fi
 
           ENTRIES="$(jar tf "$JAR")"
-          for REQUIRED in             "plugin.yml"             "config.yml"             "lang/en.yml"             "META-INF/LICENSE-GridWorks"             "io/github/wickidcow/gridworks/GridWorks.class"             "io/github/wickidcow/gridworks/content/GridWorksContentCatalog.class"; do
+          REQUIRED_ENTRIES=(
+            "plugin.yml"
+            "config.yml"
+            "lang/en.yml"
+            "META-INF/LICENSE-GridWorks"
+            "io/github/wickidcow/gridworks/GridWorks.class"
+            "io/github/wickidcow/gridworks/content/GridWorksContentCatalog.class"
+          )
+          for REQUIRED in "${REQUIRED_ENTRIES[@]}"; do
             if ! grep -Fxq "$REQUIRED" <<<"$ENTRIES"; then
               echo "Packaged GridWorks JAR is missing $REQUIRED"
               exit 1
             fi
           done
 
-          for FORBIDDEN_PREFIX in             "io/github/pylonmc/rebar/"             "io/papermc/paper/"             "org/bukkit/"             "xyz/xenondevs/invui/"; do
+          FORBIDDEN_PREFIXES=(
+            "io/github/pylonmc/rebar/"
+            "io/papermc/paper/"
+            "org/bukkit/"
+            "xyz/xenondevs/invui/"
+          )
+          for FORBIDDEN_PREFIX in "${FORBIDDEN_PREFIXES[@]}"; do
             if grep -Fq "$FORBIDDEN_PREFIX" <<<"$ENTRIES"; then
               echo "GridWorks JAR unexpectedly bundles classes under $FORBIDDEN_PREFIX"
               exit 1
@@ -67,7 +81,15 @@ jobs:
           done
 
           PLUGIN_YML="$(unzip -p "$JAR" plugin.yml)"
-          grep -Eq '^name:[[:space:]]*GridWorks      - name: Smoke test Paper + Rebar + GridWorks
+          grep -Fq 'name: GridWorks' <<<"$PLUGIN_YML"
+          grep -Fq 'main: io.github.wickidcow.gridworks.GridWorks' <<<"$PLUGIN_YML"
+          grep -Fq 'Rebar' <<<"$PLUGIN_YML"
+          grep -Fq 'gridworks:' <<<"$PLUGIN_YML"
+          grep -Fq 'gridworks.admin' <<<"$PLUGIN_YML"
+
+          echo "Packaged GridWorks JAR contents verified."
+
+      - name: Smoke test Paper + Rebar + GridWorks
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         shell: bash
         run: |
