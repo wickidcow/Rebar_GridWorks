@@ -12,6 +12,7 @@ import io.github.wickidcow.gridworks.api.control.ControlStateSource;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
 import io.github.wickidcow.gridworks.control.RisingEdgeTrigger;
+import io.github.wickidcow.gridworks.production.SequenceFaultReason;
 import io.github.wickidcow.gridworks.production.SequenceRoutes;
 import io.github.wickidcow.gridworks.production.SequenceStateMachine;
 import java.util.ArrayList;
@@ -54,6 +55,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
     private static final NamespacedKey COMPLETE_ADDRESS_KEY = key("sequence_complete_address");
     private static final NamespacedKey FAULT_ADDRESS_KEY = key("sequence_fault_address");
     private static final NamespacedKey FAULT_INPUT_ADDRESS_KEY = key("sequence_fault_input_address");
+    private static final NamespacedKey FAULT_REASON_KEY = key("sequence_fault_reason");
     private static final NamespacedKey STAGE_TIMEOUT_TICKS_KEY = key("sequence_stage_timeout_ticks");
 
     private static final long DEFAULT_STAGE_TIMEOUT_TICKS = 0L;
@@ -79,6 +81,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
     private volatile ControlAddress faultAddress;
     private volatile ControlAddress faultInputAddress;
     private volatile boolean faultInterlockActive;
+    private volatile SequenceFaultReason faultReason;
     private volatile long stageTimeoutTicks;
     private BukkitTask stageTimeoutTask;
 
@@ -113,6 +116,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                 faultAddress
         );
         this.faultInterlockActive = false;
+        this.faultReason = SequenceFaultReason.NONE;
         this.stageTimeoutTicks = DEFAULT_STAGE_TIMEOUT_TICKS;
     }
 
@@ -134,6 +138,10 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                 faultAddress
         );
         this.faultInterlockActive = false;
+        this.faultReason = SequenceFaultReason.fromStored(
+                pdc.get(FAULT_REASON_KEY, PersistentDataType.STRING),
+                sequence.isFaulted()
+        );
         Long storedTimeout = pdc.get(STAGE_TIMEOUT_TICKS_KEY, PersistentDataType.LONG);
         this.stageTimeoutTicks = clampStageTimeout(
                 storedTimeout == null ? DEFAULT_STAGE_TIMEOUT_TICKS : storedTimeout
@@ -218,6 +226,11 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                 faultInputAddress.value()
         );
         pdc.set(
+                FAULT_REASON_KEY,
+                PersistentDataType.STRING,
+                faultReason.name()
+        );
+        pdc.set(
                 STAGE_TIMEOUT_TICKS_KEY,
                 PersistentDataType.LONG,
                 stageTimeoutTicks
@@ -264,6 +277,16 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                 getNodeId(),
                 GridWorksChannels.SEQUENCE_FAULT,
                 ControlValue.of(faulted)
+        );
+        bus.publish(
+                getNodeId(),
+                GridWorksChannels.SEQUENCE_FAULT_REASON,
+                ControlValue.of(faultReason.telemetryValue())
+        );
+        bus.publish(
+                getNodeId(),
+                GridWorksChannels.SEQUENCE_FAULT_INTERLOCK_ACTIVE,
+                ControlValue.of(faultInterlockActive)
         );
         bus.publish(
                 getNodeId(),
@@ -356,6 +379,10 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         return faultInterlockActive;
     }
 
+    public @NotNull SequenceFaultReason getFaultReason() {
+        return faultReason;
+    }
+
     public long getStageTimeoutTicks() {
         return stageTimeoutTicks;
     }
@@ -373,8 +400,13 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         if (faultInputAddress.channel().equals(channel)) {
             faultInterlockActive = value;
             if (value && sequence.isRunning()) {
-                faultSequence(sequence.currentStage());
+                faultSequence(
+                        sequence.currentStage(),
+                        SequenceFaultReason.INTERLOCK
+                );
             }
+            publishCurrentState();
+            notifyItems();
             return;
         }
 
@@ -392,10 +424,12 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
 
     private void startSequence() {
         sequence.start();
+        faultReason = SequenceFaultReason.NONE;
         stageEdge.reset();
 
         if (faultInterlockActive) {
             sequence.fault();
+            faultReason = SequenceFaultReason.INTERLOCK;
             cancelStageTimeout();
         } else {
             scheduleStageTimeout();
@@ -428,18 +462,24 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
 
     private void abortSequence() {
         sequence.abort();
+        faultReason = SequenceFaultReason.NONE;
         cancelStageTimeout();
         stageEdge.reset();
         publishCurrentState();
         notifyItems();
     }
 
-    private void faultSequence(int expectedStage) {
+    private void faultSequence(
+            int expectedStage,
+            SequenceFaultReason reason
+    ) {
+        Objects.requireNonNull(reason, "reason");
         if (!sequence.isRunning() || sequence.currentStage() != expectedStage) {
             return;
         }
 
         sequence.fault();
+        faultReason = reason;
         cancelStageTimeout();
         stageEdge.reset();
         publishCurrentState();
@@ -629,7 +669,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                 GridWorks.getInstance(),
                 () -> {
                     stageTimeoutTask = null;
-                    runOnServerThreadIfActive(() -> faultSequence(expectedStage));
+                    runOnServerThreadIfActive(() -> faultSequence(expectedStage, SequenceFaultReason.TIMEOUT));
                 },
                 timeout
         );
@@ -947,6 +987,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                                     ? "All four stages completed"
                                     : phase == SequenceStateMachine.Phase.FAULT
                                     ? "Faulted at stage " + stage
+                                            + " / " + faultReason.displayName()
                                     : "No active stage",
                             phase == SequenceStateMachine.Phase.COMPLETE
                                     ? NamedTextColor.GREEN

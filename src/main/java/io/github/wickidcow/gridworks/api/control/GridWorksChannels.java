@@ -91,6 +91,12 @@ public final class GridWorksChannels {
     public static final ControlChannel SEQUENCE_FAULT =
             ControlChannel.of("gridworks", "sequence/fault");
 
+    public static final ControlChannel SEQUENCE_FAULT_REASON =
+            ControlChannel.of("gridworks", "sequence/fault_reason");
+
+    public static final ControlChannel SEQUENCE_FAULT_INTERLOCK_ACTIVE =
+            ControlChannel.of("gridworks", "sequence/fault_interlock_active");
+
     public static final ControlChannel SEQUENCE_TIMEOUT_TICKS =
             ControlChannel.of("gridworks", "sequence/timeout_ticks");
 

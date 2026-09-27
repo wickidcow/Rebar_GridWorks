@@ -460,6 +460,16 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
                             ))
             );
             if (phase
+                    == io.github.wickidcow.gridworks.production.SequenceStateMachine.Phase.FAULT) {
+                event.getPlayer().sendMessage(
+                        Component.text("Fault reason: ", NamedTextColor.GRAY)
+                                .append(Component.text(
+                                        controller.getFaultReason().displayName(),
+                                        NamedTextColor.RED
+                                ))
+                );
+            }
+            if (phase
                     == io.github.wickidcow.gridworks.production.SequenceStateMachine.Phase.RUNNING) {
                 event.getPlayer().sendMessage(
                         Component.text("Current trigger: ", NamedTextColor.GRAY)
