@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -31,9 +31,24 @@ jobs:
       - name: Build and test
         run: ./gradlew clean build --stacktrace --no-daemon
 
-      - name: Upload plugin jar
-        uses: actions/upload-artifact@v7
-        with:
-          name: Rebar_GridWorks-${{ github.sha }}
-          path: build/libs/Rebar_GridWorks-*.jar
-          if-no-files-found: error
+      - name: Publish raw development JAR
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          JAR="$(find build/libs -maxdepth 1 -type f -name 'Rebar_GridWorks-*.jar' | sort | head -n 1)"
+          if [[ -z "$JAR" || ! -f "$JAR" ]]; then
+            echo "GridWorks JAR was not produced."
+            exit 1
+          fi
+
+          if gh release view dev-build --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh api               --method PATCH               "/repos/$GITHUB_REPOSITORY/git/refs/tags/dev-build"               -f sha="$GITHUB_SHA"               -F force=true >/dev/null
+
+            gh release upload dev-build "$JAR"               --repo "$GITHUB_REPOSITORY"               --clobber
+          else
+            gh release create dev-build "$JAR"               --repo "$GITHUB_REPOSITORY"               --target "$GITHUB_SHA"               --title "GridWorks Development Build"               --notes "Rolling raw JAR from the latest successful main build. Development snapshot; not a stable release."               --prerelease
+          fi

@@ -261,3 +261,10 @@ Each physical actuator still owns its domain-specific fail-safe action, but it o
 The current 0.3.x development line now includes the provider-neutral electrical branch-control API, Smart Breaker, Power Limiter, released-API Fluid Valve, released-API Cargo Isolator, unified actuator input routing, and survival crafting recipes for the full current GridWorks set.
 
 The intentionally unresolved piece is the **native Rebar electricity adapter**. Rebar 0.43.0-26.2 still does not ship the electricity package being developed upstream, so GridWorks will not compile against those unreleased classes. When that API is released, the adapter can implement the existing `PowerGridProvider` and `PowerBranchProvider` contracts without redesigning sensors, controllers, breakers, limiters, or load shedding.
+
+
+## Development build download
+
+Successful builds from `main` publish a rolling **GridWorks Development Build** prerelease. The release asset is the raw `.jar` file itself (for example `Rebar_GridWorks-0.3.0-SNAPSHOT.jar`), so server owners can download it directly without unpacking a GitHub Actions ZIP.
+
+Pull-request builds still run the full compile/test gate but do not publish a downloadable development JAR.
