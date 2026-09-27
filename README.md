@@ -47,9 +47,30 @@ GridWorks now has a tested numeric-rule API for controller logic. A rule consist
 
 Controllers will publish their boolean result on `gridworks:control/enabled`. The existing Status Light and Control Relay already accept that channel in addition to direct Redstone Sensor input, so controller logic does not need to masquerade as redstone input.
 
+## Factory Controller
+
+The Factory Controller is the first configurable logic block. It evaluates one numeric measurement from a directly linked sensor and publishes its result on `gridworks:control/enabled`.
+
+Its Rebar/InvUI screen configures:
+
+- input metric;
+- comparison operator;
+- numeric threshold;
+- bound source/reset;
+- current output state.
+
+A controller auto-binds only after receiving its configured metric from a **directly linked** source. This prevents unrelated sensors elsewhere in the same connected Control Bus from taking ownership of the rule.
+
+Example:
+
+```text
+Fluid Tank Sensor --direct link--> Factory Controller --> Control Relay
+      fill_ratio                    <= 0.25               generator/redstone
+```
+
 ## Planned systems
 
-The next major milestone is the survival-friendly Factory Controller GUI over this rule engine. After that, GridWorks can connect inventory/fluid/redstone measurements to relays and eventually to smart electricity controls as Rebar's electricity API stabilizes.
+The next controller work is multiple conditions (AND/OR), named rules, and richer source selection. After that, GridWorks can connect inventory/fluid/redstone measurements to relays and eventually to smart electricity controls as Rebar's electricity API stabilizes.
 
 ## Requirements
 

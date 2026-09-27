@@ -42,6 +42,13 @@ item:
       <arrow> Publishes fluid type, amount, capacity, and fill ratio
       <arrow> Never loads another chunk just to sample a tank
 
+  factory_controller:
+    name: "Factory Controller"
+    lore: |-
+      <arrow> Converts inventory or fluid measurements into ON/OFF control
+      <arrow> Direct-link the source sensor, then connect relays or lights
+      <arrow> Right click to configure its rule
+
   gridworks_linker:
     name: "GridWorks Linker"
     lore: |-

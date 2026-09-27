@@ -9,6 +9,7 @@ import io.github.wickidcow.gridworks.GridWorks;
 import io.github.wickidcow.gridworks.api.control.ControlSignal;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.content.block.ControlRelayBlock;
+import io.github.wickidcow.gridworks.content.block.FactoryControllerBlock;
 import io.github.wickidcow.gridworks.content.block.FluidSensorBlock;
 import io.github.wickidcow.gridworks.content.block.InventorySensorBlock;
 import io.github.wickidcow.gridworks.content.block.PhysicalControlNodeBlock;
@@ -158,6 +159,15 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
             event.getPlayer().sendMessage(
                     Component.text("Fluid tank: ", NamedTextColor.GRAY)
                             .append(Component.text(sensor.describeSnapshot(), NamedTextColor.WHITE))
+            );
+        } else if (controlNode instanceof FactoryControllerBlock controller) {
+            event.getPlayer().sendMessage(
+                    Component.text("Rule: ", NamedTextColor.GRAY)
+                            .append(Component.text(controller.describeRule(), NamedTextColor.WHITE))
+            );
+            event.getPlayer().sendMessage(
+                    Component.text("Controller output: ", NamedTextColor.GRAY)
+                            .append(onOff(controller.isOutputEnabled()))
             );
         }
 
