@@ -459,6 +459,13 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
                                             : NamedTextColor.AQUA
                             ))
             );
+            event.getPlayer().sendMessage(
+                    Component.text("Abort/reset input: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    controller.getResetInputAddress().channel().toString(),
+                                    NamedTextColor.AQUA
+                            ))
+            );
             if (phase
                     == io.github.wickidcow.gridworks.production.SequenceStateMachine.Phase.FAULT) {
                 event.getPlayer().sendMessage(

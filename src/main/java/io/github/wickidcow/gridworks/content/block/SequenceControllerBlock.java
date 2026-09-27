@@ -55,6 +55,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
     private static final NamespacedKey COMPLETE_ADDRESS_KEY = key("sequence_complete_address");
     private static final NamespacedKey FAULT_ADDRESS_KEY = key("sequence_fault_address");
     private static final NamespacedKey FAULT_INPUT_ADDRESS_KEY = key("sequence_fault_input_address");
+    private static final NamespacedKey RESET_INPUT_ADDRESS_KEY = key("sequence_reset_input_address");
     private static final NamespacedKey FAULT_REASON_KEY = key("sequence_fault_reason");
     private static final NamespacedKey STAGE_TIMEOUT_TICKS_KEY = key("sequence_stage_timeout_ticks");
 
@@ -77,9 +78,11 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
     private final SequenceStateMachine sequence;
     private final RisingEdgeTrigger startEdge = new RisingEdgeTrigger();
     private final RisingEdgeTrigger stageEdge = new RisingEdgeTrigger();
+    private final RisingEdgeTrigger resetEdge = new RisingEdgeTrigger();
     private volatile SequenceRoutes routes;
     private volatile ControlAddress faultAddress;
     private volatile ControlAddress faultInputAddress;
+    private volatile ControlAddress resetInputAddress;
     private volatile boolean faultInterlockActive;
     private volatile SequenceFaultReason faultReason;
     private volatile long stageTimeoutTicks;
@@ -92,6 +95,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
     private final TimeoutItem timeoutItem = new TimeoutItem();
     private final FaultAddressItem faultAddressItem = new FaultAddressItem();
     private final FaultInputAddressItem faultInputAddressItem = new FaultInputAddressItem();
+    private final ResetInputAddressItem resetInputAddressItem = new ResetInputAddressItem();
     private final SpecialAddressItem startAddressItem =
             new SpecialAddressItem(true);
     private final SpecialAddressItem completeAddressItem =
@@ -115,6 +119,12 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                 routes,
                 faultAddress
         );
+        this.resetInputAddress = defaultResetInputAddress(
+                getNodeId(),
+                routes,
+                faultAddress,
+                faultInputAddress
+        );
         this.faultInterlockActive = false;
         this.faultReason = SequenceFaultReason.NONE;
         this.stageTimeoutTicks = DEFAULT_STAGE_TIMEOUT_TICKS;
@@ -137,6 +147,13 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                 routes,
                 faultAddress
         );
+        this.resetInputAddress = loadResetInputAddress(
+                pdc,
+                getNodeId(),
+                routes,
+                faultAddress,
+                faultInputAddress
+        );
         this.faultInterlockActive = false;
         this.faultReason = SequenceFaultReason.fromStored(
                 pdc.get(FAULT_REASON_KEY, PersistentDataType.STRING),
@@ -152,6 +169,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
     protected void beforeActivated() {
         startEdge.reset();
         stageEdge.reset();
+        resetEdge.reset();
         cancelStageTimeout();
     }
 
@@ -165,6 +183,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         cancelStageTimeout();
         startEdge.reset();
         stageEdge.reset();
+        resetEdge.reset();
     }
 
     @Override
@@ -172,13 +191,15 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         cancelStageTimeout();
         startEdge.reset();
         stageEdge.reset();
+        resetEdge.reset();
     }
 
     @Override
     public boolean accepts(@NotNull ControlChannel channel) {
         SequenceRoutes currentRoutes = routes;
         if (currentRoutes.start().channel().equals(channel)
-                || faultInputAddress.channel().equals(channel)) {
+                || faultInputAddress.channel().equals(channel)
+                || resetInputAddress.channel().equals(channel)) {
             return true;
         }
 
@@ -224,6 +245,11 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                 FAULT_INPUT_ADDRESS_KEY,
                 PersistentDataType.STRING,
                 faultInputAddress.value()
+        );
+        pdc.set(
+                RESET_INPUT_ADDRESS_KEY,
+                PersistentDataType.STRING,
+                resetInputAddress.value()
         );
         pdc.set(
                 FAULT_REASON_KEY,
@@ -323,7 +349,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                         "2 p u # # # # # #",
                         "3 q v # # # # # #",
                         "4 r w # # # # # #",
-                        "i # d # f # e # #"
+                        "i # d # f # e # g"
                 )
                 .addIngredient('#', GuiItems.background())
                 .addIngredient('s', statusItem)
@@ -335,6 +361,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                 .addIngredient('d', timeoutItem)
                 .addIngredient('f', faultAddressItem)
                 .addIngredient('e', faultInputAddressItem)
+                .addIngredient('g', resetInputAddressItem)
                 .addIngredient('1', stageStatusItems[0])
                 .addIngredient('2', stageStatusItems[1])
                 .addIngredient('3', stageStatusItems[2])
@@ -375,6 +402,10 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         return faultInputAddress;
     }
 
+    public @NotNull ControlAddress getResetInputAddress() {
+        return resetInputAddress;
+    }
+
     public boolean isFaultInterlockActive() {
         return faultInterlockActive;
     }
@@ -393,6 +424,13 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         if (currentRoutes.start().channel().equals(channel)) {
             if (startEdge.observe(value)) {
                 startSequence();
+            }
+            return;
+        }
+
+        if (resetInputAddress.channel().equals(channel)) {
+            if (resetEdge.observe(value)) {
+                abortSequence();
             }
             return;
         }
@@ -582,6 +620,11 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                     "That address is already used by the sequence fault input."
             );
         }
+        if (resetInputAddress.equals(next)) {
+            throw new IllegalArgumentException(
+                    "That address is already used by the sequence reset input."
+            );
+        }
         ensureNotRouteAddress(next);
 
         ControlAddress previous = faultAddress;
@@ -604,10 +647,36 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                     "That address is already used by the sequence fault output."
             );
         }
+        if (resetInputAddress.equals(next)) {
+            throw new IllegalArgumentException(
+                    "That address is already used by the sequence reset input."
+            );
+        }
         ensureNotRouteAddress(next);
 
         faultInputAddress = next;
         faultInterlockActive = false;
+        notifyItems();
+        requestStateReplay();
+    }
+
+    private void setResetInputAddress(ControlAddress next) {
+        if (!canEditRoutes()) {
+            return;
+        }
+        Objects.requireNonNull(next, "next");
+        if (resetInputAddress.equals(next)) {
+            return;
+        }
+        if (faultAddress.equals(next) || faultInputAddress.equals(next)) {
+            throw new IllegalArgumentException(
+                    "That address is already used by a sequence fault endpoint."
+            );
+        }
+        ensureNotRouteAddress(next);
+
+        resetInputAddress = next;
+        resetEdge.reset();
         notifyItems();
         requestStateReplay();
     }
@@ -644,6 +713,11 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         if (faultInputAddress.equals(address)) {
             throw new IllegalArgumentException(
                     "That address is already used by the sequence fault input."
+            );
+        }
+        if (resetInputAddress.equals(address)) {
+            throw new IllegalArgumentException(
+                    "That address is already used by the sequence reset input."
             );
         }
     }
@@ -707,6 +781,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         timeoutItem.notifyWindows();
         faultAddressItem.notifyWindows();
         faultInputAddressItem.notifyWindows();
+        resetInputAddressItem.notifyWindows();
 
         for (int index = 0; index < SequenceStateMachine.STAGE_COUNT; index++) {
             stageStatusItems[index].notifyWindows();
@@ -916,6 +991,54 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         }
         throw new IllegalStateException(
                 "Could not allocate a unique sequence fault input address"
+        );
+    }
+
+    private static ControlAddress loadResetInputAddress(
+            PersistentDataContainer pdc,
+            UUID nodeId,
+            SequenceRoutes routes,
+            ControlAddress faultAddress,
+            ControlAddress faultInputAddress
+    ) {
+        ControlAddress fallback = defaultResetInputAddress(
+                nodeId,
+                routes,
+                faultAddress,
+                faultInputAddress
+        );
+        ControlAddress stored = ControlAddress.fromStoredOrDefault(
+                pdc.get(RESET_INPUT_ADDRESS_KEY, PersistentDataType.STRING),
+                fallback
+        );
+        return routes.isInputAddress(stored)
+                || routes.isOutputAddress(stored)
+                || faultAddress.equals(stored)
+                || faultInputAddress.equals(stored)
+                ? fallback
+                : stored;
+    }
+
+    private static ControlAddress defaultResetInputAddress(
+            UUID nodeId,
+            SequenceRoutes routes,
+            ControlAddress faultAddress,
+            ControlAddress faultInputAddress
+    ) {
+        for (int attempt = 1; attempt <= 100; attempt++) {
+            String prefix = attempt == 1
+                    ? "seq_reset"
+                    : "seq_reset_" + attempt;
+            ControlAddress candidate = ControlAddress.defaultFor(nodeId, prefix);
+            if (!routes.isInputAddress(candidate)
+                    && !routes.isOutputAddress(candidate)
+                    && !faultAddress.equals(candidate)
+                    && !faultInputAddress.equals(candidate)) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException(
+                "Could not allocate a unique sequence reset input address"
         );
     }
 
@@ -1232,6 +1355,59 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                             "Sequence Fault Interlock",
                             current,
                             SequenceControllerBlock.this::setFaultInputAddress
+                    )
+            );
+        }
+    }
+
+    private final class ResetInputAddressItem extends SequenceItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            return item(Material.RECOVERY_COMPASS, "Abort / Reset Input")
+                    .lore(
+                            Component.text(resetInputAddress.value(), NamedTextColor.AQUA),
+                            Component.text(
+                                    resetInputAddress.channel().toString(),
+                                    NamedTextColor.DARK_GRAY
+                            ),
+                            Component.text(
+                                    "Rising edge returns the sequence to IDLE",
+                                    NamedTextColor.GRAY
+                            ),
+                            Component.text(
+                                    "First replayed state is baseline only",
+                                    NamedTextColor.DARK_GRAY
+                            ),
+                            Component.text(
+                                    canEditRoutes()
+                                            ? "Click to edit"
+                                            : "Abort the sequence before editing routes",
+                                    canEditRoutes()
+                                            ? NamedTextColor.YELLOW
+                                            : NamedTextColor.RED
+                            )
+                    );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            if (!canEditRoutes()) {
+                return;
+            }
+
+            ControlAddress current = resetInputAddress;
+            player.closeInventory();
+            GridWorks.getInstance().getServer().getScheduler().runTask(
+                    GridWorks.getInstance(),
+                    () -> openAddressWindow(
+                            player,
+                            "Sequence Abort / Reset Input",
+                            current,
+                            SequenceControllerBlock.this::setResetInputAddress
                     )
             );
         }
