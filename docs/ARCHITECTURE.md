@@ -227,3 +227,12 @@ Factory Monitor keeps only the most recent addressed command in one dedicated di
 An unavailable provider publishes only `power/available=false`; it does not invent zero capacity/demand values that could be mistaken for a real empty grid.
 
 Factory Monitor reserves its sixth row for a bounded subset of these power channels. Until a released Rebar electricity adapter exists, those slots remain in WAITING state and no dead player-facing Power Grid Sensor is registered.
+
+
+## Power-aware controller rules
+
+Factory Controller's metric registry includes the provider-neutral power telemetry channels for production capacity, demand, reserve watts, load ratio, powered-consumer ratio, and unpowered-consumer count.
+
+Power metrics are appended to the existing registry. Persistent controller rules store the full channel identifier rather than a metric-list index, so adding these metrics does not reinterpret existing placed controllers.
+
+The built-in Power Load, Power Shortage, and Load Shed Trigger presets use the same `NumericControlRule` path as every other controller preset. If no linked source publishes the configured power metric, the rule remains unknown and the controller preserves its existing fail-safe OFF wire behavior. No special electricity execution path exists inside Factory Controller.

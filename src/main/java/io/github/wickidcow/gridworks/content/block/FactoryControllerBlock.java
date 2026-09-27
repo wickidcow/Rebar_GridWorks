@@ -122,6 +122,60 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
                     0.05,
                     0.25,
                     1.0
+            ),
+            new Metric(
+                    "Power Capacity",
+                    GridWorksChannels.POWER_PRODUCTION_CAPACITY_WATTS,
+                    Material.REDSTONE_BLOCK,
+                    1000.0,
+                    100.0,
+                    1000.0,
+                    Double.MAX_VALUE
+            ),
+            new Metric(
+                    "Power Demand",
+                    GridWorksChannels.POWER_DEMAND_WATTS,
+                    Material.COMPARATOR,
+                    1000.0,
+                    100.0,
+                    1000.0,
+                    Double.MAX_VALUE
+            ),
+            new Metric(
+                    "Power Reserve",
+                    GridWorksChannels.POWER_RESERVE_WATTS,
+                    Material.COPPER_BLOCK,
+                    250.0,
+                    50.0,
+                    250.0,
+                    Double.MAX_VALUE
+            ),
+            new Metric(
+                    "Power Load",
+                    GridWorksChannels.POWER_LOAD_RATIO,
+                    Material.REPEATER,
+                    0.90,
+                    0.05,
+                    0.25,
+                    10.0
+            ),
+            new Metric(
+                    "Consumers Powered",
+                    GridWorksChannels.POWER_POWERED_CONSUMER_RATIO,
+                    Material.LIME_DYE,
+                    1.0,
+                    0.05,
+                    0.25,
+                    1.0
+            ),
+            new Metric(
+                    "Unpowered Consumers",
+                    GridWorksChannels.POWER_UNPOWERED_CONSUMERS,
+                    Material.RED_DYE,
+                    1.0,
+                    1.0,
+                    5.0,
+                    Double.MAX_VALUE
             )
     );
 
@@ -1542,6 +1596,43 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
                         GridWorksChannels.FLUID_FILL_RATIO,
                         ComparisonOperator.LESS_OR_EQUAL,
                         0.25
+                )
+        ),
+        POWER_LOAD_HIGH(
+                "Power Load >= 90%",
+                new NumericControlRule(
+                        GridWorksChannels.POWER_LOAD_RATIO,
+                        ComparisonOperator.GREATER_OR_EQUAL,
+                        0.90
+                ),
+                false,
+                LogicOperator.AND,
+                null
+        ),
+        POWER_SHORTAGE(
+                "Power Shortage",
+                new NumericControlRule(
+                        GridWorksChannels.POWER_UNPOWERED_CONSUMERS,
+                        ComparisonOperator.GREATER_OR_EQUAL,
+                        1.0
+                ),
+                false,
+                LogicOperator.AND,
+                null
+        ),
+        LOAD_SHED_TRIGGER(
+                "Load Shed Trigger",
+                new NumericControlRule(
+                        GridWorksChannels.POWER_LOAD_RATIO,
+                        ComparisonOperator.GREATER_OR_EQUAL,
+                        0.95
+                ),
+                true,
+                LogicOperator.OR,
+                new NumericControlRule(
+                        GridWorksChannels.POWER_UNPOWERED_CONSUMERS,
+                        ComparisonOperator.GREATER_OR_EQUAL,
+                        1.0
                 )
         );
 

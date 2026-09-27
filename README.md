@@ -88,7 +88,9 @@ Its Rebar/InvUI screen configures:
 
 Presets reset condition sources to AUTO and clear stale measurements before evaluation. Any manual metric/operator/threshold/AND-OR edit marks the configuration Custom again.
 
-Controllers can also use `gridworks:redstone/strength` as a numeric 0–15 input, so analog vanilla redstone can participate in threshold logic.
+Controllers can also use `gridworks:redstone/strength` as a numeric 0–15 input, so analog vanilla redstone can participate in threshold logic. The controller metric list now also understands the stable power telemetry contract: capacity, demand, reserve, load ratio, powered-consumer ratio, and unpowered-consumer count.
+
+Three power-aware presets are available in advance of the native Rebar bridge: **Power Load >= 90%**, **Power Shortage**, and **Load Shed Trigger**. Until a linked source actually publishes power telemetry, these rules remain WAITING and their receiver output stays fail-safe OFF.
 
 Existing placed controllers remain compatible: their old single rule loads as Condition A and Condition B starts disabled.
 
@@ -123,7 +125,7 @@ The neutral snapshot already defines the measurements GridWorks needs: node/prod
 
 ## Planned systems
 
-The next work is the actual Rebar electricity adapter once that API lands in a released dependency, then player-facing Power Grid Sensor / smart breaker / load-shedding controls on top of this stable bridge.
+The next work is the actual Rebar electricity adapter once that API lands in a released dependency, then the player-facing Power Grid Sensor and smart breaker. Factory Controller logic is already prepared for load-shedding rules through the stable power telemetry channels.
 
 ## Requirements
 
