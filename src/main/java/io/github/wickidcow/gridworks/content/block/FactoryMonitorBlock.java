@@ -56,7 +56,17 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
             new SignalDefinition(GridWorksChannels.ALARM_LATCHED, "Alarm Latched", Material.BELL),
             new SignalDefinition(GridWorksChannels.ALARM_ACKNOWLEDGED, "Alarm Acknowledged", Material.LIME_DYE),
             new SignalDefinition(GridWorksChannels.ALARM_OCCURRENCES, "Alarm Occurrences", Material.PAPER),
-            new SignalDefinition(GridWorksChannels.ALARM_LAST_TRIGGERED_EPOCH_MS, "Alarm Last Triggered", Material.CLOCK)
+            new SignalDefinition(GridWorksChannels.ALARM_LAST_TRIGGERED_EPOCH_MS, "Alarm Last Triggered", Material.CLOCK),
+
+            new SignalDefinition(GridWorksChannels.POWER_AVAILABLE, "Power Grid Available", Material.LIGHTNING_ROD),
+            new SignalDefinition(GridWorksChannels.POWER_PRODUCTION_CAPACITY_WATTS, "Power Capacity", Material.REDSTONE_BLOCK),
+            new SignalDefinition(GridWorksChannels.POWER_DEMAND_WATTS, "Power Demand", Material.COMPARATOR),
+            new SignalDefinition(GridWorksChannels.POWER_RESERVE_WATTS, "Power Reserve", Material.COPPER_BLOCK),
+            new SignalDefinition(GridWorksChannels.POWER_LOAD_RATIO, "Power Load", Material.REPEATER),
+            new SignalDefinition(GridWorksChannels.POWER_POWERED_CONSUMER_RATIO, "Consumers Powered", Material.LIME_DYE),
+            new SignalDefinition(GridWorksChannels.POWER_UNPOWERED_CONSUMERS, "Unpowered Consumers", Material.RED_DYE),
+            new SignalDefinition(GridWorksChannels.POWER_CONSUMER_COUNT, "Power Consumers", Material.PAPER),
+            new SignalDefinition(GridWorksChannels.POWER_PRODUCER_COUNT, "Power Producers", Material.BLAZE_POWDER)
     );
 
     private final Map<ControlChannel, ControlSignal> latestSignals = new ConcurrentHashMap<>();
@@ -104,7 +114,8 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
                         "a i o t f # # # #",
                         "v p y m k z # # #",
                         "w u g h j # # # #",
-                        "l c d # # # # # #"
+                        "l c d # # # # # #",
+                        "P Q R S T U V W X"
                 )
                 .addIngredient('#', GuiItems.background())
                 .addIngredient('r', item(GridWorksChannels.REDSTONE_POWERED))
@@ -133,6 +144,15 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
                 .addIngredient('l', item(GridWorksChannels.ALARM_OCCURRENCES))
                 .addIngredient('c', item(GridWorksChannels.ALARM_LAST_TRIGGERED_EPOCH_MS))
                 .addIngredient('d', addressedSignalItem)
+                .addIngredient('P', item(GridWorksChannels.POWER_AVAILABLE))
+                .addIngredient('Q', item(GridWorksChannels.POWER_PRODUCTION_CAPACITY_WATTS))
+                .addIngredient('R', item(GridWorksChannels.POWER_DEMAND_WATTS))
+                .addIngredient('S', item(GridWorksChannels.POWER_RESERVE_WATTS))
+                .addIngredient('T', item(GridWorksChannels.POWER_LOAD_RATIO))
+                .addIngredient('U', item(GridWorksChannels.POWER_POWERED_CONSUMER_RATIO))
+                .addIngredient('V', item(GridWorksChannels.POWER_UNPOWERED_CONSUMERS))
+                .addIngredient('W', item(GridWorksChannels.POWER_CONSUMER_COUNT))
+                .addIngredient('X', item(GridWorksChannels.POWER_PRODUCER_COUNT))
                 .build();
     }
 

@@ -218,3 +218,12 @@ Factory Controllers persist both their legacy circuit choice and their output mo
 Addressed Relay starts fail-safe OFF after construction/load and relies on normal `ControlStateSource` replay from the controller to restore current state. Changing a relay address also resets OFF and requests component state replay. No address lookup scans worlds or loads chunks.
 
 Factory Monitor keeps only the most recent addressed command in one dedicated diagnostic slot, preserving bounded memory despite the dynamic channel namespace.
+
+
+## Power telemetry contract
+
+`PowerGridTelemetry` is the provider-neutral conversion between a `PowerGridSnapshot` and typed Control Bus values. Stable channels live under `gridworks:power/*`, covering availability, topology counts, capacity, demand, reserve, load ratio, powered-consumer ratio, and powered/unpowered consumer counts.
+
+An unavailable provider publishes only `power/available=false`; it does not invent zero capacity/demand values that could be mistaken for a real empty grid.
+
+Factory Monitor reserves its sixth row for a bounded subset of these power channels. Until a released Rebar electricity adapter exists, those slots remain in WAITING state and no dead player-facing Power Grid Sensor is registered.

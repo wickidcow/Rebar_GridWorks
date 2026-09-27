@@ -58,6 +58,39 @@ public final class GridWorksChannels {
     public static final ControlChannel CONTROL_D =
             ControlChannel.of("gridworks", "control/d");
 
+    public static final ControlChannel POWER_AVAILABLE =
+            ControlChannel.of("gridworks", "power/available");
+
+    public static final ControlChannel POWER_NODE_COUNT =
+            ControlChannel.of("gridworks", "power/node_count");
+
+    public static final ControlChannel POWER_PRODUCER_COUNT =
+            ControlChannel.of("gridworks", "power/producer_count");
+
+    public static final ControlChannel POWER_CONSUMER_COUNT =
+            ControlChannel.of("gridworks", "power/consumer_count");
+
+    public static final ControlChannel POWER_POWERED_CONSUMERS =
+            ControlChannel.of("gridworks", "power/powered_consumers");
+
+    public static final ControlChannel POWER_UNPOWERED_CONSUMERS =
+            ControlChannel.of("gridworks", "power/unpowered_consumers");
+
+    public static final ControlChannel POWER_PRODUCTION_CAPACITY_WATTS =
+            ControlChannel.of("gridworks", "power/production_capacity_watts");
+
+    public static final ControlChannel POWER_DEMAND_WATTS =
+            ControlChannel.of("gridworks", "power/demand_watts");
+
+    public static final ControlChannel POWER_RESERVE_WATTS =
+            ControlChannel.of("gridworks", "power/reserve_watts");
+
+    public static final ControlChannel POWER_LOAD_RATIO =
+            ControlChannel.of("gridworks", "power/load_ratio");
+
+    public static final ControlChannel POWER_POWERED_CONSUMER_RATIO =
+            ControlChannel.of("gridworks", "power/powered_consumer_ratio");
+
     public static final ControlChannel ALARM_NAME =
             ControlChannel.of("gridworks", "alarm/name");
 
