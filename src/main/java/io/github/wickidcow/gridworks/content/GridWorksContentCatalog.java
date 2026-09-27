@@ -29,6 +29,7 @@ public final class GridWorksContentCatalog {
             "power_grid_sensor",
             "power_limiter",
             "factory_controller",
+            "batch_controller",
             "load_shedding_controller",
             "smart_breaker",
             "factory_monitor",

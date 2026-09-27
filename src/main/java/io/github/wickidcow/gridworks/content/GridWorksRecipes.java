@@ -130,6 +130,15 @@ public final class GridWorksRecipes {
                 .setIngredient('I', GridWorksContent.CONTROL_INTERFACE_ITEM)
                 .setIngredient('P', Material.COPPER_BLOCK));
 
+        register(recipe(plugin, "batch_controller", GridWorksContent.BATCH_CONTROLLER_ITEM,
+                "CTC",
+                "RFR",
+                "CTC")
+                .setIngredient('C', Material.COPPER_INGOT)
+                .setIngredient('T', Material.CLOCK)
+                .setIngredient('R', Material.REPEATER)
+                .setIngredient('F', GridWorksContent.FACTORY_CONTROLLER_ITEM));
+
         register(recipe(plugin, "factory_monitor", GridWorksContent.FACTORY_MONITOR_ITEM,
                 "TGT",
                 "CIC",

@@ -64,6 +64,15 @@ public final class GridWorksChannels {
     public static final ControlChannel MACHINE_LAST_CYCLE_EPOCH_MS =
             ControlChannel.of("gridworks", "machine/last_cycle_epoch_ms");
 
+    public static final ControlChannel BATCH_PROGRESS =
+            ControlChannel.of("gridworks", "batch/progress");
+
+    public static final ControlChannel BATCH_TARGET =
+            ControlChannel.of("gridworks", "batch/target");
+
+    public static final ControlChannel BATCH_COMPLETE =
+            ControlChannel.of("gridworks", "batch/complete");
+
     /**
      * Backward-compatible default boolean command circuit.
      */

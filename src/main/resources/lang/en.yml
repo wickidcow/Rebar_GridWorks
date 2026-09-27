@@ -123,6 +123,15 @@ item:
       <arrow> AUTO-bind or explicitly choose directly linked sources
       <arrow> Right click to configure rules, presets, sources, and output routing
 
+  batch_controller:
+    name: "Batch Controller"
+    lore: |-
+      <arrow> Aggregates new cycle deltas from directly linked Machine Sensors
+      <arrow> First count after link/relink is a baseline, never historical work
+      <arrow> Persists batch progress and latches ON when the target is reached
+      <arrow> Reset starts a new batch while preserving live source baselines
+      <arrow> Output through Default/A-D circuits or a named address
+
   power_limiter:
     name: "Power Limiter"
     lore: |-

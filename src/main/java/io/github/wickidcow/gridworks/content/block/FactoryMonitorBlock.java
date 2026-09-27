@@ -62,6 +62,10 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
             new SignalDefinition(GridWorksChannels.ALARM_OCCURRENCES, "Alarm Occurrences", Material.PAPER),
             new SignalDefinition(GridWorksChannels.ALARM_LAST_TRIGGERED_EPOCH_MS, "Alarm Last Triggered", Material.CLOCK),
 
+            new SignalDefinition(GridWorksChannels.BATCH_PROGRESS, "Batch Progress", Material.CRAFTER),
+            new SignalDefinition(GridWorksChannels.BATCH_TARGET, "Batch Target", Material.TARGET),
+            new SignalDefinition(GridWorksChannels.BATCH_COMPLETE, "Batch Complete", Material.LIME_DYE),
+
             new SignalDefinition(GridWorksChannels.MACHINE_AVAILABLE, "Machine Available", Material.YELLOW_GLAZED_TERRACOTTA),
             new SignalDefinition(GridWorksChannels.MACHINE_KIND, "Machine Kind", Material.NAME_TAG),
             new SignalDefinition(GridWorksChannels.MACHINE_PROCESSING, "Machine Processing", Material.FURNACE),
@@ -139,7 +143,7 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
                         "r s 0 1 2 3 4 n x",
                         "a i o t f C L # #",
                         "v p y m k z # # #",
-                        "w u g h j # # # #",
+                        "w u g h j b N e #",
                         "l c d E F G H I J",
                         "P Q R S T U V W X"
                 )
@@ -171,6 +175,9 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
                 .addIngredient('g', item(GridWorksChannels.ALARM_CONDITION_ACTIVE))
                 .addIngredient('h', item(GridWorksChannels.ALARM_LATCHED))
                 .addIngredient('j', item(GridWorksChannels.ALARM_ACKNOWLEDGED))
+                .addIngredient('b', item(GridWorksChannels.BATCH_PROGRESS))
+                .addIngredient('N', item(GridWorksChannels.BATCH_TARGET))
+                .addIngredient('e', item(GridWorksChannels.BATCH_COMPLETE))
                 .addIngredient('l', item(GridWorksChannels.ALARM_OCCURRENCES))
                 .addIngredient('c', item(GridWorksChannels.ALARM_LAST_TRIGGERED_EPOCH_MS))
                 .addIngredient('d', addressedSignalItem)

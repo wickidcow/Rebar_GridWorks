@@ -4,7 +4,7 @@
 
 GridWorks is a Rebar addon focused on making factories smarter rather than simply making machines faster. Its long-term goal is to connect sensors, controllers, power systems, cargo, fluids, machines, and redstone through a common automation layer.
 
-> **Part 2 automation foundation is complete on the 0.2.x development line.** The Control Bus, persistent physical network, redstone I/O, inventory/fluid/machine/power sensing, controllers, addressed routing, alarms, load shedding, presets, and Factory Monitor are implemented. Native Rebar electricity switching remains upstream-blocked until its electricity API ships in a released dependency.
+> **Part 4 production control is now underway on the 0.3.x development line.** The automation foundation and provider-neutral Part 3 branch-control layer are complete; Machine Sensor cycle telemetry and the Batch Controller add event-driven production targets without new polling loops. The native Rebar electricity adapter remains upstream-blocked until its electricity API ships in a released dependency.
 
 ## Current systems
 
@@ -72,6 +72,27 @@ All loaded Machine Sensors share one configurable sampler (1 second by default) 
 Observed Cycles is deliberately activity telemetry rather than a guaranteed crafted-output count. Released Rebar exposes common processor state but no universal completion event across both supported processor contracts, so GridWorks does not pretend an active-to-idle transition proves a recipe output. GridWorks also deliberately does **not** use Rebar's internal `TickingRebarBlock.isTicking` helper as a proxy for “machine running”; scheduled ticking is not the same thing as active processing.
 
 Right-clicking a Machine Sensor opens its cycle panel. **Shift + right click Reset Observed Cycles** starts a new batch by clearing the persisted count/timestamp while preserving the current processing baseline. If a machine is already running when the counter is reset, that in-progress job can correctly become cycle 1 when it next reaches idle. Combined with a Factory Controller rule such as `Observed Machine Cycles >= 64`, this gives GridWorks a simple operator-resettable batch target without adding another polling task or pretending to own the machine's recipe lifecycle.
+
+### Batch Controller
+
+The **Batch Controller** is the first Part 4 production-control device. Directly link one or more Machine Sensors to it and set a cycle target. The first cumulative cycle count received from each linked source establishes a baseline; only later increases contribute to the current batch. Multiple linked sensors therefore aggregate parallel production without counting their pre-existing history.
+
+If a source unloads or is unlinked, its baseline is discarded. Reconnecting establishes a fresh baseline, so cycles performed while the controller could not observe that source are never backfilled. A source-side counter reset is also treated as a new baseline instead of subtracting batch progress.
+
+Batch progress and target persist across controller unload/restart, while per-source live baselines intentionally do not. **Start New Batch** resets progress to zero but keeps baselines for currently linked sources, so the next new machine cycle becomes the first cycle of the new batch. When progress reaches the target, the controller latches its boolean output ON until progress is reset or the target is moved above current progress.
+
+The output uses the same routing model as Factory Controller: **Default/A-D circuit** or a named **Address**. Changing routes explicitly clears the old route first. The controller also publishes `gridworks:batch/progress`, `gridworks:batch/target`, and `gridworks:batch/complete` for Factory Monitor diagnostics.
+
+Example:
+
+```text
+Machine Sensor A ----\
+                     > Batch Controller (target 64) --> Address: smelter_batch_done
+Machine Sensor B ----/                                  |
+                                                        +--> Addressed Relay
+                                                        +--> Smart Breaker
+                                                        +--> Cargo/Fluid control
+```
 
 ### Fluid sensing
 

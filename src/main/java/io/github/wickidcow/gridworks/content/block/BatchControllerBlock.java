@@ -1,0 +1,690 @@
+package io.github.wickidcow.gridworks.content.block;
+
+import io.github.pylonmc.rebar.block.context.BlockCreateContext;
+import io.github.pylonmc.rebar.block.interfaces.GuiRebarBlock;
+import io.github.pylonmc.rebar.item.builder.ItemStackBuilder;
+import io.github.pylonmc.rebar.util.gui.GuiItems;
+import io.github.wickidcow.gridworks.GridWorks;
+import io.github.wickidcow.gridworks.api.control.ControlAddress;
+import io.github.wickidcow.gridworks.api.control.ControlChannel;
+import io.github.wickidcow.gridworks.api.control.ControlCommandChannel;
+import io.github.wickidcow.gridworks.api.control.ControlOutputMode;
+import io.github.wickidcow.gridworks.api.control.ControlSignal;
+import io.github.wickidcow.gridworks.api.control.ControlStateSource;
+import io.github.wickidcow.gridworks.api.control.ControlValue;
+import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
+import io.github.wickidcow.gridworks.production.BatchProgressTracker;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
+import org.bukkit.block.Block;
+import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.ClickType;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
+import org.jetbrains.annotations.NotNull;
+import xyz.xenondevs.invui.Click;
+import xyz.xenondevs.invui.gui.Gui;
+import xyz.xenondevs.invui.item.AbstractItem;
+import xyz.xenondevs.invui.item.ItemProvider;
+import xyz.xenondevs.invui.window.AnvilWindow;
+
+/**
+ * Event-driven production target controller.
+ *
+ * <p>Only cumulative cycle telemetry from directly linked peers contributes.
+ * The first value from each peer is a baseline, so historical/offline work is
+ * never backfilled into the active batch.</p>
+ */
+public final class BatchControllerBlock extends PhysicalControlNodeBlock
+        implements GuiRebarBlock, ControlStateSource {
+    private static final NamespacedKey TARGET_KEY = key("batch_controller_target");
+    private static final NamespacedKey PROGRESS_KEY = key("batch_controller_progress");
+    private static final NamespacedKey OUTPUT_MODE_KEY = key("batch_controller_output_mode");
+    private static final NamespacedKey OUTPUT_CIRCUIT_KEY = key("batch_controller_output_circuit");
+    private static final NamespacedKey OUTPUT_ADDRESS_KEY = key("batch_controller_output_address");
+
+    private final BatchProgressTracker tracker;
+    private final Set<UUID> activePeers = ConcurrentHashMap.newKeySet();
+
+    private ControlOutputMode outputMode;
+    private ControlCommandChannel outputCircuit;
+    private ControlAddress outputAddress;
+
+    private final ProgressItem progressItem = new ProgressItem();
+    private final TargetItem targetItem = new TargetItem();
+    private final SourcesItem sourcesItem = new SourcesItem();
+    private final ResetItem resetItem = new ResetItem();
+    private final OutputModeItem outputModeItem = new OutputModeItem();
+    private final OutputCircuitItem outputCircuitItem = new OutputCircuitItem();
+    private final OutputAddressItem outputAddressItem = new OutputAddressItem();
+    private final OutputStateItem outputStateItem = new OutputStateItem();
+
+    public BatchControllerBlock(@NotNull Block block, @NotNull BlockCreateContext context) {
+        super(block, context);
+        tracker = new BatchProgressTracker();
+        outputMode = ControlOutputMode.CIRCUIT;
+        outputCircuit = ControlCommandChannel.DEFAULT;
+        outputAddress = ControlAddress.defaultFor(getNodeId(), "batch");
+    }
+
+    public BatchControllerBlock(@NotNull Block block, @NotNull PersistentDataContainer pdc) {
+        super(block, pdc);
+
+        Long storedTarget = pdc.get(TARGET_KEY, PersistentDataType.LONG);
+        Long storedProgress = pdc.get(PROGRESS_KEY, PersistentDataType.LONG);
+        tracker = new BatchProgressTracker(
+                validTargetOrDefault(storedTarget),
+                validProgressOrZero(storedProgress)
+        );
+
+        outputMode = ControlOutputMode.fromStored(
+                pdc.get(OUTPUT_MODE_KEY, PersistentDataType.STRING)
+        );
+        outputCircuit = ControlCommandChannel.fromStored(
+                pdc.get(OUTPUT_CIRCUIT_KEY, PersistentDataType.STRING)
+        );
+        outputAddress = ControlAddress.fromStoredOrDefault(
+                pdc.get(OUTPUT_ADDRESS_KEY, PersistentDataType.STRING),
+                ControlAddress.defaultFor(getNodeId(), "batch")
+        );
+    }
+
+    @Override
+    public boolean accepts(@NotNull ControlChannel channel) {
+        return GridWorksChannels.MACHINE_OBSERVED_CYCLES.equals(channel);
+    }
+
+    @Override
+    protected void handleSignal(@NotNull ControlSignal signal) {
+        if (!(signal.value() instanceof ControlValue.NumberValue numberValue)) {
+            return;
+        }
+
+        long sourceCount = exactCycleCount(numberValue.value());
+        if (sourceCount < 0L) {
+            return;
+        }
+
+        UUID source = signal.source();
+        runOnServerThreadIfActive(() -> observeSource(source, sourceCount));
+    }
+
+    @Override
+    public void onControlPeerAvailable(UUID peerId) {
+        activePeers.add(Objects.requireNonNull(peerId, "peerId"));
+        tracker.forgetSource(peerId);
+        runOnServerThreadIfActive(sourcesItem::notifyWindows);
+    }
+
+    @Override
+    public void onControlPeerUnavailable(UUID peerId) {
+        activePeers.remove(Objects.requireNonNull(peerId, "peerId"));
+        tracker.forgetSource(peerId);
+        runOnServerThreadIfActive(sourcesItem::notifyWindows);
+    }
+
+    @Override
+    protected void writeNodeData(@NotNull PersistentDataContainer pdc) {
+        pdc.set(TARGET_KEY, PersistentDataType.LONG, tracker.target());
+        pdc.set(PROGRESS_KEY, PersistentDataType.LONG, tracker.progress());
+        pdc.set(OUTPUT_MODE_KEY, PersistentDataType.STRING, outputMode.name());
+        pdc.set(OUTPUT_CIRCUIT_KEY, PersistentDataType.STRING, outputCircuit.name());
+        pdc.set(OUTPUT_ADDRESS_KEY, PersistentDataType.STRING, outputAddress.value());
+    }
+
+    @Override
+    public void publishCurrentState() {
+        var bus = GridWorks.getInstance().getControlBus();
+        bus.publish(
+                getNodeId(),
+                GridWorksChannels.BATCH_PROGRESS,
+                ControlValue.of((double) tracker.progress())
+        );
+        bus.publish(
+                getNodeId(),
+                GridWorksChannels.BATCH_TARGET,
+                ControlValue.of((double) tracker.target())
+        );
+        bus.publish(
+                getNodeId(),
+                GridWorksChannels.BATCH_COMPLETE,
+                ControlValue.of(tracker.isComplete())
+        );
+        bus.publish(
+                getNodeId(),
+                currentOutputChannel(),
+                ControlValue.of(tracker.isComplete())
+        );
+    }
+
+    @Override
+    public @NotNull Gui createGui() {
+        return Gui.builder()
+                .setStructure(
+                        "p # t # s # r # o",
+                        "# # m # c # a # #"
+                )
+                .addIngredient('#', GuiItems.background())
+                .addIngredient('p', progressItem)
+                .addIngredient('t', targetItem)
+                .addIngredient('s', sourcesItem)
+                .addIngredient('r', resetItem)
+                .addIngredient('o', outputStateItem)
+                .addIngredient('m', outputModeItem)
+                .addIngredient('c', outputCircuitItem)
+                .addIngredient('a', outputAddressItem)
+                .build();
+    }
+
+    public long getBatchProgress() {
+        return tracker.progress();
+    }
+
+    public long getBatchTarget() {
+        return tracker.target();
+    }
+
+    public boolean isBatchComplete() {
+        return tracker.isComplete();
+    }
+
+    public int getTrackedSourceCount() {
+        return tracker.trackedSourceCount();
+    }
+
+    public @NotNull ControlOutputMode getOutputMode() {
+        return outputMode;
+    }
+
+    public @NotNull ControlCommandChannel getOutputCircuit() {
+        return outputCircuit;
+    }
+
+    public @NotNull ControlAddress getOutputAddress() {
+        return outputAddress;
+    }
+
+    public @NotNull ControlChannel getOutputChannel() {
+        return currentOutputChannel();
+    }
+
+    private void observeSource(UUID source, long sourceCount) {
+        if (!activePeers.contains(source)) {
+            return;
+        }
+
+        int previousSources = tracker.trackedSourceCount();
+        BatchProgressTracker.Observation observation = tracker.observe(source, sourceCount);
+        if (tracker.trackedSourceCount() != previousSources) {
+            sourcesItem.notifyWindows();
+        }
+
+        if (observation.appliedDelta() <= 0L) {
+            return;
+        }
+
+        publishCurrentState();
+        notifyStateItems();
+    }
+
+    private void resetBatch() {
+        tracker.resetProgress();
+        publishCurrentState();
+        notifyStateItems();
+    }
+
+    private void changeTarget(int direction, boolean largeStep) {
+        long current = tracker.target();
+        long step = largeStep ? 64L : 1L;
+        long next;
+
+        if (direction >= 0) {
+            next = current > BatchProgressTracker.MAX_EXACT_COUNT - step
+                    ? BatchProgressTracker.MAX_EXACT_COUNT
+                    : current + step;
+        } else {
+            next = Math.max(1L, current - step);
+        }
+
+        if (next == current) {
+            return;
+        }
+
+        tracker.setTarget(next);
+        publishCurrentState();
+        notifyStateItems();
+    }
+
+    private void toggleOutputMode() {
+        ControlChannel previous = currentOutputChannel();
+        clearOutputChannel(previous);
+        outputMode = outputMode.toggle();
+        publishCurrentState();
+        notifyOutputItems();
+    }
+
+    private void changeOutputCircuit(int direction) {
+        if (outputMode != ControlOutputMode.CIRCUIT) {
+            return;
+        }
+
+        ControlCommandChannel next = outputCircuit.cycle(direction);
+        if (next == outputCircuit) {
+            return;
+        }
+
+        clearOutputChannel(outputCircuit.channel());
+        outputCircuit = next;
+        publishCurrentState();
+        notifyOutputItems();
+    }
+
+    private void setOutputAddress(ControlAddress next) {
+        Objects.requireNonNull(next, "next");
+        if (outputAddress.equals(next)) {
+            return;
+        }
+
+        if (outputMode == ControlOutputMode.ADDRESS) {
+            clearOutputChannel(outputAddress.channel());
+        }
+
+        outputAddress = next;
+        if (outputMode == ControlOutputMode.ADDRESS) {
+            publishCurrentState();
+        }
+        notifyOutputItems();
+    }
+
+    private ControlChannel currentOutputChannel() {
+        return outputMode == ControlOutputMode.ADDRESS
+                ? outputAddress.channel()
+                : outputCircuit.channel();
+    }
+
+    private void clearOutputChannel(ControlChannel channel) {
+        GridWorks.getInstance().getControlBus().publish(
+                getNodeId(),
+                channel,
+                ControlValue.of(false)
+        );
+    }
+
+    private void notifyStateItems() {
+        progressItem.notifyWindows();
+        targetItem.notifyWindows();
+        resetItem.notifyWindows();
+        outputStateItem.notifyWindows();
+    }
+
+    private void notifyOutputItems() {
+        outputModeItem.notifyWindows();
+        outputCircuitItem.notifyWindows();
+        outputAddressItem.notifyWindows();
+        outputStateItem.notifyWindows();
+    }
+
+    private void openOutputAddressWindow(Player player) {
+        final boolean[] firstRename = {true};
+
+        Gui upperGui = Gui.builder()
+                .setStructure("# a #")
+                .addIngredient('#', GuiItems.background())
+                .addIngredient(
+                        'a',
+                        ItemStackBuilder.of(Material.NAME_TAG)
+                                .name(Component.text(outputAddress.value(), NamedTextColor.GOLD))
+                )
+                .build();
+
+        Gui lowerGui = Gui.builder()
+                .setStructure(
+                        "# # # # # # # # #",
+                        "# # # # i # # # #",
+                        "# # # # # # # # #",
+                        "# # # # # # # # #"
+                )
+                .addIngredient('#', GuiItems.background())
+                .addIngredient(
+                        'i',
+                        ItemStackBuilder.of(Material.PAPER)
+                                .name(Component.text("Set Batch Output Address", NamedTextColor.GOLD))
+                                .lore(
+                                        Component.text("Example: smelter_batch", NamedTextColor.GRAY),
+                                        Component.text(
+                                                "Matching addressed actuators follow batch completion.",
+                                                NamedTextColor.GRAY
+                                        )
+                                )
+                )
+                .build();
+
+        try {
+            AnvilWindow window = AnvilWindow.builder()
+                    .setViewer(player)
+                    .setUpperGui(upperGui)
+                    .setLowerGui(lowerGui)
+                    .setTitle(Component.text("Batch Output Address"))
+                    .addRenameHandler(raw -> {
+                        if (firstRename[0]) {
+                            firstRename[0] = false;
+                            return;
+                        }
+
+                        try {
+                            setOutputAddress(ControlAddress.fromUserInput(raw));
+                        } catch (IllegalArgumentException ignored) {
+                            player.sendMessage(Component.text(
+                                    "Address must contain letters or numbers.",
+                                    NamedTextColor.RED
+                            ));
+                        }
+                    })
+                    .build(player);
+            window.open();
+        } catch (RuntimeException exception) {
+            GridWorks.getInstance().getLogger().log(
+                    Level.SEVERE,
+                    "Could not open Batch Controller output address window",
+                    exception
+            );
+            player.sendMessage(Component.text(
+                    "GridWorks could not open the output address window.",
+                    NamedTextColor.RED
+            ));
+        }
+    }
+
+    private static long exactCycleCount(double value) {
+        if (!Double.isFinite(value)
+                || value < 0.0
+                || value > BatchProgressTracker.MAX_EXACT_COUNT
+                || value != Math.rint(value)) {
+            return -1L;
+        }
+        return (long) value;
+    }
+
+    private static long validTargetOrDefault(Long stored) {
+        if (stored == null
+                || stored < 1L
+                || stored > BatchProgressTracker.MAX_EXACT_COUNT) {
+            return BatchProgressTracker.DEFAULT_TARGET;
+        }
+        return stored;
+    }
+
+    private static long validProgressOrZero(Long stored) {
+        if (stored == null || stored < 0L) {
+            return 0L;
+        }
+        return Math.min(stored, BatchProgressTracker.MAX_EXACT_COUNT);
+    }
+
+    private static NamespacedKey key(String value) {
+        return Objects.requireNonNull(NamespacedKey.fromString("gridworks:" + value));
+    }
+
+    private abstract class BatchItem extends AbstractItem {
+        protected ItemStackBuilder item(Material material, String name) {
+            return ItemStackBuilder.of(material)
+                    .name(Component.text(name, NamedTextColor.GOLD));
+        }
+    }
+
+    private final class ProgressItem extends BatchItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            boolean complete = tracker.isComplete();
+            return item(
+                    complete ? Material.LIME_CONCRETE : Material.CRAFTER,
+                    "Batch Progress"
+            ).lore(
+                    Component.text(
+                            tracker.progress() + " / " + tracker.target(),
+                            complete ? NamedTextColor.GREEN : NamedTextColor.WHITE
+                    ),
+                    Component.text(
+                            complete
+                                    ? "Target reached"
+                                    : tracker.remaining() + " cycle(s) remaining",
+                            complete ? NamedTextColor.GREEN : NamedTextColor.AQUA
+                    ),
+                    Component.text(
+                            "Only new cycle deltas while directly linked count",
+                            NamedTextColor.GRAY
+                    )
+            );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+        }
+    }
+
+    private final class TargetItem extends BatchItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            return item(Material.TARGET, "Target: " + tracker.target())
+                    .lore(
+                            Component.text("Left +1 / Right -1", NamedTextColor.YELLOW),
+                            Component.text("Shift uses 64 cycles", NamedTextColor.YELLOW),
+                            Component.text(
+                                    "Changing target reevaluates completion immediately",
+                                    NamedTextColor.GRAY
+                            )
+                    );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            int direction;
+            if (clickType.isLeftClick()) {
+                direction = 1;
+            } else if (clickType.isRightClick()) {
+                direction = -1;
+            } else {
+                return;
+            }
+            changeTarget(direction, clickType.isShiftClick());
+        }
+    }
+
+    private final class SourcesItem extends BatchItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            return item(Material.SPYGLASS, "Cycle Sources")
+                    .lore(
+                            Component.text(
+                                    "Direct peers: " + activePeers.size(),
+                                    NamedTextColor.WHITE
+                            ),
+                            Component.text(
+                                    "Cycle baselines: " + tracker.trackedSourceCount(),
+                                    NamedTextColor.AQUA
+                            ),
+                            Component.text(
+                                    "First count after link/relink is baseline only",
+                                    NamedTextColor.GRAY
+                            )
+                    );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+        }
+    }
+
+    private final class ResetItem extends BatchItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            return item(Material.BARRIER, "Start New Batch")
+                    .lore(
+                            Component.text(
+                                    "Shift + right click to reset progress to 0",
+                                    NamedTextColor.YELLOW
+                            ),
+                            Component.text(
+                                    "Live source baselines are preserved",
+                                    NamedTextColor.GRAY
+                            )
+                    );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            if (clickType.isRightClick() && clickType.isShiftClick()) {
+                resetBatch();
+            }
+        }
+    }
+
+    private final class OutputModeItem extends BatchItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            return item(Material.COMPARATOR, "Output Mode: " + outputMode.displayName())
+                    .lore(
+                            Component.text(
+                                    "Click to switch Circuit / Address",
+                                    NamedTextColor.YELLOW
+                            ),
+                            Component.text(
+                                    "Old active route is cleared before switching",
+                                    NamedTextColor.GRAY
+                            )
+                    );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            if (clickType.isLeftClick() || clickType.isRightClick()) {
+                toggleOutputMode();
+            }
+        }
+    }
+
+    private final class OutputCircuitItem extends BatchItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            ItemStackBuilder builder = item(
+                    Material.REDSTONE_TORCH,
+                    "Output Circuit: " + outputCircuit.displayName()
+            );
+            if (outputMode != ControlOutputMode.CIRCUIT) {
+                return builder.lore(Component.text(
+                        "Switch output mode to Circuit to edit",
+                        NamedTextColor.DARK_GRAY
+                ));
+            }
+            return builder.lore(
+                    Component.text("Left next / Right previous", NamedTextColor.YELLOW)
+            );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            if (clickType.isLeftClick()) {
+                changeOutputCircuit(1);
+            } else if (clickType.isRightClick()) {
+                changeOutputCircuit(-1);
+            }
+        }
+    }
+
+    private final class OutputAddressItem extends BatchItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            ItemStackBuilder builder = item(
+                    Material.NAME_TAG,
+                    "Output Address: " + outputAddress.value()
+            );
+            if (outputMode != ControlOutputMode.ADDRESS) {
+                return builder.lore(Component.text(
+                        "Switch output mode to Address to edit",
+                        NamedTextColor.DARK_GRAY
+                ));
+            }
+            return builder.lore(Component.text(
+                    "Click to edit addressed output",
+                    NamedTextColor.YELLOW
+            ));
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            if (outputMode != ControlOutputMode.ADDRESS
+                    || (!clickType.isLeftClick() && !clickType.isRightClick())) {
+                return;
+            }
+
+            player.closeInventory();
+            GridWorks.getInstance().getServer().getScheduler().runTask(
+                    GridWorks.getInstance(),
+                    () -> openOutputAddressWindow(player)
+            );
+        }
+    }
+
+    private final class OutputStateItem extends BatchItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            boolean complete = tracker.isComplete();
+            return item(
+                    complete ? Material.LIME_DYE : Material.RED_DYE,
+                    complete ? "Output: ON" : "Output: OFF"
+            ).lore(
+                    Component.text(
+                            outputMode.displayName() + " / " + currentOutputChannel(),
+                            NamedTextColor.AQUA
+                    ),
+                    Component.text(
+                            complete ? "Batch target reached" : "Batch still running",
+                            complete ? NamedTextColor.GREEN : NamedTextColor.GRAY
+                    )
+            );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+        }
+    }
+}

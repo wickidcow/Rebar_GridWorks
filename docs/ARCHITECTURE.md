@@ -340,6 +340,19 @@ The resulting `machine/observed_cycles` and `machine/last_cycle_epoch_ms` teleme
 Machine Sensor exposes this state through a small GUI. Resetting the observed-cycle count clears only the persisted total and last-cycle timestamp; it deliberately preserves the current processing baseline. This means resetting during an active job does not lose that job from the new batch. The reset immediately republishes telemetry, so downstream Factory Controllers fall below their prior cycle threshold without requiring topology churn or a sensor reload.
 
 
+## Part 4 Batch Controller
+
+`BatchProgressTracker` converts cumulative Machine Sensor cycle counters into persisted batch progress without polling. It maintains only runtime last-seen counts per source. A source's first value is a baseline; only positive deltas add to progress. Counter decreases re-baseline rather than subtracting progress.
+
+Batch Controller accepts cycle telemetry only when the signal's source UUID is a currently loaded **direct peer**. Peer-unavailable callbacks forget that source baseline. When the source reconnects, its current cumulative count becomes a fresh baseline, preventing work performed while disconnected from being backfilled into the batch.
+
+Batch progress and target are persistent. Source baselines are deliberately runtime-only: after controller reload, the first value from every source is baseline state. Resetting a batch clears progress while preserving live baselines, so new cycles begin counting immediately and already-observed historical totals do not.
+
+The target-complete state is derived from `progress >= target`; it is not separately persisted. The controller publishes batch progress, target, and completion telemetry plus its boolean command output. Output routing reuses `ControlOutputMode`, `ControlCommandChannel`, and `ControlAddress`; a route change clears the prior channel before replaying current completion state to the new route.
+
+The implementation is bounded by the largest integer exactly representable by Control Bus numeric transport. It has no scheduler, no world scan, and no chunk-loading behavior.
+
+
 ## Unified sensor availability semantics
 
 Inventory, fluid, machine, and power telemetry now share one controller rule: an unavailable target is unknown data, not numeric zero.

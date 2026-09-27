@@ -13,6 +13,7 @@ import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.content.block.AddressedRelayBlock;
 import io.github.wickidcow.gridworks.content.block.AlarmConsoleBlock;
 import io.github.wickidcow.gridworks.content.block.AlarmIndicatorBlock;
+import io.github.wickidcow.gridworks.content.block.BatchControllerBlock;
 import io.github.wickidcow.gridworks.content.block.ControlRelayBlock;
 import io.github.wickidcow.gridworks.content.block.CargoIsolatorBlock;
 import io.github.wickidcow.gridworks.content.block.DelayRelayBlock;
@@ -408,6 +409,37 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
                                                     == io.github.wickidcow.gridworks.api.control.ControlInputRouteMode.ADDRESS
                                                     ? breaker.getAddress().channel()
                                                     : breaker.getCircuit().channel()),
+                                    NamedTextColor.AQUA
+                            ))
+            );
+        } else if (controlNode instanceof BatchControllerBlock controller) {
+            event.getPlayer().sendMessage(
+                    Component.text("Batch: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    controller.getBatchProgress()
+                                            + "/"
+                                            + controller.getBatchTarget()
+                                            + (controller.isBatchComplete()
+                                            ? " COMPLETE"
+                                            : " RUNNING"),
+                                    controller.isBatchComplete()
+                                            ? NamedTextColor.GREEN
+                                            : NamedTextColor.WHITE
+                            ))
+            );
+            event.getPlayer().sendMessage(
+                    Component.text("Batch sources: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    Integer.toString(controller.getTrackedSourceCount()),
+                                    NamedTextColor.WHITE
+                            ))
+            );
+            event.getPlayer().sendMessage(
+                    Component.text("Batch output: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    controller.getOutputMode().displayName()
+                                            + " / "
+                                            + controller.getOutputChannel(),
                                     NamedTextColor.AQUA
                             ))
             );
