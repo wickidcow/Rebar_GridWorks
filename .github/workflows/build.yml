@@ -125,6 +125,31 @@ jobs:
           grep -F "GridWorks control bus initialized" "$LOG_FILE"
           grep -F "GridWorks Doctor complete." "$LOG_FILE"
 
+      - name: Smoke test Paper + Rebar startup
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf run
+          mkdir -p run
+          printf 'eula=true\n' > run/eula.txt
+
+          # run-paper reads standard input directly. Queueing stop lets Paper
+          # complete plugin enablement and its first server tick, then exit
+          # cleanly without leaving a CI process behind.
+          printf 'stop\n' | timeout 180s ./gradlew runServer --stacktrace --no-daemon 2>&1 \
+            | tee build/smoke-server.log
+
+          grep -Fq "Validated 21 GridWorks content entries and survival recipes." \
+            build/smoke-server.log
+          grep -Fq "GridWorks control bus initialized" build/smoke-server.log
+          grep -Fq "Done (" build/smoke-server.log
+
+          if grep -Eq             "Error occurred while enabling GridWorks|GridWorks failed to enable|Could not load plugin.*GridWorks"             build/smoke-server.log; then
+            echo "GridWorks reported an enable-time failure during the Paper smoke test."
+            exit 1
+          fi
+
       - name: Publish raw development JAR
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         env:

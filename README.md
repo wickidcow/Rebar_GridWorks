@@ -299,3 +299,10 @@ The real-server CI smoke test now executes the doctor command after startup and 
 
 
 The rolling `dev-build` release metadata is updated to the exact smoke-tested commit on every successful publish, in addition to moving the tag and replacing the raw JAR. This keeps the release page, tag target, build provenance, and downloadable file aligned.
+
+
+## Paper startup smoke test
+
+Every CI build now goes beyond compilation and unit tests: it starts a real Paper 26.2 server through `run-paper`, loads the freshly built GridWorks JAR alongside Rebar, waits for Paper's normal startup completion, verifies GridWorks' 21-entry content validation and Control Bus initialization messages, and then shuts the server down cleanly.
+
+The rolling raw development JAR is published only after this startup smoke test succeeds. This catches classloading, plugin-enable, Rebar registration, bundled-resource, recipe-registration, and scheduler/listener startup failures that ordinary unit tests cannot exercise.

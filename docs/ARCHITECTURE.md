@@ -459,3 +459,10 @@ The server is stopped through its console input after readiness is proven. A pre
 `/gridworks doctor` is an operator-only diagnostic surface backed entirely by existing runtime registries; it does not scan worlds or load chunks. The command reports content/recipe integrity, live and persisted Control Bus topology counts, loaded sensor/device counts, provider-service state, and pending plugin scheduler tasks.
 
 The CI smoke server invokes this command as part of every successful main build. This verifies generated command metadata, command registration, all diagnostic manager getters, and Adventure console output in a real Paper environment. CI then performs a clean stop and rejects GridWorks error/severe log lines or explicit cleanup failures.
+
+
+## Server startup smoke gate
+
+CI uses the existing `run-paper` task to launch Paper 26.2 with the just-built GridWorks artifact and released Rebar dependency. The smoke gate requires Paper's normal `Done` marker plus GridWorks' content-integrity and Control Bus initialization messages.
+
+A queued `stop` command allows startup to complete and then terminates the server normally. The workflow has a hard timeout and uses shell pipe-failure semantics, so a hung server, Gradle failure, missing success marker, or explicit GridWorks enable failure fails the build. Development release publication occurs only after this gate.
