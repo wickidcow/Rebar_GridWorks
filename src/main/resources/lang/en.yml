@@ -103,6 +103,14 @@ item:
       <arrow> AUTO-bind or explicitly choose directly linked sources
       <arrow> Right click to configure rules, presets, sources, and output routing
 
+  smart_breaker:
+    name: "Smart Breaker"
+    lore: |-
+      <arrow> Opens or closes one provider-exposed electrical branch
+      <arrow> Faces the target power port/branch without forcing chunks to load
+      <arrow> Accepts Default/A-D circuits or human-readable addressed commands
+      <arrow> Reconciles automatically when providers or target chunks return
+
   load_shedding_controller:
     name: "Load Shedding Controller"
     lore: |-

@@ -189,3 +189,18 @@ The plugin jar is written to `build/libs/`.
 ## License
 
 GridWorks is licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE).
+
+
+## Part 3 — Smart electrical branch control
+
+The **0.3.x development line** begins the native-electricity control layer without coupling GridWorks core to Rebar's unreleased electricity package.
+
+GridWorks now exposes a second Bukkit service contract, `PowerBranchProvider`, for controllable electrical branches. A provider resolves a branch on a specific loaded block face and can apply an idempotent open/closed state. The snapshot model also reserves a validated optional watt-limit value so the future Power Limiter can use the same provider boundary.
+
+### Smart Breaker
+
+The **Smart Breaker** faces one adjacent provider-exposed electrical branch. `true` means the branch is closed/enabled; `false` means open/disabled. It can listen to Default/A-D command circuits or a human-readable addressed command, so the existing Load Shedding Controller can drive groups of Smart Breakers directly without converting through vanilla redstone.
+
+The desired branch state is persisted. If the provider or target chunk is temporarily unavailable, the desired command is retained and reapplied when it returns. Provider registration/unregistration and target chunk load/unload are handled with Bukkit events; there is no Smart Breaker polling task.
+
+The current released Rebar build still does not provide `PowerBranchProvider`. The future native adapter can map this contract onto Rebar's developing `ElectricNetwork.Edge` model, where connections already expose mutable per-edge power limits. GridWorks does not compile against that development branch.

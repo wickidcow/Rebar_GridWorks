@@ -9,9 +9,12 @@ import io.github.wickidcow.gridworks.inventory.InventorySensorManager;
 import io.github.wickidcow.gridworks.machine.MachineSensorManager;
 import io.github.wickidcow.gridworks.physical.PersistentConnectionStore;
 import io.github.wickidcow.gridworks.physical.PhysicalControlNetwork;
+import io.github.wickidcow.gridworks.power.PowerBranchBridge;
 import io.github.wickidcow.gridworks.power.PowerGridBridge;
 import io.github.wickidcow.gridworks.power.PowerGridSensorManager;
+import io.github.wickidcow.gridworks.power.ServicePowerBranchBridge;
 import io.github.wickidcow.gridworks.power.ServicePowerGridBridge;
+import io.github.wickidcow.gridworks.power.SmartBreakerManager;
 import java.io.IOException;
 import java.util.Locale;
 import java.util.logging.Level;
@@ -31,6 +34,8 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
     private MachineSensorManager machineSensorManager;
     private PowerGridBridge powerGridBridge;
     private PowerGridSensorManager powerGridSensorManager;
+    private PowerBranchBridge powerBranchBridge;
+    private SmartBreakerManager smartBreakerManager;
 
     @Override
     public void onLoad() {
@@ -104,6 +109,13 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
                 powerSampleInterval
         );
 
+        powerBranchBridge = new ServicePowerBranchBridge(
+                Bukkit.getServicesManager(),
+                "No PowerBranchProvider is registered"
+        );
+        smartBreakerManager = new SmartBreakerManager(this);
+        getServer().getPluginManager().registerEvents(smartBreakerManager, this);
+
         GridWorksContent.register(this);
 
         Bukkit.getServicesManager().register(ControlBus.class, controlBus, this, ServicePriority.Normal);
@@ -134,6 +146,12 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
             powerGridSensorManager = null;
         }
 
+        if (smartBreakerManager != null) {
+            smartBreakerManager.close();
+            smartBreakerManager = null;
+        }
+
+        powerBranchBridge = null;
         powerGridBridge = null;
 
         if (physicalControlNetwork != null) {
@@ -183,6 +201,20 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
             throw new IllegalStateException("GridWorks is not enabled");
         }
         return machineSensorManager;
+    }
+
+    public @NotNull SmartBreakerManager getSmartBreakerManager() {
+        if (smartBreakerManager == null) {
+            throw new IllegalStateException("GridWorks is not enabled");
+        }
+        return smartBreakerManager;
+    }
+
+    public @NotNull PowerBranchBridge getPowerBranchBridge() {
+        if (powerBranchBridge == null) {
+            throw new IllegalStateException("GridWorks is not enabled");
+        }
+        return powerBranchBridge;
     }
 
     public @NotNull PowerGridSensorManager getPowerGridSensorManager() {

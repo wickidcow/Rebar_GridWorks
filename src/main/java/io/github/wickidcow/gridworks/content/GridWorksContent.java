@@ -19,6 +19,7 @@ import io.github.wickidcow.gridworks.content.block.MachineSensorBlock;
 import io.github.wickidcow.gridworks.content.block.PulseRelayBlock;
 import io.github.wickidcow.gridworks.content.block.PowerGridSensorBlock;
 import io.github.wickidcow.gridworks.content.block.RedstoneSensorBlock;
+import io.github.wickidcow.gridworks.content.block.SmartBreakerBlock;
 import io.github.wickidcow.gridworks.content.block.StatusLightBlock;
 import io.github.wickidcow.gridworks.content.item.ControlLinker;
 import io.github.wickidcow.gridworks.content.listener.RedstoneSensorListener;
@@ -43,6 +44,7 @@ public final class GridWorksContent {
     public static NamespacedKey POWER_GRID_SENSOR;
     public static NamespacedKey FACTORY_CONTROLLER;
     public static NamespacedKey LOAD_SHEDDING_CONTROLLER;
+    public static NamespacedKey SMART_BREAKER;
     public static NamespacedKey FACTORY_MONITOR;
     public static NamespacedKey GRIDWORKS_LINKER;
 
@@ -61,6 +63,7 @@ public final class GridWorksContent {
     public static ItemStack POWER_GRID_SENSOR_ITEM;
     public static ItemStack FACTORY_CONTROLLER_ITEM;
     public static ItemStack LOAD_SHEDDING_CONTROLLER_ITEM;
+    public static ItemStack SMART_BREAKER_ITEM;
     public static ItemStack FACTORY_MONITOR_ITEM;
     public static ItemStack GRIDWORKS_LINKER_ITEM;
 
@@ -84,6 +87,7 @@ public final class GridWorksContent {
         POWER_GRID_SENSOR = new NamespacedKey(plugin, "power_grid_sensor");
         FACTORY_CONTROLLER = new NamespacedKey(plugin, "factory_controller");
         LOAD_SHEDDING_CONTROLLER = new NamespacedKey(plugin, "load_shedding_controller");
+        SMART_BREAKER = new NamespacedKey(plugin, "smart_breaker");
         FACTORY_MONITOR = new NamespacedKey(plugin, "factory_monitor");
         GRIDWORKS_LINKER = new NamespacedKey(plugin, "gridworks_linker");
 
@@ -110,6 +114,7 @@ public final class GridWorksContent {
                 Material.POLISHED_DEEPSLATE,
                 LoadSheddingControllerBlock.class
         );
+        RebarBlock.register(SMART_BREAKER, Material.END_ROD, SmartBreakerBlock.class);
         RebarBlock.register(FACTORY_MONITOR, Material.TINTED_GLASS, FactoryMonitorBlock.class);
 
         CONTROL_INTERFACE_ITEM = ItemStackBuilder.rebar(Material.LODESTONE, CONTROL_INTERFACE).build();
@@ -133,6 +138,10 @@ public final class GridWorksContent {
                 Material.POLISHED_DEEPSLATE,
                 LOAD_SHEDDING_CONTROLLER
         ).build();
+        SMART_BREAKER_ITEM = ItemStackBuilder.rebar(
+                Material.END_ROD,
+                SMART_BREAKER
+        ).build();
         FACTORY_MONITOR_ITEM = ItemStackBuilder.rebar(Material.TINTED_GLASS, FACTORY_MONITOR).build();
         GRIDWORKS_LINKER_ITEM = ItemStackBuilder.rebar(Material.RECOVERY_COMPASS, GRIDWORKS_LINKER).build();
 
@@ -155,6 +164,7 @@ public final class GridWorksContent {
                 LOAD_SHEDDING_CONTROLLER_ITEM,
                 LOAD_SHEDDING_CONTROLLER
         );
+        RebarItem.register(RebarItem.class, SMART_BREAKER_ITEM, SMART_BREAKER);
         RebarItem.register(RebarItem.class, FACTORY_MONITOR_ITEM, FACTORY_MONITOR);
         RebarItem.register(ControlLinker.class, GRIDWORKS_LINKER_ITEM);
 

@@ -347,3 +347,24 @@ Machine Sensor's numeric progress/process-time/ticks-remaining channels are now 
 The 0.2.x development line completes the provider-neutral automation layer: persistent Control Bus topology, sensor state replay, inventory/fluid/machine/redstone/power telemetry, multi-condition Factory Controller logic, addressed routing, relays/timers, alarm operations, power-provider services, Power Grid Sensor, and hysteresis-based load shedding.
 
 The remaining native-electricity work is intentionally separated from Part 2 because released Rebar 0.43.0-26.2 does not expose the upstream electricity package. A future Part 3 can add the Rebar-specific `PowerGridProvider` and Smart Breaker without changing the stable GridWorks control, telemetry, or rule contracts established here.
+
+
+## Part 3 branch-control boundary
+
+Read-only grid telemetry and active branch control are intentionally separate services. `PowerGridProvider` supplies network snapshots; `PowerBranchProvider` controls one branch exposed on a loaded block face.
+
+`PowerBranchSnapshot` contains a provider-local branch identifier, display name, enabled state, and an optional finite non-negative watt limit. Providers that do not support limits must report the limit as unsupported/0. The `setPowerLimitWatts` method has a default UNSUPPORTED implementation so a switch-only provider remains valid when limiting is added later.
+
+`ServicePowerBranchBridge` resolves the highest-priority provider dynamically through Bukkit's `ServicesManager` on every operation. GridWorks never holds a stale provider reference.
+
+## Smart Breaker lifecycle
+
+Smart Breaker persists desired branch state and input routing, not a provider-specific edge/node identifier. Its physical target is the adjacent block face it points at. This keeps worlds portable across provider implementation changes and avoids serializing unreleased Rebar internals.
+
+A Smart Breaker can receive either a compact Default/A-D command circuit or an addressed boolean command. This lets Load Shedding Controller route Essential/Normal/Optional group states directly to branch breakers.
+
+`SmartBreakerManager` has no repeating task. It reconciles loaded breakers on block activation, PowerBranchProvider registration/unregistration, and matching target-chunk load events. Target chunk unload marks the readback unavailable while keeping the desired state. When the target/provider returns, the desired state is applied before readback is accepted as synchronized.
+
+The provider contract requires an APPLIED result to be immediately visible in a subsequent snapshot. GridWorks verifies that readback and surfaces mismatches instead of assuming the command worked.
+
+The current upstream Rebar electricity development branch represents connections as `ElectricNetwork.Edge` objects with mutable `powerLimit` and `unidirectional` properties. A future native adapter can therefore implement Smart Breaker by translating logical open/closed state into stable edge behavior while keeping that translation out of GridWorks core.

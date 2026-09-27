@@ -25,6 +25,7 @@ import io.github.wickidcow.gridworks.content.block.PhysicalControlNodeBlock;
 import io.github.wickidcow.gridworks.content.block.PulseRelayBlock;
 import io.github.wickidcow.gridworks.content.block.PowerGridSensorBlock;
 import io.github.wickidcow.gridworks.content.block.RedstoneSensorBlock;
+import io.github.wickidcow.gridworks.content.block.SmartBreakerBlock;
 import io.github.wickidcow.gridworks.content.block.StatusLightBlock;
 import io.github.wickidcow.gridworks.physical.ControlNetworkSnapshot;
 import io.github.wickidcow.gridworks.physical.PhysicalControlNetwork;
@@ -324,6 +325,26 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
             event.getPlayer().sendMessage(
                     Component.text("Power grid: ", NamedTextColor.GRAY)
                             .append(Component.text(sensor.describeSnapshot(), NamedTextColor.WHITE))
+            );
+        } else if (controlNode instanceof SmartBreakerBlock breaker) {
+            event.getPlayer().sendMessage(
+                    Component.text("Smart breaker: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    breaker.describeBranch(),
+                                    NamedTextColor.WHITE
+                            ))
+            );
+            event.getPlayer().sendMessage(
+                    Component.text("Breaker input: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    breaker.getRouteMode().displayName()
+                                            + " / "
+                                            + (breaker.getRouteMode()
+                                                    == io.github.wickidcow.gridworks.api.control.ControlInputRouteMode.ADDRESS
+                                                    ? breaker.getAddress().channel()
+                                                    : breaker.getCircuit().channel()),
+                                    NamedTextColor.AQUA
+                            ))
             );
         } else if (controlNode instanceof LoadSheddingControllerBlock controller) {
             event.getPlayer().sendMessage(
