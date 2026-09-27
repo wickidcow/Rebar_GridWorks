@@ -319,3 +319,14 @@ Changing thresholds reconstructs `LoadSheddingPolicy` with the current persisted
 ## Load-shedding route repair
 
 `LoadSheddingRoutes` validates that Essential, Normal, and Optional addresses are distinct. During block load it preserves Essential first, then repairs conflicting lower-priority routes with deterministic node-derived fallback addresses. The fallback search handles the edge case where a persisted address already equals the first generated fallback.
+
+
+## Machine Sensor
+
+Machine Sensor targets only released Rebar machine contracts: `ProcessorRebarBlock` and `RecipeProcessorRebarBlock`. `MachineProbe` reads their public processing/time fields and converts both forms into the same immutable `MachineSnapshot`.
+
+The normalized progress contract is completion progress from 0.0 to 1.0. Recipe processors already expose that direction; generic processors expose remaining/total semantics, so GridWorks derives completion from their tick counts instead of forwarding the raw `processProgress` property.
+
+GridWorks does not use `TickingRebarBlock.isTicking` as machine state. That method is internal and only indicates that a scheduled ticking job remains active, not that useful work is being processed.
+
+All loaded Machine Sensors share one configurable sampler (20 ticks by default), never load adjacent chunks, and publish only when the immutable snapshot changes. Unsupported targets publish a zero-valued unavailable snapshot rather than inferred failure reasons.

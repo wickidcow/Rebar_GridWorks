@@ -20,6 +20,12 @@ sensors:
     sample-interval-ticks: 10
 
 
+  machine:
+    # Released Rebar processor APIs expose state but no universal state-change
+    # event, so loaded Machine Sensors share one conservative sampler.
+    # 20 ticks = 1 second at 20 TPS.
+    sample-interval-ticks: 20
+
   power:
     # Power providers may need to inspect an electricity network graph, so the
     # provider-neutral Power Grid Sensor samples more conservatively by default.

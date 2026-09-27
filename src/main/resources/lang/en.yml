@@ -73,6 +73,14 @@ item:
       <arrow> Supports Rebar logistics/virtual inventories and vanilla containers
       <arrow> Publishes only when the measured inventory snapshot changes
 
+  machine_sensor:
+    name: "Machine Sensor"
+    lore: |-
+      <arrow> Watches an adjacent released Rebar processor/recipe processor
+      <arrow> Publishes processing state, normalized progress, and time remaining
+      <arrow> Unsupported blocks report unavailable instead of guessing
+      <arrow> Never uses Rebar's internal ticking registry
+
   fluid_sensor:
     name: "Fluid Tank Sensor"
     lore: |-

@@ -58,6 +58,13 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
             new SignalDefinition(GridWorksChannels.ALARM_OCCURRENCES, "Alarm Occurrences", Material.PAPER),
             new SignalDefinition(GridWorksChannels.ALARM_LAST_TRIGGERED_EPOCH_MS, "Alarm Last Triggered", Material.CLOCK),
 
+            new SignalDefinition(GridWorksChannels.MACHINE_AVAILABLE, "Machine Available", Material.YELLOW_GLAZED_TERRACOTTA),
+            new SignalDefinition(GridWorksChannels.MACHINE_KIND, "Machine Kind", Material.NAME_TAG),
+            new SignalDefinition(GridWorksChannels.MACHINE_PROCESSING, "Machine Processing", Material.FURNACE),
+            new SignalDefinition(GridWorksChannels.MACHINE_PROGRESS, "Machine Progress", Material.CLOCK),
+            new SignalDefinition(GridWorksChannels.MACHINE_PROCESS_TIME_TICKS, "Machine Process Time", Material.REPEATER),
+            new SignalDefinition(GridWorksChannels.MACHINE_TICKS_REMAINING, "Machine Time Remaining", Material.COMPARATOR),
+
             new SignalDefinition(GridWorksChannels.POWER_AVAILABLE, "Power Grid Available", Material.LIGHTNING_ROD),
             new SignalDefinition(GridWorksChannels.POWER_PRODUCTION_CAPACITY_WATTS, "Power Capacity", Material.REDSTONE_BLOCK),
             new SignalDefinition(GridWorksChannels.POWER_DEMAND_WATTS, "Power Demand", Material.COMPARATOR),
@@ -114,7 +121,7 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
                         "a i o t f # # # #",
                         "v p y m k z # # #",
                         "w u g h j # # # #",
-                        "l c d # # # # # #",
+                        "l c d E F G H I J",
                         "P Q R S T U V W X"
                 )
                 .addIngredient('#', GuiItems.background())
@@ -144,6 +151,12 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
                 .addIngredient('l', item(GridWorksChannels.ALARM_OCCURRENCES))
                 .addIngredient('c', item(GridWorksChannels.ALARM_LAST_TRIGGERED_EPOCH_MS))
                 .addIngredient('d', addressedSignalItem)
+                .addIngredient('E', item(GridWorksChannels.MACHINE_AVAILABLE))
+                .addIngredient('F', item(GridWorksChannels.MACHINE_KIND))
+                .addIngredient('G', item(GridWorksChannels.MACHINE_PROCESSING))
+                .addIngredient('H', item(GridWorksChannels.MACHINE_PROGRESS))
+                .addIngredient('I', item(GridWorksChannels.MACHINE_PROCESS_TIME_TICKS))
+                .addIngredient('J', item(GridWorksChannels.MACHINE_TICKS_REMAINING))
                 .addIngredient('P', item(GridWorksChannels.POWER_AVAILABLE))
                 .addIngredient('Q', item(GridWorksChannels.POWER_PRODUCTION_CAPACITY_WATTS))
                 .addIngredient('R', item(GridWorksChannels.POWER_DEMAND_WATTS))

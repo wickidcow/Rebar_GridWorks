@@ -40,6 +40,24 @@ public final class GridWorksChannels {
     public static final ControlChannel FLUID_FILL_RATIO =
             ControlChannel.of("gridworks", "fluid/fill_ratio");
 
+    public static final ControlChannel MACHINE_AVAILABLE =
+            ControlChannel.of("gridworks", "machine/available");
+
+    public static final ControlChannel MACHINE_KIND =
+            ControlChannel.of("gridworks", "machine/kind");
+
+    public static final ControlChannel MACHINE_PROCESSING =
+            ControlChannel.of("gridworks", "machine/processing");
+
+    public static final ControlChannel MACHINE_PROGRESS =
+            ControlChannel.of("gridworks", "machine/progress");
+
+    public static final ControlChannel MACHINE_PROCESS_TIME_TICKS =
+            ControlChannel.of("gridworks", "machine/process_time_ticks");
+
+    public static final ControlChannel MACHINE_TICKS_REMAINING =
+            ControlChannel.of("gridworks", "machine/ticks_remaining");
+
     /**
      * Backward-compatible default boolean command circuit.
      */

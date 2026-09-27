@@ -6,6 +6,7 @@ import io.github.wickidcow.gridworks.control.GraphControlBus;
 import io.github.wickidcow.gridworks.content.GridWorksContent;
 import io.github.wickidcow.gridworks.fluid.FluidSensorManager;
 import io.github.wickidcow.gridworks.inventory.InventorySensorManager;
+import io.github.wickidcow.gridworks.machine.MachineSensorManager;
 import io.github.wickidcow.gridworks.physical.PersistentConnectionStore;
 import io.github.wickidcow.gridworks.physical.PhysicalControlNetwork;
 import io.github.wickidcow.gridworks.power.PowerGridBridge;
@@ -27,6 +28,7 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
     private PhysicalControlNetwork physicalControlNetwork;
     private InventorySensorManager inventorySensorManager;
     private FluidSensorManager fluidSensorManager;
+    private MachineSensorManager machineSensorManager;
     private PowerGridBridge powerGridBridge;
     private PowerGridSensorManager powerGridSensorManager;
 
@@ -76,6 +78,15 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
         );
         fluidSensorManager = new FluidSensorManager(this, fluidSampleInterval);
 
+        long machineSampleInterval = Math.max(
+                1L,
+                getConfig().getLong("sensors.machine.sample-interval-ticks", 20L)
+        );
+        machineSensorManager = new MachineSensorManager(
+                this,
+                machineSampleInterval
+        );
+
         // Resolve power data through Bukkit services. Released Rebar does not
         // yet provide electricity, but third-party addons and the future native
         // Rebar adapter can register PowerGridProvider without changing core.
@@ -111,6 +122,11 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
         if (inventorySensorManager != null) {
             inventorySensorManager.close();
             inventorySensorManager = null;
+        }
+
+        if (machineSensorManager != null) {
+            machineSensorManager.close();
+            machineSensorManager = null;
         }
 
         if (powerGridSensorManager != null) {
@@ -160,6 +176,13 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
             throw new IllegalStateException("GridWorks is not enabled");
         }
         return inventorySensorManager;
+    }
+
+    public @NotNull MachineSensorManager getMachineSensorManager() {
+        if (machineSensorManager == null) {
+            throw new IllegalStateException("GridWorks is not enabled");
+        }
+        return machineSensorManager;
     }
 
     public @NotNull PowerGridSensorManager getPowerGridSensorManager() {

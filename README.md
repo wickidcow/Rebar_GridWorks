@@ -54,6 +54,21 @@ The Inventory Sensor faces an adjacent inventory and publishes availability, tot
 
 There is no universal inventory-change event across every supported inventory type, so all loaded Inventory Sensors share one configurable sampler and publish only when their snapshot changes.
 
+### Machine sensing
+
+The **Machine Sensor** faces an adjacent loaded Rebar block and uses the released `ProcessorRebarBlock` and `RecipeProcessorRebarBlock` contracts. It publishes:
+
+- `gridworks:machine/available`
+- `gridworks:machine/kind`
+- `gridworks:machine/processing`
+- `gridworks:machine/progress`
+- `gridworks:machine/process_time_ticks`
+- `gridworks:machine/ticks_remaining`
+
+Progress is normalized to **0.0 → 1.0 completed** for both processor styles, rather than leaking the different raw progress semantics of the two Rebar interfaces. Idle machines publish zero process measurements. Unsupported blocks publish unavailable.
+
+All loaded Machine Sensors share one configurable sampler (1 second by default) and publish only when the snapshot changes. GridWorks deliberately does **not** use Rebar's internal `TickingRebarBlock.isTicking` helper as a proxy for “machine running”; scheduled ticking is not the same thing as active processing.
+
 ### Fluid sensing
 
 The Fluid Tank Sensor faces an adjacent block implementing Rebar's released `FluidTankRebarBlock` API and publishes:
@@ -109,7 +124,7 @@ Fluid Tank Sensor ---/       A: items >= 64
 
 ## Factory Monitor
 
-The Factory Monitor is a passive diagnostic node. It displays the latest built-in redstone, command-circuit, inventory, fluid, controller-output, and alarm-state signals seen on its loaded Control Bus component, including the source node ID and signal sequence. It does not poll machines.
+The Factory Monitor is a passive diagnostic node. It displays the latest built-in redstone, command-circuit, inventory, fluid, machine-processing, power, controller-output, and alarm-state signals seen on its loaded Control Bus component, including the source node ID and signal sequence. It does not poll machines itself; Machine Sensors own their shared sampler.
 
 Stateful devices implement `ControlStateSource`. When loaded topology expands, GridWorks replays current state from every loaded state source in that component. This means a monitor or actuator joining through an intermediate Control Interface receives current state even when the original sensor is several hops away.
 

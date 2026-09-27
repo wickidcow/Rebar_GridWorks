@@ -15,6 +15,7 @@ import io.github.wickidcow.gridworks.content.block.FactoryMonitorBlock;
 import io.github.wickidcow.gridworks.content.block.FluidSensorBlock;
 import io.github.wickidcow.gridworks.content.block.InventorySensorBlock;
 import io.github.wickidcow.gridworks.content.block.LoadSheddingControllerBlock;
+import io.github.wickidcow.gridworks.content.block.MachineSensorBlock;
 import io.github.wickidcow.gridworks.content.block.PulseRelayBlock;
 import io.github.wickidcow.gridworks.content.block.PowerGridSensorBlock;
 import io.github.wickidcow.gridworks.content.block.RedstoneSensorBlock;
@@ -36,6 +37,7 @@ public final class GridWorksContent {
     public static NamespacedKey ADDRESSED_RELAY;
     public static NamespacedKey DELAY_RELAY;
     public static NamespacedKey INVENTORY_SENSOR;
+    public static NamespacedKey MACHINE_SENSOR;
     public static NamespacedKey PULSE_RELAY;
     public static NamespacedKey FLUID_SENSOR;
     public static NamespacedKey POWER_GRID_SENSOR;
@@ -53,6 +55,7 @@ public final class GridWorksContent {
     public static ItemStack ADDRESSED_RELAY_ITEM;
     public static ItemStack DELAY_RELAY_ITEM;
     public static ItemStack INVENTORY_SENSOR_ITEM;
+    public static ItemStack MACHINE_SENSOR_ITEM;
     public static ItemStack PULSE_RELAY_ITEM;
     public static ItemStack FLUID_SENSOR_ITEM;
     public static ItemStack POWER_GRID_SENSOR_ITEM;
@@ -75,6 +78,7 @@ public final class GridWorksContent {
         ADDRESSED_RELAY = new NamespacedKey(plugin, "addressed_relay");
         DELAY_RELAY = new NamespacedKey(plugin, "delay_relay");
         INVENTORY_SENSOR = new NamespacedKey(plugin, "inventory_sensor");
+        MACHINE_SENSOR = new NamespacedKey(plugin, "machine_sensor");
         PULSE_RELAY = new NamespacedKey(plugin, "pulse_relay");
         FLUID_SENSOR = new NamespacedKey(plugin, "fluid_sensor");
         POWER_GRID_SENSOR = new NamespacedKey(plugin, "power_grid_sensor");
@@ -92,6 +96,11 @@ public final class GridWorksContent {
         RebarBlock.register(ADDRESSED_RELAY, Material.LEVER, AddressedRelayBlock.class);
         RebarBlock.register(DELAY_RELAY, Material.LEVER, DelayRelayBlock.class);
         RebarBlock.register(INVENTORY_SENSOR, Material.CYAN_GLAZED_TERRACOTTA, InventorySensorBlock.class);
+        RebarBlock.register(
+                MACHINE_SENSOR,
+                Material.YELLOW_GLAZED_TERRACOTTA,
+                MachineSensorBlock.class
+        );
         RebarBlock.register(PULSE_RELAY, Material.LEVER, PulseRelayBlock.class);
         RebarBlock.register(FLUID_SENSOR, Material.LIGHT_BLUE_GLAZED_TERRACOTTA, FluidSensorBlock.class);
         RebarBlock.register(POWER_GRID_SENSOR, Material.LIGHTNING_ROD, PowerGridSensorBlock.class);
@@ -112,6 +121,10 @@ public final class GridWorksContent {
         ADDRESSED_RELAY_ITEM = ItemStackBuilder.rebar(Material.LEVER, ADDRESSED_RELAY).build();
         DELAY_RELAY_ITEM = ItemStackBuilder.rebar(Material.LEVER, DELAY_RELAY).build();
         INVENTORY_SENSOR_ITEM = ItemStackBuilder.rebar(Material.CYAN_GLAZED_TERRACOTTA, INVENTORY_SENSOR).build();
+        MACHINE_SENSOR_ITEM = ItemStackBuilder.rebar(
+                Material.YELLOW_GLAZED_TERRACOTTA,
+                MACHINE_SENSOR
+        ).build();
         PULSE_RELAY_ITEM = ItemStackBuilder.rebar(Material.LEVER, PULSE_RELAY).build();
         FLUID_SENSOR_ITEM = ItemStackBuilder.rebar(Material.LIGHT_BLUE_GLAZED_TERRACOTTA, FLUID_SENSOR).build();
         POWER_GRID_SENSOR_ITEM = ItemStackBuilder.rebar(Material.LIGHTNING_ROD, POWER_GRID_SENSOR).build();
@@ -132,6 +145,7 @@ public final class GridWorksContent {
         RebarItem.register(RebarItem.class, ADDRESSED_RELAY_ITEM, ADDRESSED_RELAY);
         RebarItem.register(RebarItem.class, DELAY_RELAY_ITEM, DELAY_RELAY);
         RebarItem.register(RebarItem.class, INVENTORY_SENSOR_ITEM, INVENTORY_SENSOR);
+        RebarItem.register(RebarItem.class, MACHINE_SENSOR_ITEM, MACHINE_SENSOR);
         RebarItem.register(RebarItem.class, PULSE_RELAY_ITEM, PULSE_RELAY);
         RebarItem.register(RebarItem.class, FLUID_SENSOR_ITEM, FLUID_SENSOR);
         RebarItem.register(RebarItem.class, POWER_GRID_SENSOR_ITEM, POWER_GRID_SENSOR);
