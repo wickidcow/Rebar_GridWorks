@@ -11,6 +11,7 @@ import io.github.wickidcow.gridworks.api.control.ControlSignal;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
 import io.github.wickidcow.gridworks.monitor.FactoryMonitorTelemetry;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -299,12 +300,29 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
         return Map.copyOf(items);
     }
 
+    private static String displayValue(ControlChannel channel, ControlValue value) {
+        if ((GridWorksChannels.MACHINE_LAST_CYCLE_EPOCH_MS.equals(channel)
+                || GridWorksChannels.ALARM_LAST_TRIGGERED_EPOCH_MS.equals(channel))
+                && value instanceof ControlValue.NumberValue numberValue) {
+            long epochMillis = (long) numberValue.value();
+            return epochMillis <= 0L
+                    ? "never"
+                    : Instant.ofEpochMilli(epochMillis).toString();
+        }
+        return displayValue(value);
+    }
+
     private static String displayValue(ControlValue value) {
         if (value instanceof ControlValue.BooleanValue booleanValue) {
             return booleanValue.value() ? "true" : "false";
         }
         if (value instanceof ControlValue.NumberValue numberValue) {
-            return Double.toString(numberValue.value());
+            double numeric = numberValue.value();
+            if (numeric == Math.rint(numeric)
+                    && Math.abs(numeric) <= 9_007_199_254_740_991.0) {
+                return Long.toString((long) numeric);
+            }
+            return Double.toString(numeric);
         }
         if (value instanceof ControlValue.TextValue textValue) {
             return textValue.value().isEmpty() ? "(empty)" : textValue.value();
@@ -342,7 +360,7 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
 
             return builder.lore(
                     Component.text(
-                            "Value: " + displayValue(signal.value()),
+                            "Value: " + displayValue(definition.channel(), signal.value()),
                             NamedTextColor.WHITE
                     ),
                     Component.text(

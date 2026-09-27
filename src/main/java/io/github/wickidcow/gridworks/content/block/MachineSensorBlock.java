@@ -1,6 +1,9 @@
 package io.github.wickidcow.gridworks.content.block;
 
 import io.github.pylonmc.rebar.block.context.BlockCreateContext;
+import io.github.pylonmc.rebar.block.interfaces.GuiRebarBlock;
+import io.github.pylonmc.rebar.item.builder.ItemStackBuilder;
+import io.github.pylonmc.rebar.util.gui.GuiItems;
 import io.github.wickidcow.gridworks.GridWorks;
 import io.github.wickidcow.gridworks.api.control.ControlStateSource;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
@@ -8,20 +11,30 @@ import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
 import io.github.wickidcow.gridworks.machine.MachineProbe;
 import io.github.wickidcow.gridworks.machine.MachineSnapshot;
 import io.github.wickidcow.gridworks.machine.ObservedMachineCycleCounter;
+import java.time.Instant;
 import java.util.Locale;
 import java.util.Objects;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Directional;
 import org.bukkit.NamespacedKey;
+import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.jetbrains.annotations.NotNull;
+import xyz.xenondevs.invui.Click;
+import xyz.xenondevs.invui.gui.Gui;
+import xyz.xenondevs.invui.item.AbstractItem;
+import xyz.xenondevs.invui.item.ItemProvider;
 
 public final class MachineSensorBlock extends PhysicalControlNodeBlock
-        implements ControlStateSource {
+        implements ControlStateSource, GuiRebarBlock {
     private static final NamespacedKey OBSERVED_CYCLES_KEY = Objects.requireNonNull(
             NamespacedKey.fromString("gridworks:machine_sensor_observed_cycles")
     );
@@ -30,6 +43,8 @@ public final class MachineSensorBlock extends PhysicalControlNodeBlock
     );
 
     private final ObservedMachineCycleCounter cycleCounter;
+    private final CycleStatusItem cycleStatusItem = new CycleStatusItem();
+    private final ResetCyclesItem resetCyclesItem = new ResetCyclesItem();
     private MachineSnapshot lastSnapshot;
 
     public MachineSensorBlock(
@@ -84,6 +99,16 @@ public final class MachineSensorBlock extends PhysicalControlNodeBlock
         }
     }
 
+    @Override
+    public @NotNull Gui createGui() {
+        return Gui.builder()
+                .setStructure("c # r")
+                .addIngredient('#', GuiItems.background())
+                .addIngredient('c', cycleStatusItem)
+                .addIngredient('r', resetCyclesItem)
+                .build();
+    }
+
     public void sampleNow() {
         MachineSnapshot snapshot = readTarget();
         boolean completedObservedCycle = cycleCounter.observe(
@@ -97,6 +122,8 @@ public final class MachineSensorBlock extends PhysicalControlNodeBlock
 
         lastSnapshot = snapshot;
         publish(snapshot);
+        cycleStatusItem.notifyWindows();
+        resetCyclesItem.notifyWindows();
     }
 
     public @NotNull String describeSnapshot() {
@@ -122,6 +149,17 @@ public final class MachineSensorBlock extends PhysicalControlNodeBlock
                 + " ticks remaining, "
                 + observedCycles
                 + " observed cycle(s)";
+    }
+
+    private void resetObservedCycles() {
+        cycleCounter.resetCount();
+        publishCurrentState();
+        cycleStatusItem.notifyWindows();
+        resetCyclesItem.notifyWindows();
+    }
+
+    private static String formatLastCycle(long epochMillis) {
+        return epochMillis <= 0L ? "never" : Instant.ofEpochMilli(epochMillis).toString();
     }
 
     private MachineSnapshot readTarget() {
@@ -197,4 +235,76 @@ public final class MachineSensorBlock extends PhysicalControlNodeBlock
                 ControlValue.of((double) cycleCounter.lastCycleEpochMillis())
         );
     }
+
+    private final class CycleStatusItem extends AbstractItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            MachineSnapshot snapshot = lastSnapshot;
+            String machineState;
+            if (snapshot == null || !snapshot.available()) {
+                machineState = "Target unavailable";
+            } else if (snapshot.processing()) {
+                machineState = "Processing";
+            } else {
+                machineState = "Idle";
+            }
+
+            return ItemStackBuilder.of(Material.CRAFTING_TABLE)
+                    .name(Component.text("Observed Machine Cycles", NamedTextColor.GOLD))
+                    .lore(
+                            Component.text("Count: " + cycleCounter.observedCycles(), NamedTextColor.WHITE),
+                            Component.text(
+                                    "Last: " + formatLastCycle(cycleCounter.lastCycleEpochMillis()),
+                                    NamedTextColor.GRAY
+                            ),
+                            Component.text("Machine: " + machineState, NamedTextColor.AQUA),
+                            Component.text(
+                                    "Counts observed processing -> idle transitions",
+                                    NamedTextColor.DARK_GRAY
+                            )
+                    );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+        }
+    }
+
+    private final class ResetCyclesItem extends AbstractItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            return ItemStackBuilder.of(Material.BARRIER)
+                    .name(Component.text("Reset Observed Cycles", NamedTextColor.RED))
+                    .lore(
+                            Component.text(
+                                    "Shift + right click to reset count and timestamp",
+                                    NamedTextColor.YELLOW
+                            ),
+                            Component.text(
+                                    "Current processing baseline is preserved",
+                                    NamedTextColor.GRAY
+                            ),
+                            Component.text(
+                                    "A running machine can become cycle 1 when it next goes idle",
+                                    NamedTextColor.DARK_GRAY
+                            )
+                    );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            if (clickType.isRightClick() && clickType.isShiftClick()) {
+                resetObservedCycles();
+            }
+        }
+    }
 }
+

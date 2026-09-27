@@ -337,6 +337,8 @@ Machine Sensor also owns a persisted `ObservedMachineCycleCounter`. The first av
 
 The resulting `machine/observed_cycles` and `machine/last_cycle_epoch_ms` telemetry is replayable state. Observed Cycles is intentionally defined as activity telemetry, not a guaranteed recipe-output count, because released Rebar has no universal completion event spanning both processor interfaces GridWorks supports.
 
+Machine Sensor exposes this state through a small GUI. Resetting the observed-cycle count clears only the persisted total and last-cycle timestamp; it deliberately preserves the current processing baseline. This means resetting during an active job does not lose that job from the new batch. The reset immediately republishes telemetry, so downstream Factory Controllers fall below their prior cycle threshold without requiring topology churn or a sensor reload.
+
 
 ## Unified sensor availability semantics
 

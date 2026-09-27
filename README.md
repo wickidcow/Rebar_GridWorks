@@ -71,6 +71,8 @@ All loaded Machine Sensors share one configurable sampler (1 second by default) 
 
 Observed Cycles is deliberately activity telemetry rather than a guaranteed crafted-output count. Released Rebar exposes common processor state but no universal completion event across both supported processor contracts, so GridWorks does not pretend an active-to-idle transition proves a recipe output. GridWorks also deliberately does **not** use Rebar's internal `TickingRebarBlock.isTicking` helper as a proxy for “machine running”; scheduled ticking is not the same thing as active processing.
 
+Right-clicking a Machine Sensor opens its cycle panel. **Shift + right click Reset Observed Cycles** starts a new batch by clearing the persisted count/timestamp while preserving the current processing baseline. If a machine is already running when the counter is reset, that in-progress job can correctly become cycle 1 when it next reaches idle. Combined with a Factory Controller rule such as `Observed Machine Cycles >= 64`, this gives GridWorks a simple operator-resettable batch target without adding another polling task or pretending to own the machine's recipe lifecycle.
+
 ### Fluid sensing
 
 The Fluid Tank Sensor faces an adjacent block implementing Rebar's released `FluidTankRebarBlock` API and publishes:

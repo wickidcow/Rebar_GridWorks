@@ -63,6 +63,11 @@ public final class ObservedMachineCycleCounter {
         return true;
     }
 
+    public synchronized void resetCount() {
+        observedCycles = 0L;
+        lastCycleEpochMillis = 0L;
+    }
+
     public synchronized long observedCycles() {
         return observedCycles;
     }

@@ -53,6 +53,20 @@ class ObservedMachineCycleCounterTest {
     }
 
     @Test
+    void resetPreservesActiveProcessingBaselineForTheNextBatch() {
+        ObservedMachineCycleCounter counter = new ObservedMachineCycleCounter(9L, 500L);
+        counter.observe(MachineSnapshot.processing("processor", 100, 25), 600L);
+
+        counter.resetCount();
+
+        assertEquals(0L, counter.observedCycles());
+        assertEquals(0L, counter.lastCycleEpochMillis());
+        assertTrue(counter.observe(MachineSnapshot.idle("processor"), 700L));
+        assertEquals(1L, counter.observedCycles());
+        assertEquals(700L, counter.lastCycleEpochMillis());
+    }
+
+    @Test
     void rejectsInvalidPersistedState() {
         assertThrows(IllegalArgumentException.class, () -> new ObservedMachineCycleCounter(-1L, 0L));
         assertThrows(
