@@ -119,9 +119,11 @@ Control Bus callbacks deliberately run on the publisher's thread. Physical GridW
 
 ## Power-grid bridge status
 
-GridWorks now has a provider-neutral `PowerGridSnapshot` model and an explicit `PowerGridBridge` boundary for future electricity integration. The released Rebar dependency (`0.43.0-26.2`) does **not** contain the electricity API currently being developed on Rebar's `seggan/feature/elektrikity` branch, so GridWorks deliberately ships with an unavailable bridge rather than compiling against unreleased classes.
+GridWorks now has a provider-neutral `PowerGridSnapshot` model, an internal `PowerGridBridge`, and a public `PowerGridProvider` Bukkit service contract. The released Rebar dependency (`0.43.0-26.2`) does **not** contain the electricity API currently being developed on Rebar's `seggan/feature/elektrikity` branch, so GridWorks does not compile against unreleased classes.
 
-The neutral snapshot already defines the measurements GridWorks needs: node/producer/consumer counts, powered/unpowered consumers, production capacity, demand, load ratio, reserve watts, and powered-consumer ratio. `PowerGridTelemetry` maps those values onto stable `gridworks:power/*` Control Bus channels, and the Factory Monitor already has bounded display slots for the most useful power signals. When upstream electricity lands in a released Rebar build, only the bridge adapter and player-facing sensor need to know how to obtain a snapshot.
+The neutral snapshot already defines the measurements GridWorks needs: node/producer/consumer counts, powered/unpowered consumers, production capacity, demand, load ratio, reserve watts, and powered-consumer ratio. `PowerGridTelemetry` maps those values onto stable `gridworks:power/*` Control Bus channels, and the Factory Monitor already has bounded display slots for the most useful power signals.
+
+Any addon can register `PowerGridProvider` through Bukkit's `ServicesManager`; Bukkit's normal service priority selects the active provider. That gives third-party electricity systems an integration path now, while a future native Rebar adapter can implement the same contract later.
 
 ## Planned systems
 

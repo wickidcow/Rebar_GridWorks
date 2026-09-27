@@ -67,9 +67,11 @@ GridWorks publishes its `ControlBus` through Bukkit's `ServicesManager`, allowin
 
 Electricity integration remains isolated behind `PowerGridBridge`. The public/provider-neutral `PowerGridSnapshot` contains only GridWorks measurements: node/producer/consumer counts, powered consumers, production capacity, and demand, with derived load/reserve/powered ratios.
 
-The released Rebar dependency does not contain the electricity package currently present on the upstream `seggan/feature/elektrikity` branch, so the production build installs `UnavailablePowerGridBridge`. No reflection is used to bind unreleased internals and no dead Power Sensor is registered.
+The released Rebar dependency does not contain the electricity package currently present on the upstream `seggan/feature/elektrikity` branch, so no reflection is used to bind unreleased internals and no dead Power Sensor is registered.
 
-When electricity reaches a released Rebar artifact, a Rebar-specific bridge can translate `ElectricNetwork` / producer / consumer state into `PowerGridSnapshot`. Controllers, Control Bus channels, and future player-facing power devices do not need to depend directly on upstream electricity classes.
+Instead, GridWorks exposes the public `PowerGridProvider` service contract. `ServicePowerGridBridge` asks Bukkit's `ServicesManager` for the highest-priority currently registered provider each time a snapshot is needed. Provider registration therefore follows Bukkit's standard plugin lifecycle and automatically disappears when the owning plugin is disabled.
+
+When electricity reaches a released Rebar artifact, a Rebar-specific provider can translate `ElectricNetwork` / producer / consumer state into `PowerGridSnapshot`. Controllers, Control Bus channels, and future player-facing power devices do not need to depend directly on upstream electricity classes.
 
 
 ## Controller rules
@@ -251,3 +253,10 @@ The policy exposes three stages:
 Default hysteresis is 90%/80% for optional shed/restore and 100%/90% for normal shed/restore. Any reported unpowered consumer forces the severe stage even when aggregate capacity-minus-demand appears healthy, because Rebar branch/edge limits can strand consumers independently of total capacity.
 
 Recovery is deliberately staged: severe -> optional-shed -> normal. This prevents a marginal grid from restoring all loads at once and immediately collapsing again.
+
+
+## Third-party power providers
+
+External addons can implement `io.github.wickidcow.gridworks.api.power.PowerGridProvider` and register it with Bukkit's `ServicesManager`. GridWorks intentionally does not cache the provider object across calls; service resolution follows Bukkit's highest-priority registration semantics, so provider enable/disable or replacement does not leave a stale reference inside GridWorks.
+
+A provider must return snapshots only for already-loaded blocks and must never force chunk loads. Returning `Optional.empty()` means the queried block is not associated with a known grid. Returning `null` is treated as a provider contract violation.

@@ -9,7 +9,7 @@ import io.github.wickidcow.gridworks.inventory.InventorySensorManager;
 import io.github.wickidcow.gridworks.physical.PersistentConnectionStore;
 import io.github.wickidcow.gridworks.physical.PhysicalControlNetwork;
 import io.github.wickidcow.gridworks.power.PowerGridBridge;
-import io.github.wickidcow.gridworks.power.UnavailablePowerGridBridge;
+import io.github.wickidcow.gridworks.power.ServicePowerGridBridge;
 import java.io.IOException;
 import java.util.Locale;
 import java.util.logging.Level;
@@ -74,11 +74,12 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
         );
         fluidSensorManager = new FluidSensorManager(this, fluidSampleInterval);
 
-        // Rebar 0.43.0-26.2 does not yet ship its electricity API. Keep the
-        // upstream-sensitive boundary explicit so a future adapter can replace
-        // this without changing sensors/controllers or the Control Bus core.
-        powerGridBridge = new UnavailablePowerGridBridge(
-                "Rebar electricity API is not present in the released dependency"
+        // Resolve power data through Bukkit services. Released Rebar does not
+        // yet provide electricity, but third-party addons and the future native
+        // Rebar adapter can register PowerGridProvider without changing core.
+        powerGridBridge = new ServicePowerGridBridge(
+                Bukkit.getServicesManager(),
+                "No PowerGridProvider is registered"
         );
 
         GridWorksContent.register(this);
