@@ -34,7 +34,10 @@ public interface PowerBranchProvider {
     );
 
     /**
-     * Optional future-facing branch limiter hook.
+     * Optional branch limiter hook.
+     *
+     * <p>GridWorks uses {@link Double#MAX_VALUE} as the provider-neutral
+     * representation of bypass/unlimited.</p>
      */
     default @NotNull PowerBranchControlResult setPowerLimitWatts(
             @NotNull Block target,

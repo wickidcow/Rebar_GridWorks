@@ -14,7 +14,7 @@ import io.github.wickidcow.gridworks.power.PowerGridBridge;
 import io.github.wickidcow.gridworks.power.PowerGridSensorManager;
 import io.github.wickidcow.gridworks.power.ServicePowerBranchBridge;
 import io.github.wickidcow.gridworks.power.ServicePowerGridBridge;
-import io.github.wickidcow.gridworks.power.SmartBreakerManager;
+import io.github.wickidcow.gridworks.power.PowerBranchDeviceManager;
 import java.io.IOException;
 import java.util.Locale;
 import java.util.logging.Level;
@@ -35,7 +35,7 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
     private PowerGridBridge powerGridBridge;
     private PowerGridSensorManager powerGridSensorManager;
     private PowerBranchBridge powerBranchBridge;
-    private SmartBreakerManager smartBreakerManager;
+    private PowerBranchDeviceManager powerBranchDeviceManager;
 
     @Override
     public void onLoad() {
@@ -113,8 +113,8 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
                 Bukkit.getServicesManager(),
                 "No PowerBranchProvider is registered"
         );
-        smartBreakerManager = new SmartBreakerManager(this);
-        getServer().getPluginManager().registerEvents(smartBreakerManager, this);
+        powerBranchDeviceManager = new PowerBranchDeviceManager(this);
+        getServer().getPluginManager().registerEvents(powerBranchDeviceManager, this);
 
         GridWorksContent.register(this);
 
@@ -146,9 +146,9 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
             powerGridSensorManager = null;
         }
 
-        if (smartBreakerManager != null) {
-            smartBreakerManager.close();
-            smartBreakerManager = null;
+        if (powerBranchDeviceManager != null) {
+            powerBranchDeviceManager.close();
+            powerBranchDeviceManager = null;
         }
 
         powerBranchBridge = null;
@@ -203,11 +203,11 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
         return machineSensorManager;
     }
 
-    public @NotNull SmartBreakerManager getSmartBreakerManager() {
-        if (smartBreakerManager == null) {
+    public @NotNull PowerBranchDeviceManager getPowerBranchDeviceManager() {
+        if (powerBranchDeviceManager == null) {
             throw new IllegalStateException("GridWorks is not enabled");
         }
-        return smartBreakerManager;
+        return powerBranchDeviceManager;
     }
 
     public @NotNull PowerBranchBridge getPowerBranchBridge() {

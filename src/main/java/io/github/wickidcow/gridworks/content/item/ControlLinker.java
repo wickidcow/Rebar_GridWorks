@@ -24,6 +24,7 @@ import io.github.wickidcow.gridworks.content.block.MachineSensorBlock;
 import io.github.wickidcow.gridworks.content.block.PhysicalControlNodeBlock;
 import io.github.wickidcow.gridworks.content.block.PulseRelayBlock;
 import io.github.wickidcow.gridworks.content.block.PowerGridSensorBlock;
+import io.github.wickidcow.gridworks.content.block.PowerLimiterBlock;
 import io.github.wickidcow.gridworks.content.block.RedstoneSensorBlock;
 import io.github.wickidcow.gridworks.content.block.SmartBreakerBlock;
 import io.github.wickidcow.gridworks.content.block.StatusLightBlock;
@@ -325,6 +326,26 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
             event.getPlayer().sendMessage(
                     Component.text("Power grid: ", NamedTextColor.GRAY)
                             .append(Component.text(sensor.describeSnapshot(), NamedTextColor.WHITE))
+            );
+        } else if (controlNode instanceof PowerLimiterBlock limiter) {
+            event.getPlayer().sendMessage(
+                    Component.text("Power limiter: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    limiter.describeBranch(),
+                                    NamedTextColor.WHITE
+                            ))
+            );
+            event.getPlayer().sendMessage(
+                    Component.text("Limiter input: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    limiter.getRouteMode().displayName()
+                                            + " / "
+                                            + (limiter.getRouteMode()
+                                                    == io.github.wickidcow.gridworks.api.control.ControlInputRouteMode.ADDRESS
+                                                    ? limiter.getAddress().channel()
+                                                    : limiter.getCircuit().channel()),
+                                    NamedTextColor.AQUA
+                            ))
             );
         } else if (controlNode instanceof SmartBreakerBlock breaker) {
             event.getPlayer().sendMessage(

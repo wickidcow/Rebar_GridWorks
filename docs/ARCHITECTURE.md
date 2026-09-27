@@ -368,3 +368,16 @@ A Smart Breaker can receive either a compact Default/A-D command circuit or an a
 The provider contract requires an APPLIED result to be immediately visible in a subsequent snapshot. GridWorks verifies that readback and surfaces mismatches instead of assuming the command worked.
 
 The current upstream Rebar electricity development branch represents connections as `ElectricNetwork.Edge` objects with mutable `powerLimit` and `unidirectional` properties. A future native adapter can therefore implement Smart Breaker by translating logical open/closed state into stable edge behavior while keeping that translation out of GridWorks core.
+
+
+## Power Limiter
+
+Power Limiter is the second `PowerBranchDevice`. It uses the same target-face and provider lifecycle as Smart Breaker, but its desired state is `PowerLimitSetting`: a validated positive configured watt cap plus an enabled/bypass flag.
+
+The provider-neutral bypass representation is `Double.MAX_VALUE`, matching the current upstream Rebar development branch's default unlimited `ElectricNetwork.Edge.powerLimit`. A provider that has no limiting capability may still implement branch switching; its default `setPowerLimitWatts` response is UNSUPPORTED.
+
+Limiter readback uses a small relative floating-point tolerance for finite limits and exact comparison for the unlimited sentinel. APPLIED commands are verified through a fresh branch snapshot.
+
+## Shared power-branch device lifecycle
+
+Smart Breaker and Power Limiter implement the internal `PowerBranchDevice` contract and register with one `PowerBranchDeviceManager`. Provider registration/unregistration and target chunk load/unload events therefore have one reconciliation path and no duplicate listeners or polling tasks.

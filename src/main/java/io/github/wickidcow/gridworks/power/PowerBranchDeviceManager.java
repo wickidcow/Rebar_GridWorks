@@ -2,7 +2,6 @@ package io.github.wickidcow.gridworks.power;
 
 import io.github.wickidcow.gridworks.GridWorks;
 import io.github.wickidcow.gridworks.api.power.PowerBranchProvider;
-import io.github.wickidcow.gridworks.content.block.SmartBreakerBlock;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -17,26 +16,26 @@ import org.bukkit.event.server.ServiceUnregisterEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
 
-public final class SmartBreakerManager implements Listener, AutoCloseable {
+public final class PowerBranchDeviceManager implements Listener, AutoCloseable {
     private final GridWorks plugin;
-    private final Set<SmartBreakerBlock> breakers =
+    private final Set<PowerBranchDevice> devices =
             Collections.newSetFromMap(new IdentityHashMap<>());
 
-    public SmartBreakerManager(GridWorks plugin) {
+    public PowerBranchDeviceManager(GridWorks plugin) {
         this.plugin = plugin;
     }
 
-    public void register(SmartBreakerBlock breaker) {
-        breakers.add(breaker);
-        breaker.reconcileBranch();
+    public void register(PowerBranchDevice device) {
+        devices.add(device);
+        device.reconcileBranch();
     }
 
-    public void unregister(SmartBreakerBlock breaker) {
-        breakers.remove(breaker);
+    public void unregister(PowerBranchDevice device) {
+        devices.remove(device);
     }
 
-    public int loadedBreakerCount() {
-        return breakers.size();
+    public int loadedDeviceCount() {
+        return devices.size();
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -70,8 +69,8 @@ public final class SmartBreakerManager implements Listener, AutoCloseable {
     }
 
     private void reconcileAll() {
-        for (SmartBreakerBlock breaker : List.copyOf(breakers)) {
-            breaker.reconcileBranch();
+        for (PowerBranchDevice device : List.copyOf(devices)) {
+            device.reconcileBranch();
         }
     }
 
@@ -80,9 +79,9 @@ public final class SmartBreakerManager implements Listener, AutoCloseable {
         int chunkX = chunk.getX();
         int chunkZ = chunk.getZ();
 
-        for (SmartBreakerBlock breaker : List.copyOf(breakers)) {
-            if (breaker.targetsChunk(worldId, chunkX, chunkZ)) {
-                breaker.reconcileBranch();
+        for (PowerBranchDevice device : List.copyOf(devices)) {
+            if (device.targetsChunk(worldId, chunkX, chunkZ)) {
+                device.reconcileBranch();
             }
         }
     }
@@ -92,15 +91,15 @@ public final class SmartBreakerManager implements Listener, AutoCloseable {
         int chunkX = chunk.getX();
         int chunkZ = chunk.getZ();
 
-        for (SmartBreakerBlock breaker : List.copyOf(breakers)) {
-            if (breaker.targetsChunk(worldId, chunkX, chunkZ)) {
-                breaker.markTargetUnavailable("Target chunk unloaded");
+        for (PowerBranchDevice device : List.copyOf(devices)) {
+            if (device.targetsChunk(worldId, chunkX, chunkZ)) {
+                device.markTargetUnavailable("Target chunk unloaded");
             }
         }
     }
 
     @Override
     public void close() {
-        breakers.clear();
+        devices.clear();
     }
 }

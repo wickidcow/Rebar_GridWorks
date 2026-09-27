@@ -13,6 +13,7 @@ import io.github.wickidcow.gridworks.api.control.ControlSignal;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.api.power.PowerBranchControlResult;
 import io.github.wickidcow.gridworks.api.power.PowerBranchSnapshot;
+import io.github.wickidcow.gridworks.api.power.PowerLimitSetting;
 import io.github.wickidcow.gridworks.power.PowerBranchDevice;
 import java.util.Locale;
 import java.util.Objects;
@@ -38,18 +39,23 @@ import xyz.xenondevs.invui.item.AbstractItem;
 import xyz.xenondevs.invui.item.ItemProvider;
 import xyz.xenondevs.invui.window.AnvilWindow;
 
-public final class SmartBreakerBlock extends PhysicalControlNodeBlock
+public final class PowerLimiterBlock extends PhysicalControlNodeBlock
         implements GuiRebarBlock, PowerBranchDevice {
 
-    private static final NamespacedKey ROUTE_MODE_KEY = key("smart_breaker_route_mode");
-    private static final NamespacedKey CIRCUIT_KEY = key("smart_breaker_circuit");
-    private static final NamespacedKey ADDRESS_KEY = key("smart_breaker_address");
-    private static final NamespacedKey DESIRED_ENABLED_KEY = key("smart_breaker_desired_enabled");
+    private static final NamespacedKey ROUTE_MODE_KEY = key("power_limiter_route_mode");
+    private static final NamespacedKey CIRCUIT_KEY = key("power_limiter_circuit");
+    private static final NamespacedKey ADDRESS_KEY = key("power_limiter_address");
+    private static final NamespacedKey LIMIT_ENABLED_KEY = key("power_limiter_enabled");
+    private static final NamespacedKey LIMIT_WATTS_KEY = key("power_limiter_watts");
+
+    private static final double DEFAULT_LIMIT_WATTS = 1000.0;
+    private static final double MIN_LIMIT_WATTS = 1.0;
+    private static final double MAX_LIMIT_WATTS = 1_000_000_000_000.0;
 
     private ControlInputRouteMode routeMode;
     private ControlCommandChannel circuit;
     private ControlAddress address;
-    private boolean desiredEnabled;
+    private PowerLimitSetting setting;
 
     private Optional<PowerBranchSnapshot> observedBranch = Optional.empty();
     private String lastStatus = "Not reconciled";
@@ -58,9 +64,10 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
     private final RouteModeItem routeModeItem = new RouteModeItem();
     private final CircuitItem circuitItem = new CircuitItem();
     private final AddressItem addressItem = new AddressItem();
-    private final CommandItem commandItem = new CommandItem();
+    private final LimitItem limitItem = new LimitItem();
+    private final LimitToggleItem toggleItem = new LimitToggleItem();
 
-    public SmartBreakerBlock(
+    public PowerLimiterBlock(
             @NotNull Block block,
             @NotNull BlockCreateContext context
     ) {
@@ -69,11 +76,11 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
 
         this.routeMode = ControlInputRouteMode.CIRCUIT;
         this.circuit = ControlCommandChannel.DEFAULT;
-        this.address = ControlAddress.defaultFor(getNodeId(), "breaker");
-        this.desiredEnabled = true;
+        this.address = ControlAddress.defaultFor(getNodeId(), "limiter");
+        this.setting = new PowerLimitSetting(false, DEFAULT_LIMIT_WATTS);
     }
 
-    public SmartBreakerBlock(
+    public PowerLimiterBlock(
             @NotNull Block block,
             @NotNull PersistentDataContainer pdc
     ) {
@@ -87,26 +94,30 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
         );
         this.address = ControlAddress.fromStoredOrDefault(
                 pdc.get(ADDRESS_KEY, PersistentDataType.STRING),
-                ControlAddress.defaultFor(getNodeId(), "breaker")
+                ControlAddress.defaultFor(getNodeId(), "limiter")
         );
 
-        Byte storedDesired = pdc.get(DESIRED_ENABLED_KEY, PersistentDataType.BYTE);
-        this.desiredEnabled = storedDesired == null || storedDesired != 0;
+        Byte enabled = pdc.get(LIMIT_ENABLED_KEY, PersistentDataType.BYTE);
+        Double storedLimit = pdc.get(LIMIT_WATTS_KEY, PersistentDataType.DOUBLE);
+        this.setting = new PowerLimitSetting(
+                enabled != null && enabled != 0,
+                sanitizeLimit(storedLimit)
+        );
     }
 
     @Override
     protected void afterActivated() {
-        GridWorks.getInstance().getSmartBreakerManager().register(this);
+        GridWorks.getInstance().getPowerBranchDeviceManager().register(this);
     }
 
     @Override
     protected void afterDeactivated() {
-        GridWorks.getInstance().getSmartBreakerManager().unregister(this);
+        GridWorks.getInstance().getPowerBranchDeviceManager().unregister(this);
     }
 
     @Override
     protected void afterRemoved() {
-        GridWorks.getInstance().getSmartBreakerManager().unregister(this);
+        GridWorks.getInstance().getPowerBranchDeviceManager().unregister(this);
     }
 
     @Override
@@ -121,7 +132,7 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
         }
 
         runOnServerThreadIfActive(() -> {
-            desiredEnabled = booleanValue.value();
+            setting = setting.withEnabled(booleanValue.value());
             reconcileBranch();
         });
     }
@@ -132,9 +143,14 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
         pdc.set(CIRCUIT_KEY, PersistentDataType.STRING, circuit.name());
         pdc.set(ADDRESS_KEY, PersistentDataType.STRING, address.value());
         pdc.set(
-                DESIRED_ENABLED_KEY,
+                LIMIT_ENABLED_KEY,
                 PersistentDataType.BYTE,
-                desiredEnabled ? (byte) 1 : (byte) 0
+                setting.enabled() ? (byte) 1 : (byte) 0
+        );
+        pdc.set(
+                LIMIT_WATTS_KEY,
+                PersistentDataType.DOUBLE,
+                setting.limitWatts()
         );
     }
 
@@ -143,19 +159,20 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
         reconcileBranch();
 
         return Gui.builder()
-                .setStructure("s # m c a # t # x")
+                .setStructure("s # m c a # l t x")
                 .addIngredient('#', GuiItems.background())
                 .addIngredient('s', statusItem)
                 .addIngredient('m', routeModeItem)
                 .addIngredient('c', circuitItem)
                 .addIngredient('a', addressItem)
-                .addIngredient('t', commandItem)
+                .addIngredient('l', limitItem)
+                .addIngredient('t', toggleItem)
                 .build();
     }
 
     @Override
     public @NotNull Component getGuiTitle() {
-        return Component.text("Smart Breaker", NamedTextColor.GOLD);
+        return Component.text("Power Limiter", NamedTextColor.GOLD);
     }
 
     public @NotNull ControlInputRouteMode getRouteMode() {
@@ -170,8 +187,8 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
         return address;
     }
 
-    public boolean isDesiredEnabled() {
-        return desiredEnabled;
+    public @NotNull PowerLimitSetting getSetting() {
+        return setting;
     }
 
     public @NotNull String describeBranch() {
@@ -180,16 +197,15 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
             return lastStatus;
         }
 
-        String limit = snapshot.powerLimitSupported()
-                ? ", limit " + formatWatts(snapshot.powerLimitWatts()) + " W"
-                : "";
-
         return snapshot.displayName()
-                + " / "
-                + (snapshot.enabled() ? "CLOSED" : "OPEN")
-                + limit
+                + " / observed "
+                + (snapshot.powerLimitSupported()
+                        ? formatWatts(snapshot.powerLimitWatts()) + " W"
+                        : "limit unsupported")
                 + " / desired "
-                + (desiredEnabled ? "CLOSED" : "OPEN");
+                + (setting.enabled()
+                        ? formatWatts(setting.limitWatts()) + " W"
+                        : "BYPASS");
     }
 
     @Override
@@ -247,16 +263,23 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
             PowerBranchSnapshot current = snapshot.orElseThrow();
             observedBranch = snapshot;
 
-            if (current.enabled() == desiredEnabled) {
+            if (!current.powerLimitSupported()) {
+                lastStatus = "Provider does not support branch power limits";
+                notifyItems();
+                return;
+            }
+
+            double desired = setting.effectiveLimitWatts();
+            if (sameLimit(current.powerLimitWatts(), desired)) {
                 lastStatus = "Synchronized";
                 notifyItems();
                 return;
             }
 
-            PowerBranchControlResult result = bridge.setEnabled(
+            PowerBranchControlResult result = bridge.setPowerLimitWatts(
                     targetBlock,
                     target.side(),
-                    desiredEnabled
+                    desired
             );
             lastStatus = result.status() + (
                     result.message().isEmpty() ? "" : ": " + result.message()
@@ -266,9 +289,11 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
                 observedBranch = bridge.snapshotFor(targetBlock, target.side());
                 PowerBranchSnapshot verified = observedBranch.orElse(null);
                 if (verified == null) {
-                    lastStatus = "Provider applied command but target disappeared";
-                } else if (verified.enabled() != desiredEnabled) {
-                    lastStatus = "Provider applied command but readback did not match";
+                    lastStatus = "Provider applied limit but target disappeared";
+                } else if (!verified.powerLimitSupported()) {
+                    lastStatus = "Provider applied limit but readback lost limit support";
+                } else if (!sameLimit(verified.powerLimitWatts(), desired)) {
+                    lastStatus = "Provider applied a different limit than requested";
                 } else {
                     lastStatus = "Synchronized";
                 }
@@ -278,7 +303,7 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
             lastStatus = "Provider error";
             GridWorks.getInstance().getLogger().log(
                     java.util.logging.Level.SEVERE,
-                    "Smart Breaker " + getNodeId() + " provider operation failed",
+                    "Power Limiter " + getNodeId() + " provider operation failed",
                     exception
             );
         }
@@ -286,20 +311,25 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
         notifyItems();
     }
 
-    private void setDesiredEnabled(boolean enabled) {
-        desiredEnabled = enabled;
+    private void toggleLimiter() {
+        setting = setting.withEnabled(!setting.enabled());
+        reconcileBranch();
+    }
+
+    private void changeLimit(double delta) {
+        double next = Math.clamp(
+                setting.limitWatts() + delta,
+                MIN_LIMIT_WATTS,
+                MAX_LIMIT_WATTS
+        );
+        setting = setting.withLimitWatts(next);
         reconcileBranch();
     }
 
     private void toggleRouteMode() {
         routeMode = routeMode.toggle();
-        routeModeItem.notifyWindows();
-        circuitItem.notifyWindows();
-        addressItem.notifyWindows();
-
-        GridWorks.getInstance()
-                .getPhysicalControlNetwork()
-                .replayStateSources(getNodeId());
+        notifyItems();
+        requestStateReplay();
     }
 
     private void changeCircuit(int direction) {
@@ -309,10 +339,7 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
 
         circuit = circuit.cycle(direction);
         circuitItem.notifyWindows();
-
-        GridWorks.getInstance()
-                .getPhysicalControlNetwork()
-                .replayStateSources(getNodeId());
+        requestStateReplay();
     }
 
     private void setAddress(ControlAddress next) {
@@ -320,10 +347,14 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
         addressItem.notifyWindows();
 
         if (routeMode == ControlInputRouteMode.ADDRESS) {
-            GridWorks.getInstance()
-                    .getPhysicalControlNetwork()
-                    .replayStateSources(getNodeId());
+            requestStateReplay();
         }
+    }
+
+    private void requestStateReplay() {
+        GridWorks.getInstance()
+                .getPhysicalControlNetwork()
+                .replayStateSources(getNodeId());
     }
 
     private ControlChannel activeInputChannel() {
@@ -348,7 +379,7 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
         BlockData data = getBlock().getBlockData();
         if (!(data instanceof Directional directional)) {
             throw new IllegalStateException(
-                    "Smart Breaker material no longer provides Directional block data: "
+                    "Power Limiter material no longer provides Directional block data: "
                             + data.getMaterial()
             );
         }
@@ -359,14 +390,14 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
         BlockData data = getBlock().getBlockData();
         if (!(data instanceof Directional directional)) {
             throw new IllegalStateException(
-                    "Smart Breaker material no longer provides Directional block data: "
+                    "Power Limiter material no longer provides Directional block data: "
                             + data.getMaterial()
             );
         }
 
         if (!directional.getFaces().contains(facing)) {
             throw new IllegalArgumentException(
-                    "Smart Breaker material cannot face " + facing
+                    "Power Limiter material cannot face " + facing
             );
         }
 
@@ -398,9 +429,9 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
                 .addIngredient(
                         'i',
                         ItemStackBuilder.of(Material.PAPER)
-                                .name(Component.text("Set Breaker Address", NamedTextColor.GOLD))
+                                .name(Component.text("Set Limiter Address", NamedTextColor.GOLD))
                                 .lore(Component.text(
-                                        "Use the same address as a load-shedding tier.",
+                                        "Boolean true enables the configured limit.",
                                         NamedTextColor.GRAY
                                 ))
                 )
@@ -411,7 +442,7 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
                     .setViewer(player)
                     .setUpperGui(upperGui)
                     .setLowerGui(lowerGui)
-                    .setTitle(Component.text("Smart Breaker Address"))
+                    .setTitle(Component.text("Power Limiter Address"))
                     .addRenameHandler(raw -> {
                         if (firstRename[0]) {
                             firstRename[0] = false;
@@ -432,7 +463,7 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
         } catch (RuntimeException exception) {
             GridWorks.getInstance().getLogger().log(
                     java.util.logging.Level.SEVERE,
-                    "Could not open Smart Breaker address window",
+                    "Could not open Power Limiter address window",
                     exception
             );
             player.sendMessage(Component.text(
@@ -447,7 +478,25 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
         routeModeItem.notifyWindows();
         circuitItem.notifyWindows();
         addressItem.notifyWindows();
-        commandItem.notifyWindows();
+        limitItem.notifyWindows();
+        toggleItem.notifyWindows();
+    }
+
+    private static boolean sameLimit(double left, double right) {
+        if (left == Double.MAX_VALUE || right == Double.MAX_VALUE) {
+            return left == right;
+        }
+        double scale = Math.max(1.0, Math.max(Math.abs(left), Math.abs(right)));
+        return Math.abs(left - right) <= scale * 1.0e-9;
+    }
+
+    private static double sanitizeLimit(Double stored) {
+        if (stored == null
+                || !Double.isFinite(stored)
+                || stored <= 0.0) {
+            return DEFAULT_LIMIT_WATTS;
+        }
+        return Math.clamp(stored, MIN_LIMIT_WATTS, MAX_LIMIT_WATTS);
     }
 
     private static String formatWatts(double watts) {
@@ -463,48 +512,43 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
         );
     }
 
-    private abstract class BreakerItem extends AbstractItem {
+    private abstract class LimiterItem extends AbstractItem {
         protected ItemStackBuilder item(Material material, String name) {
             return ItemStackBuilder.of(material)
                     .name(Component.text(name, NamedTextColor.GOLD));
         }
     }
 
-    private final class StatusItem extends BreakerItem {
+    private final class StatusItem extends LimiterItem {
         @Override
         public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
             PowerBranchSnapshot snapshot = observedBranch.orElse(null);
             Material material = snapshot == null
                     ? Material.GRAY_DYE
-                    : (snapshot.enabled() ? Material.LIME_DYE : Material.RED_DYE);
+                    : (snapshot.powerLimitSupported()
+                            ? Material.LIME_DYE
+                            : Material.RED_DYE);
 
-            ItemStackBuilder builder = item(material, "Branch Status")
+            ItemStackBuilder builder = item(material, "Limiter Status")
                     .lore(
                             Component.text(lastStatus, NamedTextColor.GRAY),
                             Component.text(
-                                    "Desired: " + (desiredEnabled ? "CLOSED" : "OPEN"),
-                                    desiredEnabled
-                                            ? NamedTextColor.GREEN
-                                            : NamedTextColor.RED
+                                    "Desired: "
+                                            + (setting.enabled()
+                                            ? formatWatts(setting.limitWatts()) + " W"
+                                            : "BYPASS"),
+                                    NamedTextColor.WHITE
                             )
                     );
 
             if (snapshot != null) {
-                builder.lore(
-                        Component.text(
-                                "Target: " + snapshot.displayName(),
-                                NamedTextColor.WHITE
-                        ),
-                        Component.text(
-                                "Observed: " + (snapshot.enabled() ? "CLOSED" : "OPEN"),
-                                snapshot.enabled()
-                                        ? NamedTextColor.GREEN
-                                        : NamedTextColor.RED
-                        )
-                );
+                builder.lore(Component.text(
+                        "Target: " + snapshot.displayName(),
+                        NamedTextColor.WHITE
+                ));
                 if (snapshot.powerLimitSupported()) {
                     builder.lore(Component.text(
-                            "Limit: " + formatWatts(snapshot.powerLimitWatts()) + " W",
+                            "Observed: " + formatWatts(snapshot.powerLimitWatts()) + " W",
                             NamedTextColor.GRAY
                     ));
                 }
@@ -522,7 +566,7 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
         }
     }
 
-    private final class RouteModeItem extends BreakerItem {
+    private final class RouteModeItem extends LimiterItem {
         @Override
         public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
             return item(
@@ -546,7 +590,7 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
         }
     }
 
-    private final class CircuitItem extends BreakerItem {
+    private final class CircuitItem extends LimiterItem {
         @Override
         public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
             ItemStackBuilder builder = item(
@@ -554,10 +598,7 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
                             ? Material.REDSTONE_TORCH
                             : Material.GRAY_DYE,
                     "Circuit: " + circuit.displayName()
-            ).lore(Component.text(
-                    circuit.channel().toString(),
-                    NamedTextColor.GRAY
-            ));
+            ).lore(Component.text(circuit.channel().toString(), NamedTextColor.GRAY));
 
             if (routeMode == ControlInputRouteMode.CIRCUIT) {
                 builder.lore(Component.text(
@@ -582,7 +623,7 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
         }
     }
 
-    private final class AddressItem extends BreakerItem {
+    private final class AddressItem extends LimiterItem {
         @Override
         public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
             ItemStackBuilder builder = item(
@@ -590,10 +631,7 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
                             ? Material.NAME_TAG
                             : Material.GRAY_DYE,
                     "Address: " + address.value()
-            ).lore(Component.text(
-                    address.channel().toString(),
-                    NamedTextColor.GRAY
-            ));
+            ).lore(Component.text(address.channel().toString(), NamedTextColor.GRAY));
 
             if (routeMode == ControlInputRouteMode.ADDRESS) {
                 builder.lore(Component.text(
@@ -622,14 +660,47 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
         }
     }
 
-    private final class CommandItem extends BreakerItem {
+    private final class LimitItem extends LimiterItem {
         @Override
         public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
             return item(
-                    desiredEnabled ? Material.LEVER : Material.BARRIER,
-                    "Command: " + (desiredEnabled ? "CLOSED" : "OPEN")
+                    Material.COMPARATOR,
+                    "Limit: " + formatWatts(setting.limitWatts()) + " W"
+            ).lore(
+                    Component.text(
+                            "Left +100 W / Right -100 W",
+                            NamedTextColor.YELLOW
+                    ),
+                    Component.text(
+                            "Shift uses 1000 W",
+                            NamedTextColor.YELLOW
+                    )
+            );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            double step = clickType.isShiftClick() ? 1000.0 : 100.0;
+            if (clickType.isLeftClick()) {
+                changeLimit(step);
+            } else if (clickType.isRightClick()) {
+                changeLimit(-step);
+            }
+        }
+    }
+
+    private final class LimitToggleItem extends LimiterItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            return item(
+                    setting.enabled() ? Material.LIME_DYE : Material.GRAY_DYE,
+                    "Limiter: " + (setting.enabled() ? "ENABLED" : "BYPASS")
             ).lore(Component.text(
-                    "Click to toggle the desired branch state",
+                    "Click to toggle; Control Bus boolean does the same",
                     NamedTextColor.YELLOW
             ));
         }
@@ -640,7 +711,7 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
                 @NotNull Player player,
                 @NotNull Click click
         ) {
-            setDesiredEnabled(!desiredEnabled);
+            toggleLimiter();
         }
     }
 

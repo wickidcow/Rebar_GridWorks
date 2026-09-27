@@ -204,3 +204,12 @@ The **Smart Breaker** faces one adjacent provider-exposed electrical branch. `tr
 The desired branch state is persisted. If the provider or target chunk is temporarily unavailable, the desired command is retained and reapplied when it returns. Provider registration/unregistration and target chunk load/unload are handled with Bukkit events; there is no Smart Breaker polling task.
 
 The current released Rebar build still does not provide `PowerBranchProvider`. The future native adapter can map this contract onto Rebar's developing `ElectricNetwork.Edge` model, where connections already expose mutable per-edge power limits. GridWorks does not compile against that development branch.
+
+
+### Power Limiter
+
+The **Power Limiter** uses the same `PowerBranchProvider` target model as Smart Breaker but controls the branch's watt cap instead of open/closed state. It starts in **BYPASS** so placing one cannot unexpectedly throttle a grid.
+
+The configured cap is persisted and adjustable from 1 W through 1 TW. A Control Bus boolean chooses whether the cap is active: `true` applies the configured limit and `false` requests provider-neutral unlimited/bypass (`Double.MAX_VALUE`). Circuit and addressed input routing match Smart Breaker.
+
+Providers may support switching without supporting limits; the limiter surfaces that capability cleanly rather than pretending the command worked. Smart Breaker and Power Limiter now share one event-driven `PowerBranchDeviceManager` for provider hot-plug and target-chunk lifecycle.

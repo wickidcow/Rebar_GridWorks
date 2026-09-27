@@ -103,6 +103,14 @@ item:
       <arrow> AUTO-bind or explicitly choose directly linked sources
       <arrow> Right click to configure rules, presets, sources, and output routing
 
+  power_limiter:
+    name: "Power Limiter"
+    lore: |-
+      <arrow> Applies a configurable watt cap to one provider-exposed branch
+      <arrow> Boolean input enables the cap; false bypasses to unlimited
+      <arrow> Accepts Default/A-D circuits or addressed automation commands
+      <arrow> Uses the same event-driven provider/chunk lifecycle as Smart Breaker
+
   smart_breaker:
     name: "Smart Breaker"
     lore: |-
