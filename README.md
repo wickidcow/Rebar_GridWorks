@@ -126,7 +126,9 @@ Fluid Tank Sensor ---/       A: items >= 64
 
 ## Factory Monitor
 
-The Factory Monitor is a passive diagnostic node. It displays the latest built-in redstone, command-circuit, inventory, fluid, machine-processing, power, controller-output, and alarm-state signals seen on its loaded Control Bus component, including the source node ID and signal sequence. It does not poll machines itself; Machine Sensors own their shared sampler.
+The Factory Monitor is a passive diagnostic node. It keeps built-in telemetry qualified by source node instead of collapsing every publisher onto one value per channel. The default Overview shows the newest value for each channel, while the source selector can isolate one observed node so multiple machines, tanks, inventories, or sensors using the same metric remain distinguishable. Addressed commands keep one latest value per source so dynamic addresses remain memory-bounded.
+
+The Refresh control intersects cached telemetry with the currently loaded Control Bus component and requests normal ControlStateSource replay. It never scans worlds or loads chunks. The monitor itself still does no machine polling; Machine Sensors own their shared sampler.
 
 Stateful devices implement `ControlStateSource`. When loaded topology expands, GridWorks replays current state from every loaded state source in that component. This means a monitor or actuator joining through an intermediate Control Interface receives current state even when the original sensor is several hops away.
 

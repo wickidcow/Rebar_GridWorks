@@ -477,9 +477,12 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
             );
         } else if (controlNode instanceof FactoryMonitorBlock monitor) {
             event.getPlayer().sendMessage(
-                    Component.text("Observed signals: ", NamedTextColor.GRAY)
+                    Component.text("Observed telemetry: ", NamedTextColor.GRAY)
                             .append(Component.text(
-                                    Integer.toString(monitor.observedSignalCount()),
+                                    monitor.observedSourceCount()
+                                            + " source(s), "
+                                            + monitor.observedSignalCount()
+                                            + " signal(s)",
                                     NamedTextColor.WHITE
                             ))
             );

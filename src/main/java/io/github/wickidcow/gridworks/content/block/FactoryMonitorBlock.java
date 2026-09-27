@@ -4,14 +4,17 @@ import io.github.pylonmc.rebar.block.context.BlockCreateContext;
 import io.github.pylonmc.rebar.block.interfaces.GuiRebarBlock;
 import io.github.pylonmc.rebar.item.builder.ItemStackBuilder;
 import io.github.pylonmc.rebar.util.gui.GuiItems;
+import io.github.wickidcow.gridworks.GridWorks;
 import io.github.wickidcow.gridworks.api.control.ControlAddress;
 import io.github.wickidcow.gridworks.api.control.ControlChannel;
 import io.github.wickidcow.gridworks.api.control.ControlSignal;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
+import io.github.wickidcow.gridworks.monitor.FactoryMonitorTelemetry;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.kyori.adventure.text.Component;
@@ -76,10 +79,12 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
             new SignalDefinition(GridWorksChannels.POWER_PRODUCER_COUNT, "Power Producers", Material.BLAZE_POWDER)
     );
 
-    private final Map<ControlChannel, ControlSignal> latestSignals = new ConcurrentHashMap<>();
-    private volatile ControlSignal lastAddressedSignal;
+    private final FactoryMonitorTelemetry telemetry = new FactoryMonitorTelemetry();
+    private final Map<UUID, UUID> selectedSources = new ConcurrentHashMap<>();
     private final Map<ControlChannel, SignalValueItem> signalItems = createSignalItems();
     private final AddressedSignalItem addressedSignalItem = new AddressedSignalItem();
+    private final SourceSelectorItem sourceSelectorItem = new SourceSelectorItem();
+    private final RefreshItem refreshItem = new RefreshItem();
 
     public FactoryMonitorBlock(@NotNull Block block, @NotNull BlockCreateContext context) {
         super(block, context);
@@ -97,27 +102,38 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
 
     @Override
     protected void handleSignal(@NotNull ControlSignal signal) {
-        if (ControlAddress.isAddressedChannel(signal.channel())) {
-            lastAddressedSignal = signal;
-            runOnServerThreadIfActive(addressedSignalItem::notifyWindows);
+        if (!telemetry.observe(signal)) {
             return;
         }
 
-        latestSignals.put(signal.channel(), signal);
+        if (ControlAddress.isAddressedChannel(signal.channel())) {
+            runOnServerThreadIfActive(() -> {
+                addressedSignalItem.notifyWindows();
+                sourceSelectorItem.notifyWindows();
+                refreshItem.notifyWindows();
+            });
+            return;
+        }
 
         SignalValueItem item = signalItems.get(signal.channel());
         if (item == null) {
             return;
         }
 
-        runOnServerThreadIfActive(item::notifyWindows);
+        runOnServerThreadIfActive(() -> {
+            item.notifyWindows();
+            sourceSelectorItem.notifyWindows();
+            refreshItem.notifyWindows();
+        });
     }
 
     @Override
     public @NotNull Gui createGui() {
+        pruneTelemetryToLiveComponent();
+
         return Gui.builder()
                 .setStructure(
-                        "r s 0 1 2 3 4 # #",
+                        "r s 0 1 2 3 4 n x",
                         "a i o t f # # # #",
                         "v p y m k z # # #",
                         "w u g h j # # # #",
@@ -132,6 +148,8 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
                 .addIngredient('2', item(GridWorksChannels.CONTROL_B))
                 .addIngredient('3', item(GridWorksChannels.CONTROL_C))
                 .addIngredient('4', item(GridWorksChannels.CONTROL_D))
+                .addIngredient('n', sourceSelectorItem)
+                .addIngredient('x', refreshItem)
                 .addIngredient('a', item(GridWorksChannels.INVENTORY_AVAILABLE))
                 .addIngredient('i', item(GridWorksChannels.INVENTORY_ITEMS))
                 .addIngredient('o', item(GridWorksChannels.INVENTORY_OCCUPIED_SLOTS))
@@ -170,7 +188,95 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
     }
 
     public int observedSignalCount() {
-        return latestSignals.size();
+        return telemetry.signalCount();
+    }
+
+    public int observedSourceCount() {
+        return telemetry.sourceIds().size();
+    }
+
+    private ControlSignal signalFor(Player player, ControlChannel channel) {
+        UUID selected = selectedSources.get(player.getUniqueId());
+        return selected == null
+                ? telemetry.latest(channel).orElse(null)
+                : telemetry.latest(selected, channel).orElse(null);
+    }
+
+    private ControlSignal addressedSignalFor(Player player) {
+        UUID selected = selectedSources.get(player.getUniqueId());
+        return selected == null
+                ? telemetry.latestAddressed().orElse(null)
+                : telemetry.latestAddressed(selected).orElse(null);
+    }
+
+    private List<UUID> sourceIds() {
+        return telemetry.sourceIds().stream().sorted().toList();
+    }
+
+    private void cycleSource(Player player, int delta) {
+        List<UUID> sources = sourceIds();
+        UUID viewerId = player.getUniqueId();
+        UUID selected = selectedSources.get(viewerId);
+
+        int currentIndex = 0;
+        if (selected != null) {
+            int sourceIndex = sources.indexOf(selected);
+            if (sourceIndex >= 0) {
+                currentIndex = sourceIndex + 1;
+            } else {
+                selectedSources.remove(viewerId);
+            }
+        }
+
+        int nextIndex = Math.floorMod(currentIndex + delta, sources.size() + 1);
+        if (nextIndex == 0) {
+            selectedSources.remove(viewerId);
+        } else {
+            selectedSources.put(viewerId, sources.get(nextIndex - 1));
+        }
+
+        notifyMonitorItems();
+    }
+
+    private void pruneTelemetryToLiveComponent() {
+        Set<UUID> activeSources;
+        try {
+            activeSources = GridWorks.getInstance()
+                    .getPhysicalControlNetwork()
+                    .activeComponentNodes(getNodeId());
+        } catch (IllegalArgumentException | IllegalStateException ignored) {
+            return;
+        }
+
+        telemetry.retainSources(activeSources);
+        selectedSources.forEach((viewerId, sourceId) -> {
+            if (!activeSources.contains(sourceId)) {
+                selectedSources.remove(viewerId, sourceId);
+            }
+        });
+    }
+
+    private void refreshTelemetry() {
+        pruneTelemetryToLiveComponent();
+
+        try {
+            GridWorks.getInstance()
+                    .getPhysicalControlNetwork()
+                    .replayStateSources(getNodeId());
+        } catch (IllegalArgumentException | IllegalStateException ignored) {
+            return;
+        }
+
+        notifyMonitorItems();
+    }
+
+    private void notifyMonitorItems() {
+        for (SignalValueItem item : signalItems.values()) {
+            item.notifyWindows();
+        }
+        addressedSignalItem.notifyWindows();
+        sourceSelectorItem.notifyWindows();
+        refreshItem.notifyWindows();
     }
 
     private SignalValueItem item(ControlChannel channel) {
@@ -219,9 +325,15 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
                     .name(Component.text(definition.label(), NamedTextColor.GOLD))
                     .lore(Component.text(definition.channel().toString(), NamedTextColor.DARK_GRAY));
 
-            ControlSignal signal = latestSignals.get(definition.channel());
+            ControlSignal signal = signalFor(player, definition.channel());
             if (signal == null) {
-                return builder.lore(Component.text("Waiting for signal", NamedTextColor.YELLOW));
+                UUID selected = selectedSources.get(player.getUniqueId());
+                return builder.lore(Component.text(
+                        selected == null
+                                ? "Waiting for signal"
+                                : "No signal from " + shortId(selected),
+                        NamedTextColor.YELLOW
+                ));
             }
 
             return builder.lore(
@@ -252,7 +364,7 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
     private final class AddressedSignalItem extends AbstractItem {
         @Override
         public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
-            ControlSignal signal = lastAddressedSignal;
+            ControlSignal signal = addressedSignalFor(player);
             if (signal == null) {
                 return ItemStackBuilder.of(Material.ENDER_EYE)
                         .name(Component.text("Addressed Command", NamedTextColor.GOLD))
@@ -287,6 +399,93 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
                 @NotNull Player player,
                 @NotNull Click click
         ) {
+        }
+    }
+
+    private final class SourceSelectorItem extends AbstractItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            List<UUID> sources = sourceIds();
+            UUID viewerId = player.getUniqueId();
+            UUID selected = selectedSources.get(viewerId);
+
+            if (selected != null && !sources.contains(selected)) {
+                selectedSources.remove(viewerId, selected);
+                selected = null;
+            }
+
+            ItemStackBuilder builder = ItemStackBuilder.of(Material.SPYGLASS)
+                    .name(Component.text("Signal Source", NamedTextColor.GOLD));
+
+            if (selected == null) {
+                return builder.lore(
+                        Component.text("View: Overview", NamedTextColor.AQUA),
+                        Component.text(
+                                "Newest value per channel across "
+                                        + sources.size()
+                                        + " source(s)",
+                                NamedTextColor.GRAY
+                        ),
+                        Component.text("Left/right click to cycle", NamedTextColor.YELLOW)
+                );
+            }
+
+            return builder.lore(
+                    Component.text("View: " + shortId(selected), NamedTextColor.AQUA),
+                    Component.text(
+                            "Tracked signals: " + telemetry.sourceSignalCount(selected),
+                            NamedTextColor.GRAY
+                    ),
+                    Component.text("Left/right click to cycle", NamedTextColor.YELLOW)
+            );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            if (clickType.isLeftClick()) {
+                cycleSource(player, 1);
+            } else if (clickType.isRightClick()) {
+                cycleSource(player, -1);
+            }
+        }
+    }
+
+    private final class RefreshItem extends AbstractItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            return ItemStackBuilder.of(Material.COMPASS)
+                    .name(Component.text("Refresh Monitor", NamedTextColor.GOLD))
+                    .lore(
+                            Component.text(
+                                    "Tracked: " + telemetry.sourceIds().size()
+                                            + " source(s), " + telemetry.signalCount()
+                                            + " signal(s)",
+                                    NamedTextColor.GRAY
+                            ),
+                            Component.text(
+                                    "Prunes sources outside the loaded component",
+                                    NamedTextColor.GRAY
+                            ),
+                            Component.text(
+                                    "Replays loaded state sources; never loads chunks",
+                                    NamedTextColor.YELLOW
+                            )
+                    );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            if (clickType.isLeftClick() || clickType.isRightClick()) {
+                refreshTelemetry();
+            }
         }
     }
 

@@ -112,7 +112,9 @@ This is not a polling loop. It only runs on topology changes and prevents multi-
 
 ## Factory Monitor
 
-The Factory Monitor subscribes only to a bounded set of built-in GridWorks channels and keeps one latest signal per channel. Its memory use therefore does not grow with event volume. GUI refreshes are marshalled onto the primary server thread when a signal is published asynchronously.
+The Factory Monitor subscribes only to a bounded set of built-in GridWorks channels and keeps one latest signal per source/channel pair. A dedicated source selector switches between an Overview (newest source for each channel) and one observed source, so identical metrics from multiple machines no longer overwrite each other. Addressed commands retain only the latest command per source, keeping the dynamic address namespace bounded.
+
+Per-key sequence checks reject late asynchronous callbacks that would otherwise overwrite newer state. Refresh prunes the cache against activeComponentNodes and requests normal component-wide state replay; it never scans worlds or loads chunks. GUI refreshes remain marshalled onto the primary server thread.
 
 
 ## Physical-node thread boundary
@@ -219,7 +221,7 @@ Factory Controllers persist both their legacy circuit choice and their output mo
 
 Addressed Relay starts fail-safe OFF after construction/load and relies on normal `ControlStateSource` replay from the controller to restore current state. Changing a relay address also resets OFF and requests component state replay. No address lookup scans worlds or loads chunks.
 
-Factory Monitor keeps only the most recent addressed command in one dedicated diagnostic slot, preserving bounded memory despite the dynamic channel namespace.
+Factory Monitor keeps only the most recent addressed command per observed source. The dedicated diagnostic slot shows the newest command in Overview or the selected source's latest command, preserving bounded memory despite the dynamic channel namespace.
 
 
 ## Power telemetry contract

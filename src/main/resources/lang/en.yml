@@ -146,9 +146,10 @@ item:
   factory_monitor:
     name: "Factory Monitor"
     lore: |-
-      <arrow> Displays live Control Bus signals across a loaded network
-      <arrow> Shows values and source node IDs without polling machines
-      <arrow> Useful for debugging sensors, rules, and actuators
+      <arrow> Displays live Control Bus telemetry without polling machines
+      <arrow> Cycle between Overview and individual source nodes
+      <arrow> Refresh prunes disconnected sources and replays loaded state
+      <arrow> Never scans worlds or forces chunks to load
 
   gridworks_linker:
     name: "GridWorks Linker"
