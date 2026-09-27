@@ -532,6 +532,13 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
                                             : NamedTextColor.AQUA
                             ))
             );
+            event.getPlayer().sendMessage(
+                    Component.text("Batch reset input: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    controller.getResetAddress().channel().toString(),
+                                    NamedTextColor.AQUA
+                            ))
+            );
         } else if (controlNode instanceof LoadSheddingControllerBlock controller) {
             event.getPlayer().sendMessage(
                     Component.text("Load shedding: ", NamedTextColor.GRAY)

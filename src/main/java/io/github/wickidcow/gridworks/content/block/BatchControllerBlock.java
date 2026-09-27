@@ -13,6 +13,7 @@ import io.github.wickidcow.gridworks.api.control.ControlSignal;
 import io.github.wickidcow.gridworks.api.control.ControlStateSource;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
+import io.github.wickidcow.gridworks.control.RisingEdgeTrigger;
 import io.github.wickidcow.gridworks.production.BatchProgressTracker;
 import java.util.Objects;
 import java.util.Set;
@@ -53,6 +54,7 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
     private static final NamespacedKey OUTPUT_ADDRESS_KEY = key("batch_controller_output_address");
     private static final NamespacedKey FAULT_KEY = key("batch_controller_fault");
     private static final NamespacedKey FAULT_ADDRESS_KEY = key("batch_controller_fault_address");
+    private static final NamespacedKey RESET_ADDRESS_KEY = key("batch_controller_reset_address");
     private static final NamespacedKey WATCHDOG_TICKS_KEY = key("batch_controller_watchdog_ticks");
 
     private static final long DEFAULT_WATCHDOG_TICKS = 0L;
@@ -60,11 +62,13 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
 
     private final BatchProgressTracker tracker;
     private final Set<UUID> activePeers = ConcurrentHashMap.newKeySet();
+    private final RisingEdgeTrigger resetEdge = new RisingEdgeTrigger();
 
     private ControlOutputMode outputMode;
     private ControlCommandChannel outputCircuit;
     private ControlAddress outputAddress;
     private ControlAddress faultAddress;
+    private ControlAddress resetAddress;
     private boolean faulted;
     private long watchdogTicks;
     private BukkitTask watchdogTask;
@@ -79,6 +83,7 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
     private final OutputStateItem outputStateItem = new OutputStateItem();
     private final WatchdogItem watchdogItem = new WatchdogItem();
     private final FaultAddressItem faultAddressItem = new FaultAddressItem();
+    private final ResetAddressItem resetAddressItem = new ResetAddressItem();
 
     public BatchControllerBlock(@NotNull Block block, @NotNull BlockCreateContext context) {
         super(block, context);
@@ -87,6 +92,7 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
         outputCircuit = ControlCommandChannel.DEFAULT;
         outputAddress = ControlAddress.defaultFor(getNodeId(), "batch");
         faultAddress = defaultFaultAddress(getNodeId(), outputAddress);
+        resetAddress = defaultResetAddress(getNodeId(), outputAddress, faultAddress);
         faulted = false;
         watchdogTicks = DEFAULT_WATCHDOG_TICKS;
     }
@@ -115,6 +121,12 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
         Byte storedFault = pdc.get(FAULT_KEY, PersistentDataType.BYTE);
         faulted = storedFault != null && storedFault != 0;
         faultAddress = loadFaultAddress(pdc, getNodeId(), outputAddress);
+        resetAddress = loadResetAddress(
+                pdc,
+                getNodeId(),
+                outputAddress,
+                faultAddress
+        );
         Long storedWatchdog = pdc.get(WATCHDOG_TICKS_KEY, PersistentDataType.LONG);
         watchdogTicks = clampWatchdogTicks(
                 storedWatchdog == null ? DEFAULT_WATCHDOG_TICKS : storedWatchdog
@@ -123,6 +135,7 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
 
     @Override
     protected void beforeActivated() {
+        resetEdge.reset();
         cancelWatchdog();
     }
 
@@ -134,20 +147,34 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
     @Override
     protected void afterDeactivated() {
         cancelWatchdog();
+        resetEdge.reset();
     }
 
     @Override
     protected void afterRemoved() {
         cancelWatchdog();
+        resetEdge.reset();
     }
 
     @Override
     public boolean accepts(@NotNull ControlChannel channel) {
-        return GridWorksChannels.MACHINE_OBSERVED_CYCLES.equals(channel);
+        return GridWorksChannels.MACHINE_OBSERVED_CYCLES.equals(channel)
+                || resetAddress.channel().equals(channel);
     }
 
     @Override
     protected void handleSignal(@NotNull ControlSignal signal) {
+        if (resetAddress.channel().equals(signal.channel())
+                && signal.value() instanceof ControlValue.BooleanValue booleanValue) {
+            boolean reset = booleanValue.value();
+            runOnServerThreadIfActive(() -> {
+                if (resetEdge.observe(reset)) {
+                    resetBatch();
+                }
+            });
+            return;
+        }
+
         if (!(signal.value() instanceof ControlValue.NumberValue numberValue)) {
             return;
         }
@@ -184,6 +211,7 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
         pdc.set(OUTPUT_ADDRESS_KEY, PersistentDataType.STRING, outputAddress.value());
         pdc.set(FAULT_KEY, PersistentDataType.BYTE, faulted ? (byte) 1 : (byte) 0);
         pdc.set(FAULT_ADDRESS_KEY, PersistentDataType.STRING, faultAddress.value());
+        pdc.set(RESET_ADDRESS_KEY, PersistentDataType.STRING, resetAddress.value());
         pdc.set(WATCHDOG_TICKS_KEY, PersistentDataType.LONG, watchdogTicks);
     }
 
@@ -234,7 +262,7 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
                 .setStructure(
                         "p # t # s # r # o",
                         "# # m # c # a # #",
-                        "w # f # # # # # #"
+                        "w # f # u # # # #"
                 )
                 .addIngredient('#', GuiItems.background())
                 .addIngredient('p', progressItem)
@@ -247,6 +275,7 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
                 .addIngredient('a', outputAddressItem)
                 .addIngredient('w', watchdogItem)
                 .addIngredient('f', faultAddressItem)
+                .addIngredient('u', resetAddressItem)
                 .build();
     }
 
@@ -272,6 +301,10 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
 
     public @NotNull ControlAddress getFaultAddress() {
         return faultAddress;
+    }
+
+    public @NotNull ControlAddress getResetAddress() {
+        return resetAddress;
     }
 
     public int getTrackedSourceCount() {
@@ -396,6 +429,11 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
                     "That address is already used by the batch fault output."
             );
         }
+        if (resetAddress.equals(next)) {
+            throw new IllegalArgumentException(
+                    "That address is already used by the batch reset input."
+            );
+        }
         if (outputAddress.equals(next)) {
             return;
         }
@@ -418,6 +456,11 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
                     "That address is already used by the batch completion output."
             );
         }
+        if (resetAddress.equals(next)) {
+            throw new IllegalArgumentException(
+                    "That address is already used by the batch reset input."
+            );
+        }
         if (faultAddress.equals(next)) {
             return;
         }
@@ -426,6 +469,25 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
         faultAddress = next;
         publishCurrentState();
         notifyFaultItems();
+    }
+
+    private void setResetAddress(ControlAddress next) {
+        Objects.requireNonNull(next, "next");
+        if (outputAddress.equals(next) || faultAddress.equals(next)) {
+            throw new IllegalArgumentException(
+                    "That address is already used by a batch output."
+            );
+        }
+        if (resetAddress.equals(next)) {
+            return;
+        }
+
+        resetAddress = next;
+        resetEdge.reset();
+        notifyFaultItems();
+        GridWorks.getInstance()
+                .getPhysicalControlNetwork()
+                .replayStateSources(getNodeId());
     }
 
     private void changeWatchdog(long delta) {
@@ -520,6 +582,7 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
     private void notifyFaultItems() {
         watchdogItem.notifyWindows();
         faultAddressItem.notifyWindows();
+        resetAddressItem.notifyWindows();
         progressItem.notifyWindows();
         outputStateItem.notifyWindows();
     }
@@ -598,6 +661,41 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
                     NamedTextColor.RED
             ));
         }
+    }
+
+    private static ControlAddress loadResetAddress(
+            PersistentDataContainer pdc,
+            UUID nodeId,
+            ControlAddress outputAddress,
+            ControlAddress faultAddress
+    ) {
+        ControlAddress fallback = defaultResetAddress(
+                nodeId,
+                outputAddress,
+                faultAddress
+        );
+        ControlAddress stored = ControlAddress.fromStoredOrDefault(
+                pdc.get(RESET_ADDRESS_KEY, PersistentDataType.STRING),
+                fallback
+        );
+        return stored.equals(outputAddress) || stored.equals(faultAddress)
+                ? fallback
+                : stored;
+    }
+
+    private static ControlAddress defaultResetAddress(
+            UUID nodeId,
+            ControlAddress outputAddress,
+            ControlAddress faultAddress
+    ) {
+        for (int attempt = 1; attempt <= 100; attempt++) {
+            String prefix = attempt == 1 ? "batch_reset" : "batch_reset_" + attempt;
+            ControlAddress candidate = ControlAddress.defaultFor(nodeId, prefix);
+            if (!candidate.equals(outputAddress) && !candidate.equals(faultAddress)) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException("Could not allocate a unique batch reset address");
     }
 
     private static ControlAddress loadFaultAddress(
@@ -991,6 +1089,51 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
                             "Batch Fault Output",
                             faultAddress,
                             BatchControllerBlock.this::setFaultAddress
+                    )
+            );
+        }
+    }
+
+    private final class ResetAddressItem extends BatchItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            return item(Material.ENDER_EYE, "Reset / Start Input")
+                    .lore(
+                            Component.text(resetAddress.value(), NamedTextColor.AQUA),
+                            Component.text(
+                                    resetAddress.channel().toString(),
+                                    NamedTextColor.DARK_GRAY
+                            ),
+                            Component.text(
+                                    "Rising edge starts a fresh batch and clears fault",
+                                    NamedTextColor.GRAY
+                            ),
+                            Component.text(
+                                    "First replayed state is baseline only",
+                                    NamedTextColor.DARK_GRAY
+                            ),
+                            Component.text("Click to edit", NamedTextColor.YELLOW)
+                    );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            if (!clickType.isLeftClick() && !clickType.isRightClick()) {
+                return;
+            }
+
+            player.closeInventory();
+            GridWorks.getInstance().getServer().getScheduler().runTask(
+                    GridWorks.getInstance(),
+                    () -> openAddressWindow(
+                            player,
+                            "Batch Reset Input",
+                            resetAddress,
+                            BatchControllerBlock.this::setResetAddress
                     )
             );
         }

@@ -83,7 +83,9 @@ Batch progress and target persist across controller unload/restart, while per-so
 
 An optional **No-Progress Watchdog** can detect a stalled production run. It defaults to **OFF**. When enabled on an incomplete batch, exactly one delayed task watches the current progress value; every positive observed cycle delta replaces that deadline. If the deadline expires with unchanged progress, the controller persists a latched **FAULT**, forces completion output OFF, and asserts a separate collision-safe named fault address. While faulted, incoming Machine Sensor totals update only their baselines and do not add progress, so work that happened during the fault cannot be backfilled after recovery. **Start New Batch** is the deliberate fault acknowledgement: it clears progress/fault together, preserves the live baselines, and starts a fresh watchdog window.
 
-Completion uses the same routing model as Factory Controller: **Default/A-D circuit** or a named **Address**. Fault uses its own addressed route, and completion/fault addresses cannot collide. Changing routes explicitly clears the old route first. The controller publishes `gridworks:batch/progress`, `gridworks:batch/target`, `gridworks:batch/complete`, `gridworks:batch/fault`, and `gridworks:batch/watchdog_ticks`; the Factory Monitor displays the fault state while Linker inspection also shows watchdog configuration.
+A named **Reset / Start Input** makes repeated batches fully automatable. It listens for a false-to-true addressed command and performs the same safe new-batch operation as the GUI button. Its edge detector is reset before topology activation, so component replay establishes only the current baseline; a reset line that was already ON before a restart cannot erase progress. Changing the reset address also resets the edge baseline and requests normal state replay. Completion, fault, and reset addresses are kept distinct.
+
+Completion uses the same routing model as Factory Controller: **Default/A-D circuit** or a named **Address**. Fault uses its own addressed route. Changing routes explicitly clears the old output route first. The controller publishes `gridworks:batch/progress`, `gridworks:batch/target`, `gridworks:batch/complete`, `gridworks:batch/fault`, and `gridworks:batch/watchdog_ticks`; the Factory Monitor displays the fault state while Linker inspection also shows watchdog and reset-input configuration.
 
 Example:
 
@@ -94,6 +96,10 @@ Machine Sensor B ----/                                  |
                                                         +--> Addressed Relay
                                                         +--> Smart Breaker
                                                         +--> Cargo/Fluid control
+
+Sequence stage output -----------------> batch_reset
+                                          |
+                                          +--> starts next batch on rising edge
 ```
 
 ### Sequence Controller

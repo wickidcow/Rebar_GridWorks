@@ -131,7 +131,9 @@ item:
       <arrow> Persists batch progress and latches ON when the target is reached
       <arrow> Optional no-progress watchdog latches a fault on stalled production
       <arrow> Fault-period machine counts rebaseline without adding batch progress
-      <arrow> Reset starts a new batch, clears fault, and preserves live baselines
+      <arrow> Named Reset/Start input can begin the next batch automatically
+      <arrow> Replay-safe rising edges prevent restart from resetting a batch
+      <arrow> Reset clears fault while preserving live source baselines
       <arrow> Completion uses Circuit/Address routing; fault uses a named address
 
   sequence_controller:

@@ -360,7 +360,9 @@ The optional no-progress watchdog is disabled by default. When enabled on an inc
 
 A watchdog fault is intentionally latched. While faulted, source telemetry calls `rebaseline` instead of `observe`, keeping live cumulative source totals current without counting fault-period production. When the operator chooses **Start New Batch**, progress and fault reset together while those current baselines remain, preventing hidden backfill.
 
-The implementation remains bounded by the largest integer exactly representable by Control Bus numeric transport. Outside the optional one-shot watchdog it has no scheduler, and it performs no world scan or chunk loading.
+The same new-batch transition is exposed through one collision-safe addressed Reset/Start input. Its `RisingEdgeTrigger` is reset in `beforeActivated()`, so activation replay establishes baseline state instead of manufacturing a reset. Changing the reset address resets that edge detector before requesting component replay. The saved completion address, fault address, and reset input are mutually exclusive even when completion output mode is currently Circuit, preventing a later mode switch from creating a feedback collision.
+
+The implementation remains bounded by the largest integer exactly representable by Control Bus numeric transport. Outside the optional one-shot watchdog it has no repeating scheduler, and it performs no world scan or chunk loading.
 
 
 ## Part 4 Sequence Controller
