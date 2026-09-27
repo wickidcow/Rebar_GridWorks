@@ -228,7 +228,7 @@ Factory Monitor keeps only the most recent addressed command in one dedicated di
 
 An unavailable provider publishes only `power/available=false`; it does not invent zero capacity/demand values that could be mistaken for a real empty grid.
 
-Factory Monitor reserves its sixth row for a bounded subset of these power channels. Until a released Rebar electricity adapter exists, those slots remain in WAITING state and no dead player-facing Power Grid Sensor is registered.
+Factory Monitor reserves its sixth row for a bounded subset of these power channels. When no provider is registered, the player-facing Power Grid Sensor reports unavailable and those measurements remain in WAITING state rather than inventing grid values.
 
 
 ## Power-aware controller rules
@@ -330,3 +330,20 @@ The normalized progress contract is completion progress from 0.0 to 1.0. Recipe 
 GridWorks does not use `TickingRebarBlock.isTicking` as machine state. That method is internal and only indicates that a scheduled ticking job remains active, not that useful work is being processed.
 
 All loaded Machine Sensors share one configurable sampler (20 ticks by default), never load adjacent chunks, and publish only when the immutable snapshot changes. Unsupported targets publish a zero-valued unavailable snapshot rather than inferred failure reasons.
+
+
+## Unified sensor availability semantics
+
+Inventory, fluid, machine, and power telemetry now share one controller rule: an unavailable target is unknown data, not numeric zero.
+
+`MetricAvailability` maps each numeric measurement channel to its domain's boolean availability channel. Factory Controller subscribes to that availability channel whenever a configured metric has one. When the bound source publishes `available=false`, only that condition's cached observation/result is cleared; source selection remains intact so normal replay can resume when the target returns.
+
+Built-in Inventory, Fluid, and Machine Sensors publish the availability transition and stop there when unavailable. They no longer follow `available=false` with synthetic zero measurement packets that could immediately re-establish a false numeric reading.
+
+Machine Sensor's numeric progress/process-time/ticks-remaining channels are now first-class Factory Controller metrics. They are appended to the metric registry, preserving all existing persisted channel-based controller configurations.
+
+## Part 2 completion boundary
+
+The 0.2.x development line completes the provider-neutral automation layer: persistent Control Bus topology, sensor state replay, inventory/fluid/machine/redstone/power telemetry, multi-condition Factory Controller logic, addressed routing, relays/timers, alarm operations, power-provider services, Power Grid Sensor, and hysteresis-based load shedding.
+
+The remaining native-electricity work is intentionally separated from Part 2 because released Rebar 0.43.0-26.2 does not expose the upstream electricity package. A future Part 3 can add the Rebar-specific `PowerGridProvider` and Smart Breaker without changing the stable GridWorks control, telemetry, or rule contracts established here.

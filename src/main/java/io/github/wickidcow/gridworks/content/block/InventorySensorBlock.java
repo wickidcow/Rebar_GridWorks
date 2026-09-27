@@ -128,6 +128,11 @@ public final class InventorySensorBlock extends PhysicalControlNodeBlock impleme
                 GridWorksChannels.INVENTORY_AVAILABLE,
                 ControlValue.of(snapshot.available())
         );
+
+        if (!snapshot.available()) {
+            return;
+        }
+
         bus.publish(
                 getNodeId(),
                 GridWorksChannels.INVENTORY_ITEMS,

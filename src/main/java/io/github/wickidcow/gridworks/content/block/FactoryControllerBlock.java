@@ -15,6 +15,7 @@ import io.github.wickidcow.gridworks.api.control.ControlStateSource;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
 import io.github.wickidcow.gridworks.api.control.LogicOperator;
+import io.github.wickidcow.gridworks.api.control.MetricAvailability;
 import io.github.wickidcow.gridworks.api.control.NumericControlRule;
 import java.util.List;
 import java.util.Objects;
@@ -122,6 +123,33 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
                     0.05,
                     0.25,
                     1.0
+            ),
+            new Metric(
+                    "Machine Progress",
+                    GridWorksChannels.MACHINE_PROGRESS,
+                    Material.CLOCK,
+                    0.90,
+                    0.05,
+                    0.25,
+                    1.0
+            ),
+            new Metric(
+                    "Machine Process Time",
+                    GridWorksChannels.MACHINE_PROCESS_TIME_TICKS,
+                    Material.REPEATER,
+                    200.0,
+                    20.0,
+                    100.0,
+                    Double.MAX_VALUE
+            ),
+            new Metric(
+                    "Machine Ticks Remaining",
+                    GridWorksChannels.MACHINE_TICKS_REMAINING,
+                    Material.CLOCK,
+                    20.0,
+                    20.0,
+                    100.0,
+                    Double.MAX_VALUE
             ),
             new Metric(
                     "Power Capacity",
@@ -293,9 +321,8 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
             return true;
         }
 
-        return GridWorksChannels.POWER_AVAILABLE.equals(channel)
-                && (isPowerMetric(conditionA.rule.channel())
-                || (conditionBEnabled && isPowerMetric(conditionB.rule.channel())));
+        return isAvailabilityChannelFor(conditionA, channel)
+                || (conditionBEnabled && isAvailabilityChannelFor(conditionB, channel));
     }
 
     @Override
@@ -304,12 +331,29 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
     }
 
     private void handleSignalOnServerThread(@NotNull ControlSignal signal) {
-        if (GridWorksChannels.POWER_AVAILABLE.equals(signal.channel())) {
-            handlePowerAvailability(signal);
+        boolean availabilitySignal = false;
+        boolean changed = false;
+
+        if (isAvailabilityChannelFor(conditionA, signal.channel())) {
+            availabilitySignal = true;
+            changed |= handleMetricAvailability(conditionA, signal);
+        }
+
+        if (conditionBEnabled
+                && isAvailabilityChannelFor(conditionB, signal.channel())) {
+            availabilitySignal = true;
+            changed |= handleMetricAvailability(conditionB, signal);
+        }
+
+        if (availabilitySignal) {
+            if (changed) {
+                updateOutputFromConditions();
+                notifyConditionItems();
+            }
             return;
         }
 
-        boolean changed = acceptForCondition(conditionA, signal, sourceAItem);
+        changed = acceptForCondition(conditionA, signal, sourceAItem);
 
         if (conditionBEnabled) {
             changed |= acceptForCondition(conditionB, signal, sourceBItem);
@@ -321,28 +365,28 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
         }
     }
 
-    private void handlePowerAvailability(@NotNull ControlSignal signal) {
+    private static boolean isAvailabilityChannelFor(
+            Condition condition,
+            ControlChannel channel
+    ) {
+        return MetricAvailability.channelFor(condition.rule.channel())
+                .filter(channel::equals)
+                .isPresent();
+    }
+
+    private static boolean handleMetricAvailability(
+            Condition condition,
+            ControlSignal signal
+    ) {
         if (!(signal.value() instanceof ControlValue.BooleanValue booleanValue)
                 || booleanValue.value()) {
-            return;
+            return false;
         }
 
-        boolean changed = invalidateUnavailablePowerCondition(
-                conditionA,
+        return invalidateUnavailableMetricCondition(
+                condition,
                 signal.source()
         );
-
-        if (conditionBEnabled) {
-            changed |= invalidateUnavailablePowerCondition(
-                    conditionB,
-                    signal.source()
-            );
-        }
-
-        if (changed) {
-            updateOutputFromConditions();
-            notifyConditionItems();
-        }
     }
 
     private static boolean invalidateConditionForUnavailablePeer(
@@ -360,12 +404,11 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
         return true;
     }
 
-    private static boolean invalidateUnavailablePowerCondition(
+    private static boolean invalidateUnavailableMetricCondition(
             Condition condition,
             UUID source
     ) {
-        if (!isPowerMetric(condition.rule.channel())
-                || condition.sourceId == null
+        if (condition.sourceId == null
                 || !condition.sourceId.equals(source)
                 || (condition.lastObserved == null && condition.lastResult == null)) {
             return false;
@@ -1002,15 +1045,6 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
         } catch (IllegalArgumentException ignored) {
             return null;
         }
-    }
-
-    private static boolean isPowerMetric(ControlChannel channel) {
-        return GridWorksChannels.POWER_PRODUCTION_CAPACITY_WATTS.equals(channel)
-                || GridWorksChannels.POWER_DEMAND_WATTS.equals(channel)
-                || GridWorksChannels.POWER_RESERVE_WATTS.equals(channel)
-                || GridWorksChannels.POWER_LOAD_RATIO.equals(channel)
-                || GridWorksChannels.POWER_POWERED_CONSUMER_RATIO.equals(channel)
-                || GridWorksChannels.POWER_UNPOWERED_CONSUMERS.equals(channel);
     }
 
     private static Metric metricFor(ControlChannel channel) {
@@ -1694,6 +1728,17 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
                         ComparisonOperator.LESS_OR_EQUAL,
                         0.25
                 )
+        ),
+        MACHINE_NEAR_COMPLETE(
+                "Machine >= 90%",
+                new NumericControlRule(
+                        GridWorksChannels.MACHINE_PROGRESS,
+                        ComparisonOperator.GREATER_OR_EQUAL,
+                        0.90
+                ),
+                false,
+                LogicOperator.AND,
+                null
         ),
         POWER_LOAD_HIGH(
                 "Power Load >= 90%",

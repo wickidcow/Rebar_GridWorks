@@ -4,7 +4,7 @@
 
 GridWorks is a Rebar addon focused on making factories smarter rather than simply making machines faster. Its long-term goal is to connect sensors, controllers, power systems, cargo, fluids, machines, and redstone through a common automation layer.
 
-> GridWorks is in early development. The Control Bus, persistent physical network, redstone I/O, sensors, controllers, addressed routing, alarms, presets, and Factory Monitor are implemented.
+> **Part 2 automation foundation is complete on the 0.2.x development line.** The Control Bus, persistent physical network, redstone I/O, inventory/fluid/machine/power sensing, controllers, addressed routing, alarms, load shedding, presets, and Factory Monitor are implemented. Native Rebar electricity switching remains upstream-blocked until its electricity API ships in a released dependency.
 
 ## Current systems
 
@@ -105,7 +105,9 @@ Presets reset condition sources to AUTO and clear stale measurements before eval
 
 Controllers can also use `gridworks:redstone/strength` as a numeric 0–15 input, so analog vanilla redstone can participate in threshold logic. The controller metric list now also understands the stable power telemetry contract: capacity, demand, reserve, load ratio, powered-consumer ratio, and unpowered-consumer count.
 
-Three power-aware presets are available in advance of the native Rebar bridge: **Power Load >= 90%**, **Power Shortage**, and **Load Shed Trigger**. Until a linked source actually publishes power telemetry, these rules remain WAITING and their receiver output stays fail-safe OFF.
+Machine telemetry is also available as numeric controller metrics for **progress**, **process time**, and **ticks remaining**, with a **Machine >= 90%** preset for completion-driven automation. Power-aware presets remain **Power Load >= 90%**, **Power Shortage**, and **Load Shed Trigger**.
+
+Inventory, fluid, machine, and power measurements all respect their domain availability channel. If a bound sensor reports unavailable, the controller discards that cached measurement and returns to three-state `WAITING` instead of interpreting unavailable as a legitimate numeric zero.
 
 Existing placed controllers remain compatible: their old single rule loads as Condition A and Condition B starts disabled.
 
@@ -150,7 +152,7 @@ Power metrics are emitted in deterministic order and each changed snapshot ends 
 
 When the provider disappears, the target chunk unloads, or the target is no longer a known power grid, the sensor publishes only `power/available=false`. Power-aware Factory Controller conditions bound to that sensor immediately discard their previous numeric observation and return to `WAITING`, preventing stale power data from holding a load-shed command ON or OFF.
 
-## Planned systems
+## Smart-grid automation
 
 The load-shedding core uses hysteresis with three stages: Normal, Shed Optional, and Shed Normal + Optional. Default thresholds shed optional loads at 90% load and restore them at 80%; severe shedding begins at 100% load or whenever the provider reports any unpowered consumer, and normal loads recover only after load falls to 90% with no unpowered consumers. Essential loads are never disabled by the policy.
 

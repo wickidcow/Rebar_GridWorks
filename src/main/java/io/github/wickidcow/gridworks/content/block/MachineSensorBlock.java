@@ -140,6 +140,11 @@ public final class MachineSensorBlock extends PhysicalControlNodeBlock
                 GridWorksChannels.MACHINE_AVAILABLE,
                 ControlValue.of(snapshot.available())
         );
+
+        if (!snapshot.available()) {
+            return;
+        }
+
         bus.publish(
                 getNodeId(),
                 GridWorksChannels.MACHINE_KIND,

@@ -131,6 +131,11 @@ public final class FluidSensorBlock extends PhysicalControlNodeBlock implements 
                 GridWorksChannels.FLUID_AVAILABLE,
                 ControlValue.of(snapshot.available())
         );
+
+        if (!snapshot.available()) {
+            return;
+        }
+
         bus.publish(
                 getNodeId(),
                 GridWorksChannels.FLUID_PRESENT,
