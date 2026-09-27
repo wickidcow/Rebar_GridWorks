@@ -6,8 +6,10 @@ import io.github.pylonmc.rebar.item.builder.ItemStackBuilder;
 import io.github.pylonmc.rebar.util.gui.GuiItems;
 import io.github.wickidcow.gridworks.GridWorks;
 import io.github.wickidcow.gridworks.api.control.ComparisonOperator;
+import io.github.wickidcow.gridworks.api.control.ControlAddress;
 import io.github.wickidcow.gridworks.api.control.ControlChannel;
 import io.github.wickidcow.gridworks.api.control.ControlCommandChannel;
+import io.github.wickidcow.gridworks.api.control.ControlOutputMode;
 import io.github.wickidcow.gridworks.api.control.ControlSignal;
 import io.github.wickidcow.gridworks.api.control.ControlStateSource;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
@@ -59,6 +61,10 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
     private static final NamespacedKey PRESET_KEY = key("factory_controller_preset");
     private static final NamespacedKey OUTPUT_CIRCUIT_KEY =
             key("factory_controller_output_circuit");
+    private static final NamespacedKey OUTPUT_MODE_KEY =
+            key("factory_controller_output_mode");
+    private static final NamespacedKey OUTPUT_ADDRESS_KEY =
+            key("factory_controller_output_address");
     private static final NamespacedKey OUTPUT_KEY = key("factory_controller_output");
     private static final NamespacedKey OUTPUT_KNOWN_KEY = key("factory_controller_output_known");
 
@@ -129,6 +135,8 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
     private String controllerName;
     private ControllerPreset preset;
     private ControlCommandChannel outputCircuit;
+    private ControlOutputMode outputMode;
+    private ControlAddress outputAddress;
     private boolean outputEnabled;
     private boolean outputKnown;
 
@@ -145,7 +153,9 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
     private final OperatorItem operatorBItem = new OperatorItem(1);
     private final ThresholdItem thresholdBItem = new ThresholdItem(1);
     private final SourceItem sourceBItem = new SourceItem(1);
+    private final OutputModeItem outputModeItem = new OutputModeItem();
     private final OutputCircuitItem outputCircuitItem = new OutputCircuitItem();
+    private final OutputAddressItem outputAddressItem = new OutputAddressItem();
     private final OutputItem outputItem = new OutputItem();
 
     public FactoryControllerBlock(@NotNull Block block, @NotNull BlockCreateContext context) {
@@ -173,6 +183,8 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
         this.controllerName = DEFAULT_NAME;
         this.preset = ControllerPreset.CUSTOM;
         this.outputCircuit = ControlCommandChannel.DEFAULT;
+        this.outputMode = ControlOutputMode.CIRCUIT;
+        this.outputAddress = ControlAddress.defaultFor(getNodeId(), "controller");
     }
 
     public FactoryControllerBlock(
@@ -205,6 +217,13 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
         this.preset = parsePreset(pdc.get(PRESET_KEY, PersistentDataType.STRING));
         this.outputCircuit = ControlCommandChannel.fromStored(
                 pdc.get(OUTPUT_CIRCUIT_KEY, PersistentDataType.STRING)
+        );
+        this.outputMode = ControlOutputMode.fromStored(
+                pdc.get(OUTPUT_MODE_KEY, PersistentDataType.STRING)
+        );
+        this.outputAddress = ControlAddress.fromStoredOrDefault(
+                pdc.get(OUTPUT_ADDRESS_KEY, PersistentDataType.STRING),
+                ControlAddress.defaultFor(getNodeId(), "controller")
         );
 
         Byte storedOutput = pdc.get(OUTPUT_KEY, PersistentDataType.BYTE);
@@ -275,6 +294,8 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
         pdc.set(NAME_KEY, PersistentDataType.STRING, controllerName);
         pdc.set(PRESET_KEY, PersistentDataType.STRING, preset.name());
         pdc.set(OUTPUT_CIRCUIT_KEY, PersistentDataType.STRING, outputCircuit.name());
+        pdc.set(OUTPUT_MODE_KEY, PersistentDataType.STRING, outputMode.name());
+        pdc.set(OUTPUT_ADDRESS_KEY, PersistentDataType.STRING, outputAddress.value());
         pdc.set(
                 OUTPUT_KEY,
                 PersistentDataType.BYTE,
@@ -291,7 +312,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
     public @NotNull Gui createGui() {
         return Gui.builder()
                 .setStructure(
-                        "a o t s # # c # x",
+                        "a o t s # m c d x",
                         "n z # # l # # # #",
                         "e b p q r # # # #"
                 )
@@ -300,7 +321,9 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
                 .addIngredient('o', operatorAItem)
                 .addIngredient('t', thresholdAItem)
                 .addIngredient('s', sourceAItem)
+                .addIngredient('m', outputModeItem)
                 .addIngredient('c', outputCircuitItem)
+                .addIngredient('d', outputAddressItem)
                 .addIngredient('n', nameItem)
                 .addIngredient('z', presetItem)
                 .addIngredient('l', logicItem)
@@ -332,6 +355,18 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
 
     public @NotNull ControlCommandChannel getOutputCircuit() {
         return outputCircuit;
+    }
+
+    public @NotNull ControlOutputMode getOutputMode() {
+        return outputMode;
+    }
+
+    public @NotNull ControlAddress getOutputAddress() {
+        return outputAddress;
+    }
+
+    public @NotNull ControlChannel getOutputChannel() {
+        return currentOutputChannel();
     }
 
     private boolean acceptForCondition(
@@ -389,19 +424,49 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
         if (stateChanged || forcePublish) {
             publishOutput(enabled);
         }
+        outputModeItem.notifyWindows();
         outputCircuitItem.notifyWindows();
+        outputAddressItem.notifyWindows();
         outputItem.notifyWindows();
+    }
+
+    private ControlChannel currentOutputChannel() {
+        return outputMode == ControlOutputMode.ADDRESS
+                ? outputAddress.channel()
+                : outputCircuit.channel();
     }
 
     private void publishOutput(boolean enabled) {
         GridWorks.getInstance().getControlBus().publish(
                 getNodeId(),
-                outputCircuit.channel(),
+                currentOutputChannel(),
                 ControlValue.of(enabled)
         );
     }
 
+    private void clearOutputChannel(ControlChannel channel) {
+        GridWorks.getInstance().getControlBus().publish(
+                getNodeId(),
+                channel,
+                ControlValue.of(false)
+        );
+    }
+
+    private void toggleOutputMode() {
+        ControlChannel previous = currentOutputChannel();
+        clearOutputChannel(previous);
+        outputMode = outputMode.toggle();
+        publishOutput(outputEnabled);
+        outputModeItem.notifyWindows();
+        outputCircuitItem.notifyWindows();
+        outputAddressItem.notifyWindows();
+        outputItem.notifyWindows();
+    }
+
     private void changeOutputCircuit(int direction) {
+        if (outputMode != ControlOutputMode.CIRCUIT) {
+            return;
+        }
         ControlCommandChannel previous = outputCircuit;
         ControlCommandChannel next = outputCircuit.cycle(direction);
         if (previous == next) {
@@ -409,16 +474,106 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
         }
 
         // Explicitly clear the old circuit so receivers do not remain latched ON.
-        GridWorks.getInstance().getControlBus().publish(
-                getNodeId(),
-                previous.channel(),
-                ControlValue.of(false)
-        );
+        clearOutputChannel(previous.channel());
 
         outputCircuit = next;
         publishOutput(outputEnabled);
         outputCircuitItem.notifyWindows();
         outputItem.notifyWindows();
+    }
+
+    private void setOutputAddress(ControlAddress next) {
+        if (outputAddress.equals(next)) {
+            return;
+        }
+
+        ControlChannel previous = currentOutputChannel();
+        if (outputMode == ControlOutputMode.ADDRESS) {
+            clearOutputChannel(previous);
+        }
+
+        outputAddress = next;
+
+        if (outputMode == ControlOutputMode.ADDRESS) {
+            publishOutput(outputEnabled);
+        }
+
+        outputAddressItem.notifyWindows();
+        outputItem.notifyWindows();
+    }
+
+    private void openOutputAddressWindow(Player player) {
+        final boolean[] firstRename = {true};
+
+        Gui upperGui = Gui.builder()
+                .setStructure("# a #")
+                .addIngredient('#', GuiItems.background())
+                .addIngredient(
+                        'a',
+                        ItemStackBuilder.of(Material.NAME_TAG)
+                                .name(Component.text(outputAddress.value(), NamedTextColor.GOLD))
+                )
+                .build();
+
+        Gui lowerGui = Gui.builder()
+                .setStructure(
+                        "# # # # # # # # #",
+                        "# # # # i # # # #",
+                        "# # # # # # # # #",
+                        "# # # # # # # # #"
+                )
+                .addIngredient('#', GuiItems.background())
+                .addIngredient(
+                        'i',
+                        ItemStackBuilder.of(Material.PAPER)
+                                .name(Component.text("Set Output Address", NamedTextColor.GOLD))
+                                .lore(
+                                        Component.text(
+                                                "Example: ore_line_1",
+                                                NamedTextColor.GRAY
+                                        ),
+                                        Component.text(
+                                                "Same address can intentionally control a group.",
+                                                NamedTextColor.GRAY
+                                        )
+                                )
+                )
+                .build();
+
+        try {
+            AnvilWindow window = AnvilWindow.builder()
+                    .setViewer(player)
+                    .setUpperGui(upperGui)
+                    .setLowerGui(lowerGui)
+                    .setTitle(Component.text("Controller Output Address"))
+                    .addRenameHandler(raw -> {
+                        if (firstRename[0]) {
+                            firstRename[0] = false;
+                            return;
+                        }
+
+                        try {
+                            setOutputAddress(ControlAddress.fromUserInput(raw));
+                        } catch (IllegalArgumentException ignored) {
+                            player.sendMessage(Component.text(
+                                    "Address must contain letters or numbers.",
+                                    NamedTextColor.RED
+                            ));
+                        }
+                    })
+                    .build(player);
+            window.open();
+        } catch (RuntimeException exception) {
+            GridWorks.getInstance().getLogger().log(
+                    java.util.logging.Level.SEVERE,
+                    "Could not open Factory Controller output address window",
+                    exception
+            );
+            player.sendMessage(Component.text(
+                    "GridWorks could not open the output address window.",
+                    NamedTextColor.RED
+            ));
+        }
     }
 
     private void changeMetric(int conditionIndex, int direction) {
@@ -596,7 +751,9 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
         sourceBItem.notifyWindows();
         nameItem.notifyWindows();
         presetItem.notifyWindows();
+        outputModeItem.notifyWindows();
         outputCircuitItem.notifyWindows();
+        outputAddressItem.notifyWindows();
         outputItem.notifyWindows();
     }
 
@@ -1144,19 +1301,17 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
         }
     }
 
-    private final class OutputCircuitItem extends ControllerItem {
+    private final class OutputModeItem extends ControllerItem {
         @Override
         public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
             return item(
-                    Material.REDSTONE,
-                    "Output circuit: " + outputCircuit.displayName()
+                    outputMode == ControlOutputMode.ADDRESS
+                            ? Material.ENDER_EYE
+                            : Material.REDSTONE,
+                    "Output mode: " + outputMode.displayName()
             ).lore(
                     Component.text(
-                            outputCircuit.channel().toString(),
-                            NamedTextColor.GRAY
-                    ),
-                    Component.text(
-                            "Left/right click to cycle Default / A / B / C / D",
+                            "Click to switch Circuit / Address",
                             NamedTextColor.YELLOW
                     )
             );
@@ -1168,11 +1323,96 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
                 @NotNull Player player,
                 @NotNull Click click
         ) {
+            toggleOutputMode();
+        }
+    }
+
+    private final class OutputCircuitItem extends ControllerItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            ItemStackBuilder builder = item(
+                    outputMode == ControlOutputMode.CIRCUIT
+                            ? Material.REDSTONE
+                            : Material.GRAY_DYE,
+                    "Output circuit: " + outputCircuit.displayName()
+            ).lore(Component.text(
+                    outputCircuit.channel().toString(),
+                    NamedTextColor.GRAY
+            ));
+
+            if (outputMode == ControlOutputMode.CIRCUIT) {
+                builder.lore(Component.text(
+                        "Left/right click to cycle Default / A / B / C / D",
+                        NamedTextColor.YELLOW
+                ));
+            } else {
+                builder.lore(Component.text(
+                        "Switch output mode to Circuit to edit",
+                        NamedTextColor.DARK_GRAY
+                ));
+            }
+            return builder;
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            if (outputMode != ControlOutputMode.CIRCUIT) {
+                return;
+            }
             if (clickType.isLeftClick()) {
                 changeOutputCircuit(1);
             } else if (clickType.isRightClick()) {
                 changeOutputCircuit(-1);
             }
+        }
+    }
+
+    private final class OutputAddressItem extends ControllerItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            ItemStackBuilder builder = item(
+                    outputMode == ControlOutputMode.ADDRESS
+                            ? Material.NAME_TAG
+                            : Material.GRAY_DYE,
+                    "Output address: " + outputAddress.value()
+            ).lore(Component.text(
+                    outputAddress.channel().toString(),
+                    NamedTextColor.GRAY
+            ));
+
+            if (outputMode == ControlOutputMode.ADDRESS) {
+                builder.lore(Component.text(
+                        "Click to edit addressed output",
+                        NamedTextColor.YELLOW
+                ));
+            } else {
+                builder.lore(Component.text(
+                        "Switch output mode to Address to edit",
+                        NamedTextColor.DARK_GRAY
+                ));
+            }
+            return builder;
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            if (outputMode != ControlOutputMode.ADDRESS) {
+                return;
+            }
+
+            player.closeInventory();
+            GridWorks.getInstance().getServer().getScheduler().runTask(
+                    GridWorks.getInstance(),
+                    () -> openOutputAddressWindow(player)
+            );
         }
     }
 
@@ -1189,7 +1429,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
                     )
                     .name(Component.text("Output: " + output, color))
                     .lore(Component.text(
-                            "Publishes " + outputCircuit.channel(),
+                            "Publishes " + currentOutputChannel(),
                             NamedTextColor.GRAY
                     ));
 

@@ -10,6 +10,7 @@ import io.github.wickidcow.gridworks.api.control.BooleanInputConfigurable;
 import io.github.wickidcow.gridworks.api.control.BooleanInputMode;
 import io.github.wickidcow.gridworks.api.control.ControlSignal;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
+import io.github.wickidcow.gridworks.content.block.AddressedRelayBlock;
 import io.github.wickidcow.gridworks.content.block.AlarmConsoleBlock;
 import io.github.wickidcow.gridworks.content.block.AlarmIndicatorBlock;
 import io.github.wickidcow.gridworks.content.block.ControlRelayBlock;
@@ -164,6 +165,20 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
                         .append(Component.text(shortNodeId(controlNode.getNodeId()), NamedTextColor.WHITE))
         );
 
+        if (controlNode instanceof AddressedRelayBlock addressedRelay) {
+            event.getPlayer().sendMessage(
+                    Component.text("Relay address: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    addressedRelay.getAddress().value(),
+                                    NamedTextColor.AQUA
+                            ))
+            );
+            event.getPlayer().sendMessage(
+                    Component.text("Addressed output: ", NamedTextColor.GRAY)
+                            .append(onOff(addressedRelay.isPowered()))
+            );
+        }
+
         if (controlNode instanceof AlarmConsoleBlock console) {
             event.getPlayer().sendMessage(
                     Component.text("Tracked alarms: ", NamedTextColor.GRAY)
@@ -304,9 +319,10 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
                             .append(onOff(controller.isOutputEnabled()))
             );
             event.getPlayer().sendMessage(
-                    Component.text("Output circuit: ", NamedTextColor.GRAY)
+                    Component.text("Output route: ", NamedTextColor.GRAY)
                             .append(Component.text(
-                                    controller.getOutputCircuit().displayName(),
+                                    controller.getOutputMode().displayName()
+                                            + " / " + controller.getOutputChannel(),
                                     NamedTextColor.AQUA
                             ))
             );

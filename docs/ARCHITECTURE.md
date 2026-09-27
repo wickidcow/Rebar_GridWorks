@@ -201,3 +201,16 @@ Alarm escalation is a derived one-step policy, not another persisted severity st
 While an alarm is latched and unacknowledged, an optional one-shot Bukkit task waits until the configured deadline. Info escalates to Warning and Warning escalates to Critical; Critical has no further escalation. Acknowledgement or latch clearance cancels the task.
 
 On chunk/server reload, `AlarmEscalationPolicy` compares the persisted last-trigger epoch with the current clock and either schedules only the remaining delay or applies escalation immediately when the deadline already passed. There is no repeating escalation ticker, and host-clock rollback cannot move the persisted last-trigger timestamp backward.
+
+
+## Addressed command routing
+
+Default/A-D remain the compact routing model for simple factories. Addressed commands are additive and use canonical channels under `gridworks:control/address/<address>`.
+
+`ControlAddress` normalizes player input to a lower-case, channel-safe identifier capped at 32 characters. Addresses are scoped by physical Control Bus reachability, not globally registered. Sharing an address is therefore intentional multicast: every Addressed Relay with that address in the same loaded component receives the command.
+
+Factory Controllers persist both their legacy circuit choice and their output mode/address. Switching output mode, circuit, or active address explicitly publishes OFF on the old active channel before publishing the current state on the new route, preventing abandoned receivers from remaining ON.
+
+Addressed Relay starts fail-safe OFF after construction/load and relies on normal `ControlStateSource` replay from the controller to restore current state. Changing a relay address also resets OFF and requests component state replay. No address lookup scans worlds or loads chunks.
+
+Factory Monitor keeps only the most recent addressed command in one dedicated diagnostic slot, preserving bounded memory despite the dynamic channel namespace.

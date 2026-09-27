@@ -38,6 +38,13 @@ item:
       <arrow> Nearby vanilla redstone cannot take over its state
       <arrow> Link it to a Redstone Sensor with a GridWorks Linker
 
+  addressed_relay:
+    name: "Addressed Relay"
+    lore: |-
+      <arrow> Converts one addressed Control Bus command into vanilla redstone
+      <arrow> Give it a human-readable address such as ore_line_1
+      <arrow> Multiple relays may share an address to form a control group
+
   control_relay:
     name: "Control Relay"
     lore: |-
@@ -78,7 +85,7 @@ item:
     lore: |-
       <arrow> Combines up to two sensor conditions with AND/OR logic
       <arrow> AUTO-bind or explicitly choose directly linked sources
-      <arrow> Right click to configure rules, presets, sources, and name
+      <arrow> Right click to configure rules, presets, sources, and output routing
 
   factory_monitor:
     name: "Factory Monitor"

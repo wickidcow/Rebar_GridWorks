@@ -10,7 +10,9 @@ GridWorks is a Rebar addon focused on making factories smarter rather than simpl
 
 The Control Bus provides namespaced typed signals, cycle-safe graph propagation, a configurable safety cap, receiver isolation, and a Bukkit service API for other addons.
 
-One physical Control Bus can carry five independent boolean command circuits: **Default, A, B, C, and D**. Factory Controllers choose an output circuit in their GUI. Boolean actuators use the GridWorks Linker (sneak + left-click) to cycle their input mode between Legacy, Redstone-only, Default, and A-D. Existing blocks remain Legacy-compatible, accepting the original Redstone + Default inputs until changed.
+One physical Control Bus can carry five simple boolean command circuits: **Default, A, B, C, and D**. Factory Controllers can also switch to **addressed output**, publishing to a normalized channel such as `gridworks:control/address/ore_line_1`. The Addressed Relay listens to one human-readable address; multiple relays may deliberately share an address to create a multicast control group.
+
+Existing boolean actuators keep their Linker-selectable Legacy/Redstone/Default/A-D routing unchanged, so addressed control is additive and does not alter placed devices.
 
 The physical layer provides persistent node UUIDs, atomic link persistence, a GridWorks Linker, chunk-safe live topology, peer-availability callbacks, and reconnection without world scans or forced chunk loads.
 
@@ -21,11 +23,12 @@ The physical layer provides persistent node UUIDs, atomic link persistence, a Gr
                      +--> Alarm Indicator --> visible + one-shot local alert
 Redstone Sensor -----|
                      +--> Control Relay --> steady vanilla redstone
+Factory Controller --> Addressed Relay --> addressed/group redstone
                      +--> Pulse Relay   --> timed vanilla redstone pulse
                      +--> Delay Relay   --> delayed/debounced redstone
 ```
 
-The Redstone Sensor is event-driven and publishes analog strength plus boolean powered state. The Status Light displays the boolean state, while the Control Relay produces steady vanilla redstone output.
+The Redstone Sensor is event-driven and publishes analog strength plus boolean powered state. The Status Light displays the boolean state, while the Control Relay produces steady vanilla redstone output. The Addressed Relay adds human-readable routing for factories that need more independent outputs than Default/A-D.
 
 The **Pulse Relay** produces a configurable 1-tick to 60-second redstone pulse on an observed false-to-true edge. Its first replayed state after a load/relink only establishes a baseline, preventing server restarts from accidentally re-triggering one-shot machinery. A new rising edge during an active pulse restarts the timer from that edge.
 
@@ -68,18 +71,18 @@ It samples loaded sensor targets only and never loads another chunk. The first i
 
 GridWorks now has a tested numeric-rule API for controller logic. A rule consists of an input channel, comparison operator, and finite threshold. Rules ignore unrelated channels and non-numeric values rather than coercing data unexpectedly.
 
-Controllers publish their boolean result on a selected command circuit (Default or A-D). Legacy actuators continue accepting the original Default command plus direct Redstone Sensor input until their routing is changed.
+Controllers publish their boolean result either on a selected command circuit (Default or A-D) or on a human-readable addressed channel. Legacy actuators continue accepting the original Default command plus direct Redstone Sensor input until their routing is changed.
 
 ## Factory Controller
 
-The Factory Controller is a configurable logic block. It supports **Condition A** plus an optional **Condition B**, combined with AND or OR, and publishes its result on a selectable Default/A-D command circuit.
+The Factory Controller is a configurable logic block. It supports **Condition A** plus an optional **Condition B**, combined with AND or OR, and publishes its result either on a selectable Default/A-D command circuit or an addressed output.
 
 Its Rebar/InvUI screen configures:
 
 - metric, comparison, threshold, and source for Condition A;
 - optional Condition B with its own metric, comparison, threshold, and source;
 - AND/OR combination;
-- current output state;
+- output routing mode, circuit/address, and current output state;
 - a player-defined controller name using InvUI's anvil text input;
 - reusable starting presets: Low Tank, Inventory High, Redstone >= 8, Stock + Fluid Ready, and Supply Alert.
 
@@ -114,7 +117,7 @@ Control Bus callbacks deliberately run on the publisher's thread. Physical GridW
 
 ## Planned systems
 
-The next work is richer command addressing and power-grid controls as Rebar's electricity API stabilizes. After that, GridWorks can connect inventory/fluid/redstone measurements to relays and eventually to smart electricity controls as Rebar's electricity API stabilizes.
+The next work is power-grid integration behind the existing adapter boundary as Rebar's electricity API stabilizes, plus broader addressed actuators where that remains useful.
 
 ## Requirements
 

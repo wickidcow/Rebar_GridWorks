@@ -4,6 +4,7 @@ import io.github.pylonmc.rebar.block.context.BlockCreateContext;
 import io.github.pylonmc.rebar.block.interfaces.GuiRebarBlock;
 import io.github.pylonmc.rebar.item.builder.ItemStackBuilder;
 import io.github.pylonmc.rebar.util.gui.GuiItems;
+import io.github.wickidcow.gridworks.api.control.ControlAddress;
 import io.github.wickidcow.gridworks.api.control.ControlChannel;
 import io.github.wickidcow.gridworks.api.control.ControlSignal;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
@@ -59,7 +60,9 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
     );
 
     private final Map<ControlChannel, ControlSignal> latestSignals = new ConcurrentHashMap<>();
+    private volatile ControlSignal lastAddressedSignal;
     private final Map<ControlChannel, SignalValueItem> signalItems = createSignalItems();
+    private final AddressedSignalItem addressedSignalItem = new AddressedSignalItem();
 
     public FactoryMonitorBlock(@NotNull Block block, @NotNull BlockCreateContext context) {
         super(block, context);
@@ -71,11 +74,18 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
 
     @Override
     public boolean accepts(@NotNull ControlChannel channel) {
-        return signalItems.containsKey(channel);
+        return signalItems.containsKey(channel)
+                || ControlAddress.isAddressedChannel(channel);
     }
 
     @Override
     protected void handleSignal(@NotNull ControlSignal signal) {
+        if (ControlAddress.isAddressedChannel(signal.channel())) {
+            lastAddressedSignal = signal;
+            runOnServerThreadIfActive(addressedSignalItem::notifyWindows);
+            return;
+        }
+
         latestSignals.put(signal.channel(), signal);
 
         SignalValueItem item = signalItems.get(signal.channel());
@@ -94,7 +104,7 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
                         "a i o t f # # # #",
                         "v p y m k z # # #",
                         "w u g h j # # # #",
-                        "l c # # # # # # #"
+                        "l c d # # # # # #"
                 )
                 .addIngredient('#', GuiItems.background())
                 .addIngredient('r', item(GridWorksChannels.REDSTONE_POWERED))
@@ -122,6 +132,7 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
                 .addIngredient('j', item(GridWorksChannels.ALARM_ACKNOWLEDGED))
                 .addIngredient('l', item(GridWorksChannels.ALARM_OCCURRENCES))
                 .addIngredient('c', item(GridWorksChannels.ALARM_LAST_TRIGGERED_EPOCH_MS))
+                .addIngredient('d', addressedSignalItem)
                 .build();
     }
 
@@ -194,6 +205,47 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
                             NamedTextColor.DARK_GRAY
                     )
             );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+        }
+    }
+
+    private final class AddressedSignalItem extends AbstractItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            ControlSignal signal = lastAddressedSignal;
+            if (signal == null) {
+                return ItemStackBuilder.of(Material.ENDER_EYE)
+                        .name(Component.text("Addressed Command", NamedTextColor.GOLD))
+                        .lore(Component.text(
+                                "Waiting for addressed command",
+                                NamedTextColor.YELLOW
+                        ));
+            }
+
+            return ItemStackBuilder.of(Material.ENDER_EYE)
+                    .name(Component.text("Addressed Command", NamedTextColor.GOLD))
+                    .lore(
+                            Component.text(
+                                    "Address: "
+                                            + ControlAddress.fromChannel(signal.channel()).value(),
+                                    NamedTextColor.WHITE
+                            ),
+                            Component.text(
+                                    "Value: " + displayValue(signal.value()),
+                                    NamedTextColor.WHITE
+                            ),
+                            Component.text(
+                                    "Source: " + shortId(signal.source()),
+                                    NamedTextColor.GRAY
+                            )
+                    );
         }
 
         @Override
