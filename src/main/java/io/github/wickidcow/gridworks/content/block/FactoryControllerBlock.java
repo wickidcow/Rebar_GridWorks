@@ -30,6 +30,7 @@ import xyz.xenondevs.invui.Click;
 import xyz.xenondevs.invui.gui.Gui;
 import xyz.xenondevs.invui.item.AbstractItem;
 import xyz.xenondevs.invui.item.ItemProvider;
+import xyz.xenondevs.invui.window.AnvilWindow;
 
 public final class FactoryControllerBlock extends PhysicalControlNodeBlock implements GuiRebarBlock {
     // Condition A intentionally keeps the original persistent keys for compatibility.
@@ -51,6 +52,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
     private static final NamespacedKey LOGIC_OPERATOR_KEY =
             key("factory_controller_logic_operator");
 
+    private static final NamespacedKey NAME_KEY = key("factory_controller_name");
     private static final NamespacedKey OUTPUT_KEY = key("factory_controller_output");
     private static final NamespacedKey OUTPUT_KNOWN_KEY = key("factory_controller_output_known");
 
@@ -72,6 +74,15 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
                     1.0,
                     9.0,
                     Double.MAX_VALUE
+            ),
+            new Metric(
+                    "Redstone Strength",
+                    GridWorksChannels.REDSTONE_STRENGTH,
+                    Material.REDSTONE,
+                    8.0,
+                    1.0,
+                    5.0,
+                    15.0
             ),
             new Metric(
                     "Inventory Fill",
@@ -102,10 +113,14 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
             )
     );
 
+    private static final String DEFAULT_NAME = "Factory Controller";
+    private static final int MAX_NAME_LENGTH = 32;
+
     private final Condition conditionA;
     private final Condition conditionB;
     private boolean conditionBEnabled;
     private LogicOperator logicOperator;
+    private String controllerName;
     private boolean outputEnabled;
     private boolean outputKnown;
 
@@ -114,6 +129,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
     private final ThresholdItem thresholdAItem = new ThresholdItem(0);
     private final SourceItem sourceAItem = new SourceItem(0);
 
+    private final NameItem nameItem = new NameItem();
     private final ConditionToggleItem conditionBToggleItem = new ConditionToggleItem();
     private final LogicItem logicItem = new LogicItem();
     private final MetricItem metricBItem = new MetricItem(1);
@@ -144,6 +160,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
         );
         this.conditionBEnabled = false;
         this.logicOperator = LogicOperator.AND;
+        this.controllerName = DEFAULT_NAME;
     }
 
     public FactoryControllerBlock(
@@ -172,6 +189,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
 
         String storedLogic = pdc.get(LOGIC_OPERATOR_KEY, PersistentDataType.STRING);
         this.logicOperator = parseLogicOperator(storedLogic);
+        this.controllerName = normalizeName(pdc.get(NAME_KEY, PersistentDataType.STRING));
 
         Byte storedOutput = pdc.get(OUTPUT_KEY, PersistentDataType.BYTE);
         Byte storedKnown = pdc.get(OUTPUT_KNOWN_KEY, PersistentDataType.BYTE);
@@ -204,7 +222,9 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
         boolean isInputSource = Objects.equals(conditionA.sourceId, peerId)
                 || (conditionBEnabled && Objects.equals(conditionB.sourceId, peerId));
 
-        if (!isInputSource && (outputKnown || outputEnabled)) {
+        if (!isInputSource) {
+            // WAITING is represented as fail-safe OFF on the wire, so newly
+            // loaded actuators must receive false even when outputKnown is false.
             publishOutput(outputEnabled);
         }
     }
@@ -238,6 +258,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
                 PersistentDataType.STRING,
                 logicOperator.name()
         );
+        pdc.set(NAME_KEY, PersistentDataType.STRING, controllerName);
         pdc.set(
                 OUTPUT_KEY,
                 PersistentDataType.BYTE,
@@ -255,7 +276,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
         return Gui.builder()
                 .setStructure(
                         "a o t s # # # # x",
-                        "# # # # l # # # #",
+                        "n # # # l # # # #",
                         "e b p q r # # # #"
                 )
                 .addIngredient('#', GuiItems.background())
@@ -263,6 +284,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
                 .addIngredient('o', operatorAItem)
                 .addIngredient('t', thresholdAItem)
                 .addIngredient('s', sourceAItem)
+                .addIngredient('n', nameItem)
                 .addIngredient('l', logicItem)
                 .addIngredient('e', conditionBToggleItem)
                 .addIngredient('b', metricBItem)
@@ -273,12 +295,17 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
                 .build();
     }
 
+    @Override
+    public @NotNull Component getGuiTitle() {
+        return Component.text(controllerName, NamedTextColor.GOLD);
+    }
+
     public @NotNull String describeRule() {
         String first = describeCondition("A", conditionA);
         if (!conditionBEnabled) {
-            return first;
+            return controllerName + ": " + first;
         }
-        return first + " " + logicOperator.name() + " " + describeCondition("B", conditionB);
+        return controllerName + ": " + first + " " + logicOperator.name() + " " + describeCondition("B", conditionB);
     }
 
     public boolean isOutputEnabled() {
@@ -477,6 +504,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
         operatorBItem.notifyWindows();
         thresholdBItem.notifyWindows();
         sourceBItem.notifyWindows();
+        nameItem.notifyWindows();
         outputItem.notifyWindows();
     }
 
@@ -599,6 +627,98 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
 
     private static String shortId(UUID id) {
         return id.toString().substring(0, 8).toUpperCase();
+    }
+
+    private static String normalizeName(String raw) {
+        if (raw == null) {
+            return DEFAULT_NAME;
+        }
+
+        String normalized = raw
+                .replaceAll("\\p{Cntrl}", "")
+                .replaceAll("\\s+", " ")
+                .trim();
+
+        if (normalized.isEmpty()) {
+            return DEFAULT_NAME;
+        }
+
+        if (normalized.length() > MAX_NAME_LENGTH) {
+            normalized = normalized.substring(0, MAX_NAME_LENGTH);
+        }
+        return normalized;
+    }
+
+    private void openRenameWindow(Player player) {
+        final boolean[] firstRename = {true};
+
+        Gui upperGui = Gui.builder()
+                .setStructure("# n #")
+                .addIngredient('#', GuiItems.background())
+                .addIngredient(
+                        'n',
+                        ItemStackBuilder.of(Material.NAME_TAG)
+                                .name(Component.text(controllerName, NamedTextColor.GOLD))
+                                .lore(Component.text(
+                                        "Type a new controller name",
+                                        NamedTextColor.GRAY
+                                ))
+                )
+                .build();
+
+        Gui lowerGui = Gui.builder()
+                .setStructure(
+                        "# # # # # # # # #",
+                        "# # # # i # # # #",
+                        "# # # # # # # # #",
+                        "# # # # # # # # #"
+                )
+                .addIngredient('#', GuiItems.background())
+                .addIngredient(
+                        'i',
+                        ItemStackBuilder.of(Material.PAPER)
+                                .name(Component.text("Rename Controller", NamedTextColor.GOLD))
+                                .lore(
+                                        Component.text(
+                                                "Type above; changes save immediately.",
+                                                NamedTextColor.GRAY
+                                        ),
+                                        Component.text(
+                                                "Close this window when finished.",
+                                                NamedTextColor.YELLOW
+                                        )
+                                )
+                )
+                .build();
+
+        try {
+            AnvilWindow window = AnvilWindow.builder()
+                    .setViewer(player)
+                    .setUpperGui(upperGui)
+                    .setLowerGui(lowerGui)
+                    .setTitle(Component.text("Name Factory Controller"))
+                    .addRenameHandler(rawName -> {
+                        if (firstRename[0]) {
+                            firstRename[0] = false;
+                            return;
+                        }
+
+                        controllerName = normalizeName(rawName);
+                        nameItem.notifyWindows();
+                    })
+                    .build(player);
+            window.open();
+        } catch (RuntimeException exception) {
+            GridWorks.getInstance().getLogger().log(
+                    java.util.logging.Level.SEVERE,
+                    "Could not open Factory Controller rename window",
+                    exception
+            );
+            player.sendMessage(Component.text(
+                    "GridWorks could not open the rename window.",
+                    NamedTextColor.RED
+            ));
+        }
     }
 
     private abstract class ControllerItem extends AbstractItem {
@@ -812,6 +932,30 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
             } else if (clickType.isRightClick()) {
                 cycleSource(conditionIndex, -1);
             }
+        }
+    }
+
+    private final class NameItem extends ControllerItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            return item(Material.NAME_TAG, "Name: " + controllerName)
+                    .lore(Component.text(
+                            "Click to rename this controller",
+                            NamedTextColor.YELLOW
+                    ));
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            player.closeInventory();
+            GridWorks.getInstance().getServer().getScheduler().runTask(
+                    GridWorks.getInstance(),
+                    () -> openRenameWindow(player)
+            );
         }
     }
 

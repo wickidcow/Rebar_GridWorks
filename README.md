@@ -56,7 +56,10 @@ Its Rebar/InvUI screen configures:
 - metric, comparison, threshold, and source for Condition A;
 - optional Condition B with its own metric, comparison, threshold, and source;
 - AND/OR combination;
-- current output state.
+- current output state;
+- a player-defined controller name using InvUI's anvil text input.
+
+Controllers can also use `gridworks:redstone/strength` as a numeric 0–15 input, so analog vanilla redstone can participate in threshold logic.
 
 Existing placed controllers remain compatible: their old single rule loads as Condition A and Condition B starts disabled.
 
@@ -75,7 +78,7 @@ Fluid Tank Sensor ---/       A: items >= 64
 
 ## Planned systems
 
-The next controller work is player-defined rule names, more than two conditions, and reusable controller presets. After that, GridWorks can connect inventory/fluid/redstone measurements to relays and eventually to smart electricity controls as Rebar's electricity API stabilizes.
+The next controller work is reusable controller presets, more than two conditions, and richer device-level actions as Rebar's electricity API stabilizes. After that, GridWorks can connect inventory/fluid/redstone measurements to relays and eventually to smart electricity controls as Rebar's electricity API stabilizes.
 
 ## Requirements
 
