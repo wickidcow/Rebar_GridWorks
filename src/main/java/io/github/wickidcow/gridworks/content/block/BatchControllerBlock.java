@@ -14,8 +14,11 @@ import io.github.wickidcow.gridworks.api.control.ControlStateSource;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
 import io.github.wickidcow.gridworks.control.RisingEdgeTrigger;
+import io.github.wickidcow.gridworks.production.BatchPaceTracker;
 import io.github.wickidcow.gridworks.production.BatchProgressTracker;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -61,6 +64,7 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
     private static final long MAX_WATCHDOG_TICKS = 72_000L;
 
     private final BatchProgressTracker tracker;
+    private final BatchPaceTracker paceTracker;
     private final Set<UUID> activePeers = ConcurrentHashMap.newKeySet();
     private final RisingEdgeTrigger resetEdge = new RisingEdgeTrigger();
 
@@ -84,10 +88,12 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
     private final WatchdogItem watchdogItem = new WatchdogItem();
     private final FaultAddressItem faultAddressItem = new FaultAddressItem();
     private final ResetAddressItem resetAddressItem = new ResetAddressItem();
+    private final PaceItem paceItem = new PaceItem();
 
     public BatchControllerBlock(@NotNull Block block, @NotNull BlockCreateContext context) {
         super(block, context);
         tracker = new BatchProgressTracker();
+        paceTracker = new BatchPaceTracker();
         outputMode = ControlOutputMode.CIRCUIT;
         outputCircuit = ControlCommandChannel.DEFAULT;
         outputAddress = ControlAddress.defaultFor(getNodeId(), "batch");
@@ -106,6 +112,7 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
                 validTargetOrDefault(storedTarget),
                 validProgressOrZero(storedProgress)
         );
+        paceTracker = new BatchPaceTracker();
 
         outputMode = ControlOutputMode.fromStored(
                 pdc.get(OUTPUT_MODE_KEY, PersistentDataType.STRING)
@@ -136,6 +143,7 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
     @Override
     protected void beforeActivated() {
         resetEdge.reset();
+        paceTracker.reset();
         cancelWatchdog();
     }
 
@@ -147,12 +155,14 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
     @Override
     protected void afterDeactivated() {
         cancelWatchdog();
+        paceTracker.reset();
         resetEdge.reset();
     }
 
     @Override
     protected void afterRemoved() {
         cancelWatchdog();
+        paceTracker.reset();
         resetEdge.reset();
     }
 
@@ -192,14 +202,24 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
     public void onControlPeerAvailable(UUID peerId) {
         activePeers.add(Objects.requireNonNull(peerId, "peerId"));
         tracker.forgetSource(peerId);
-        runOnServerThreadIfActive(sourcesItem::notifyWindows);
+        runOnServerThreadIfActive(() -> {
+            paceTracker.reset();
+            publishCurrentState();
+            sourcesItem.notifyWindows();
+            paceItem.notifyWindows();
+        });
     }
 
     @Override
     public void onControlPeerUnavailable(UUID peerId) {
         activePeers.remove(Objects.requireNonNull(peerId, "peerId"));
         tracker.forgetSource(peerId);
-        runOnServerThreadIfActive(sourcesItem::notifyWindows);
+        runOnServerThreadIfActive(() -> {
+            paceTracker.reset();
+            publishCurrentState();
+            sourcesItem.notifyWindows();
+            paceItem.notifyWindows();
+        });
     }
 
     @Override
@@ -244,6 +264,28 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
                 GridWorksChannels.BATCH_WATCHDOG_TICKS,
                 ControlValue.of((double) watchdogTicks)
         );
+
+        boolean paceAvailable = !faulted && paceTracker.isAvailable();
+        bus.publish(
+                getNodeId(),
+                GridWorksChannels.BATCH_RATE_AVAILABLE,
+                ControlValue.of(paceAvailable)
+        );
+        if (paceAvailable) {
+            bus.publish(
+                    getNodeId(),
+                    GridWorksChannels.BATCH_RATE_PER_MINUTE,
+                    ControlValue.of(paceTracker.ratePerMinute())
+            );
+            paceTracker.etaSeconds(tracker.remaining()).ifPresent(eta ->
+                    bus.publish(
+                            getNodeId(),
+                            GridWorksChannels.BATCH_ETA_SECONDS,
+                            ControlValue.of(eta)
+                    )
+            );
+        }
+
         bus.publish(
                 getNodeId(),
                 currentOutputChannel(),
@@ -262,7 +304,7 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
                 .setStructure(
                         "p # t # s # r # o",
                         "# # m # c # a # #",
-                        "w # f # u # # # #"
+                        "w # f # u # v # #"
                 )
                 .addIngredient('#', GuiItems.background())
                 .addIngredient('p', progressItem)
@@ -276,6 +318,7 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
                 .addIngredient('w', watchdogItem)
                 .addIngredient('f', faultAddressItem)
                 .addIngredient('u', resetAddressItem)
+                .addIngredient('v', paceItem)
                 .build();
     }
 
@@ -297,6 +340,21 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
 
     public long getWatchdogTicks() {
         return watchdogTicks;
+    }
+
+    public boolean isBatchRateAvailable() {
+        return !faulted && paceTracker.isAvailable();
+    }
+
+    public double getBatchRatePerMinute() {
+        return paceTracker.ratePerMinute();
+    }
+
+    public @NotNull OptionalDouble getBatchEtaSeconds() {
+        if (faulted) {
+            return OptionalDouble.empty();
+        }
+        return paceTracker.etaSeconds(tracker.remaining());
     }
 
     public @NotNull ControlAddress getFaultAddress() {
@@ -351,6 +409,11 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
             return;
         }
 
+        paceTracker.observeProgress(
+                observation.appliedDelta(),
+                System.nanoTime()
+        );
+
         if (tracker.isComplete()) {
             cancelWatchdog();
         } else {
@@ -362,6 +425,7 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
 
     private void resetBatch() {
         tracker.resetProgress();
+        paceTracker.reset();
         faulted = false;
         scheduleWatchdog();
         publishCurrentState();
@@ -537,6 +601,7 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
         }
 
         faulted = true;
+        paceTracker.reset();
         cancelWatchdog();
         publishCurrentState();
         notifyStateItems();
@@ -570,6 +635,7 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
         targetItem.notifyWindows();
         resetItem.notifyWindows();
         outputStateItem.notifyWindows();
+        paceItem.notifyWindows();
     }
 
     private void notifyOutputItems() {
@@ -585,6 +651,7 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
         resetAddressItem.notifyWindows();
         progressItem.notifyWindows();
         outputStateItem.notifyWindows();
+        paceItem.notifyWindows();
     }
 
     private void openAddressWindow(
@@ -1136,6 +1203,69 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
                             BatchControllerBlock.this::setResetAddress
                     )
             );
+        }
+    }
+
+    private final class PaceItem extends BatchItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            if (faulted) {
+                return item(Material.RED_DYE, "Production Pace: UNAVAILABLE")
+                        .lore(Component.text(
+                                "Batch fault is latched",
+                                NamedTextColor.RED
+                        ));
+            }
+
+            if (!paceTracker.isAvailable()) {
+                return item(Material.CLOCK, "Production Pace: LEARNING")
+                        .lore(
+                                Component.text(
+                                        "Two positive progress events establish pace",
+                                        NamedTextColor.GRAY
+                                ),
+                                Component.text(
+                                        "Resets after reload or new batch",
+                                        NamedTextColor.DARK_GRAY
+                                )
+                        );
+            }
+
+            double rate = paceTracker.ratePerMinute();
+            OptionalDouble eta = paceTracker.etaSeconds(tracker.remaining());
+            return item(Material.CLOCK, "Production Pace")
+                    .lore(
+                            Component.text(
+                                    String.format(
+                                            Locale.ROOT,
+                                            "%.2f cycles/min",
+                                            rate
+                                    ),
+                                    NamedTextColor.AQUA
+                            ),
+                            Component.text(
+                                    eta.isPresent()
+                                            ? String.format(
+                                                    Locale.ROOT,
+                                                    "ETA: %.1f seconds",
+                                                    eta.orElseThrow()
+                                            )
+                                            : "ETA unavailable",
+                                    NamedTextColor.WHITE
+                            ),
+                            Component.text(
+                                    "Based on the latest positive progress interval",
+                                    NamedTextColor.GRAY
+                            )
+                    );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
         }
     }
 

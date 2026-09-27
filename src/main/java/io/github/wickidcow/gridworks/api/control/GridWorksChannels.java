@@ -79,6 +79,15 @@ public final class GridWorksChannels {
     public static final ControlChannel BATCH_WATCHDOG_TICKS =
             ControlChannel.of("gridworks", "batch/watchdog_ticks");
 
+    public static final ControlChannel BATCH_RATE_AVAILABLE =
+            ControlChannel.of("gridworks", "batch/rate_available");
+
+    public static final ControlChannel BATCH_RATE_PER_MINUTE =
+            ControlChannel.of("gridworks", "batch/rate_per_minute");
+
+    public static final ControlChannel BATCH_ETA_SECONDS =
+            ControlChannel.of("gridworks", "batch/eta_seconds");
+
     public static final ControlChannel SEQUENCE_RUNNING =
             ControlChannel.of("gridworks", "sequence/running");
 

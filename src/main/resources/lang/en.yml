@@ -130,6 +130,7 @@ item:
       <arrow> First count after link/relink is a baseline, never historical work
       <arrow> Persists batch progress and latches ON when the target is reached
       <arrow> Optional no-progress watchdog latches a fault on stalled production
+      <arrow> Event-derived cycles/min and ETA require no additional polling task
       <arrow> Fault-period machine counts rebaseline without adding batch progress
       <arrow> Named Reset/Start input can begin the next batch automatically
       <arrow> Replay-safe rising edges prevent restart from resetting a batch

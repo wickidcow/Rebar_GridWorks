@@ -544,6 +544,34 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
                             ))
             );
             event.getPlayer().sendMessage(
+                    Component.text("Batch pace: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    controller.isBatchRateAvailable()
+                                            ? String.format(
+                                                    java.util.Locale.ROOT,
+                                                    "%.2f cycles/min",
+                                                    controller.getBatchRatePerMinute()
+                                            )
+                                            : "LEARNING / UNAVAILABLE",
+                                    controller.isBatchRateAvailable()
+                                            ? NamedTextColor.AQUA
+                                            : NamedTextColor.DARK_GRAY
+                            ))
+            );
+            if (controller.getBatchEtaSeconds().isPresent()) {
+                event.getPlayer().sendMessage(
+                        Component.text("Batch ETA: ", NamedTextColor.GRAY)
+                                .append(Component.text(
+                                        String.format(
+                                                java.util.Locale.ROOT,
+                                                "%.1f seconds",
+                                                controller.getBatchEtaSeconds().orElseThrow()
+                                        ),
+                                        NamedTextColor.WHITE
+                                ))
+                );
+            }
+            event.getPlayer().sendMessage(
                     Component.text("Batch output: ", NamedTextColor.GRAY)
                             .append(Component.text(
                                     controller.getOutputMode().displayName()
