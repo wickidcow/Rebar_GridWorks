@@ -143,7 +143,8 @@ item:
       <arrow> Each stage has a unique trigger address and active output address
       <arrow> Rising-edge triggers advance only the currently active stage
       <arrow> Optional stage timeout enters a persistent FAULT state
-      <arrow> Fault output uses its own collision-safe named address
+      <arrow> Level-sensitive Fault Interlock can stop a running sequence immediately
+      <arrow> Fault input/output use separate collision-safe named addresses
       <arrow> Timeout is OFF by default; only one delayed task exists while running
       <arrow> Sequence stage survives reload; replay never manufactures advances
 

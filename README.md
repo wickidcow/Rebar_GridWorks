@@ -106,11 +106,13 @@ Sequence stage output -----------------> batch_reset
 
 The **Sequence Controller** provides a persistent four-stage event-driven workflow for factories that need ordered operations instead of one boolean rule. Starting the sequence activates Stage 1's named output. Each stage listens only to its own named trigger address; a rising edge advances to the next stage. Advancing from Stage 4 clears all stage outputs and latches the named completion output ON.
 
-Each stage has two editable addresses: **Output** and **Trigger**. The controller also has a separate **Start Input**, **Completion Output**, and **Fault Output**. The fault route is checked against every sequence input/output so it cannot create an internal feedback collision. Route editing is locked while the sequence is running; aborting returns to IDLE and clears stage, completion, and fault outputs before editing.
+Each stage has two editable addresses: **Output** and **Trigger**. The controller also has a separate **Start Input**, **Completion Output**, **Fault Output**, and **Fault Interlock Input**. All twelve endpoints are kept distinct, so an output cannot feed one of the controller's own inputs. Route editing is locked while the sequence is running; aborting returns to IDLE and clears stage, completion, and fault outputs before editing.
 
 Trigger handling uses the same replay-safe edge semantics as Pulse Relay. When a sequence starts, advances, reloads, or reconnects, the active stage's first observed trigger value establishes a baseline only. A trigger that is already true therefore does not skip a stage; it must become false and then rise true again to advance.
 
 An optional **Stage Timeout** can be enabled from the GUI. It defaults to **OFF** for backward compatibility. When enabled, the controller schedules exactly one delayed task for the active stage. If that stage does not advance before the deadline, the sequence enters a persisted **FAULT** phase, remembers the stage that timed out, clears all stage/completion outputs, and asserts the named fault output. Restarting the sequence or aborting clears the fault. Changing the timeout while RUNNING restarts the current stage's deadline; a server reload reconstructs a fresh full deadline instead of treating offline time as a fault.
+
+The **Fault Interlock Input** is deliberately level-sensitive rather than edge-triggered. If it is ON while a sequence is RUNNING, the active stage enters FAULT immediately. Component state replay therefore preserves safety: a latched Batch Controller fault that is already ON after reconnect/restart still faults the sequence, and trying to restart a sequence while the interlock remains ON immediately faults it again. The controller caches the most recently replayed interlock level, so a known-active fault prevents Stage 1 from being energized even briefly when Start is pressed. This makes Batch fault output -> Sequence fault interlock a direct production-stop path without polling.
 
 The current phase and stage persist across reloads. Stage outputs are replayed from state rather than driven by a repeating timer; the only scheduler use is the optional one-shot timeout while RUNNING. The controller performs no world scan or chunk loading. It publishes `gridworks:sequence/running`, `gridworks:sequence/stage`, `gridworks:sequence/complete`, `gridworks:sequence/fault`, and `gridworks:sequence/timeout_ticks` for Factory Monitor diagnostics.
 
@@ -129,6 +131,10 @@ Stage 4 output --> cargo release
 Inventory condition --------------------> stage_4_trigger
                                           |
                                           +--> sequence complete
+
+Batch fault output ---------------------> seq_fault_in
+                                          |
+                                          +--> sequence FAULT
 ```
 
 ### Fluid sensing

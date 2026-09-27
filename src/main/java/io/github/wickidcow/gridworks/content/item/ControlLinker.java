@@ -447,6 +447,18 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
                                     NamedTextColor.AQUA
                             ))
             );
+            event.getPlayer().sendMessage(
+                    Component.text("Fault interlock: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    controller.getFaultInputAddress().channel().toString()
+                                            + (controller.isFaultInterlockActive()
+                                            ? " / ON"
+                                            : " / OFF"),
+                                    controller.isFaultInterlockActive()
+                                            ? NamedTextColor.RED
+                                            : NamedTextColor.AQUA
+                            ))
+            );
             if (phase
                     == io.github.wickidcow.gridworks.production.SequenceStateMachine.Phase.RUNNING) {
                 event.getPlayer().sendMessage(
