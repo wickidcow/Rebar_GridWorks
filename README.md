@@ -313,3 +313,10 @@ The rolling raw development JAR is published only after this single integration 
 `/gridworks doctor` now distinguishes informational telemetry from runtime invariants. The command reports PASS/FAIL checks for exact recipe/catalog registration, the live Bukkit `ControlBus` service identity, all four shared sensor samplers, and the enabled GridWorks singleton. Power-provider absence remains informational because electricity integrations are optional.
 
 CI requires the explicit `GridWorks Doctor result: PASS` marker before it accepts the live Paper smoke test or publishes the rolling raw JAR.
+
+
+## CI permission and release-race hardening
+
+The compile/test/smoke job now runs with **read-only repository contents permission**, including pull requests. Raw release publication is isolated in a second job with `contents: write`, and that job only runs for successful `main` pushes or manual runs after the full build + Paper smoke gate has passed.
+
+Workflow concurrency also cancels superseded runs for the same ref. An older build can no longer finish late and move the rolling `dev-build` tag/assets backward over a newer tested commit.

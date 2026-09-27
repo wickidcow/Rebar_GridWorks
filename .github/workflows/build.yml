@@ -6,10 +6,16 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: gridworks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     env:
       GIT_CONFIG_COUNT: '1'
@@ -151,8 +157,35 @@ jobs:
           grep -F "Done (" "$LOG_FILE"
           grep -F "GridWorks Doctor result: PASS" "$LOG_FILE"
 
-      - name: Publish raw development JAR
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+  publish-development-jar:
+    name: Publish raw development JAR
+    if: >
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout tested commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build raw JAR from tested commit
+        run: ./gradlew clean jar --stacktrace --no-daemon
+
+      - name: Publish rolling development JAR
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -166,19 +199,12 @@ jobs:
           fi
 
           if gh release view dev-build --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh api --method PATCH "/repos/$GITHUB_REPOSITORY/git/refs/tags/dev-build" -f sha="$GITHUB_SHA" -F force=true >/dev/null
+            gh api --method PATCH               "/repos/$GITHUB_REPOSITORY/git/refs/tags/dev-build"               -f sha="$GITHUB_SHA"               -F force=true >/dev/null
 
             RELEASE_ID="$(gh api "/repos/$GITHUB_REPOSITORY/releases/tags/dev-build" --jq '.id')"
-            gh api --method PATCH "/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
-              -f target_commitish="$GITHUB_SHA" \
-              -f body="Rolling raw JAR from the latest successful smoke-tested main build. Tested commit: $GITHUB_SHA. Development snapshot; not a stable release." >/dev/null
+            gh api --method PATCH "/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID"               -f target_commitish="$GITHUB_SHA"               -f body="Rolling raw JAR from the latest successful smoke-tested main build. Tested commit: $GITHUB_SHA. Development snapshot; not a stable release." >/dev/null
 
-            gh release upload dev-build "$JAR" --repo "$GITHUB_REPOSITORY" --clobber
+            gh release upload dev-build "$JAR"               --repo "$GITHUB_REPOSITORY"               --clobber
           else
-            gh release create dev-build "$JAR" \
-              --repo "$GITHUB_REPOSITORY" \
-              --target "$GITHUB_SHA" \
-              --title "GridWorks Development Build" \
-              --notes "Rolling raw JAR from the latest successful smoke-tested main build. Tested commit: $GITHUB_SHA. Development snapshot; not a stable release." \
-              --prerelease
+            gh release create dev-build "$JAR"               --repo "$GITHUB_REPOSITORY"               --target "$GITHUB_SHA"               --title "GridWorks Development Build"               --notes "Rolling raw JAR from the latest successful smoke-tested main build. Tested commit: $GITHUB_SHA. Development snapshot; not a stable release."               --prerelease
           fi

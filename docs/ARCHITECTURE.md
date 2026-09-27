@@ -473,3 +473,10 @@ The server is stopped through its normal console command and must terminate with
 The live doctor is part of the release gate, so completion alone is not treated as health. It verifies that the registered recipe list exactly matches the canonical content catalog, Bukkit's `ControlBus` service resolves to the current live bus, the inventory/fluid/machine/power shared sampler tasks are still scheduled, and the static GridWorks instance matches the enabled plugin.
 
 Provider availability, loaded node/sensor/device counts, and pending task totals are diagnostic context rather than pass/fail criteria. This keeps a normal installation without an electricity provider healthy while still catching internal lifecycle corruption.
+
+
+## CI trust boundary
+
+Repository write permission is not exposed to the job that compiles or executes project code. The build/smoke job has `contents: read`; only the dependent main-branch publication job receives `contents: write`, after the tested job succeeds.
+
+The publication job checks out the workflow event SHA explicitly and rebuilds only the raw JAR from that already-tested source revision. Same-ref workflow concurrency cancels superseded runs, preventing stale successful runs from racing a newer commit and rolling the development release backward.
