@@ -53,6 +53,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
             key("factory_controller_logic_operator");
 
     private static final NamespacedKey NAME_KEY = key("factory_controller_name");
+    private static final NamespacedKey PRESET_KEY = key("factory_controller_preset");
     private static final NamespacedKey OUTPUT_KEY = key("factory_controller_output");
     private static final NamespacedKey OUTPUT_KNOWN_KEY = key("factory_controller_output_known");
 
@@ -121,6 +122,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
     private boolean conditionBEnabled;
     private LogicOperator logicOperator;
     private String controllerName;
+    private ControllerPreset preset;
     private boolean outputEnabled;
     private boolean outputKnown;
 
@@ -130,6 +132,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
     private final SourceItem sourceAItem = new SourceItem(0);
 
     private final NameItem nameItem = new NameItem();
+    private final PresetItem presetItem = new PresetItem();
     private final ConditionToggleItem conditionBToggleItem = new ConditionToggleItem();
     private final LogicItem logicItem = new LogicItem();
     private final MetricItem metricBItem = new MetricItem(1);
@@ -161,6 +164,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
         this.conditionBEnabled = false;
         this.logicOperator = LogicOperator.AND;
         this.controllerName = DEFAULT_NAME;
+        this.preset = ControllerPreset.CUSTOM;
     }
 
     public FactoryControllerBlock(
@@ -190,6 +194,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
         String storedLogic = pdc.get(LOGIC_OPERATOR_KEY, PersistentDataType.STRING);
         this.logicOperator = parseLogicOperator(storedLogic);
         this.controllerName = normalizeName(pdc.get(NAME_KEY, PersistentDataType.STRING));
+        this.preset = parsePreset(pdc.get(PRESET_KEY, PersistentDataType.STRING));
 
         Byte storedOutput = pdc.get(OUTPUT_KEY, PersistentDataType.BYTE);
         Byte storedKnown = pdc.get(OUTPUT_KNOWN_KEY, PersistentDataType.BYTE);
@@ -259,6 +264,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
                 logicOperator.name()
         );
         pdc.set(NAME_KEY, PersistentDataType.STRING, controllerName);
+        pdc.set(PRESET_KEY, PersistentDataType.STRING, preset.name());
         pdc.set(
                 OUTPUT_KEY,
                 PersistentDataType.BYTE,
@@ -276,7 +282,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
         return Gui.builder()
                 .setStructure(
                         "a o t s # # # # x",
-                        "n # # # l # # # #",
+                        "n z # # l # # # #",
                         "e b p q r # # # #"
                 )
                 .addIngredient('#', GuiItems.background())
@@ -285,6 +291,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
                 .addIngredient('t', thresholdAItem)
                 .addIngredient('s', sourceAItem)
                 .addIngredient('n', nameItem)
+                .addIngredient('z', presetItem)
                 .addIngredient('l', logicItem)
                 .addIngredient('e', conditionBToggleItem)
                 .addIngredient('b', metricBItem)
@@ -379,6 +386,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
     }
 
     private void changeMetric(int conditionIndex, int direction) {
+        markCustom();
         Condition condition = condition(conditionIndex);
         int current = metricIndex(condition.rule.channel());
         Metric metric = METRICS.get(Math.floorMod(current + direction, METRICS.size()));
@@ -394,6 +402,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
     }
 
     private void changeOperator(int conditionIndex, int direction) {
+        markCustom();
         Condition condition = condition(conditionIndex);
         ComparisonOperator[] operators = ComparisonOperator.values();
         int next = Math.floorMod(condition.rule.operator().ordinal() + direction, operators.length);
@@ -409,6 +418,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
     }
 
     private void changeThreshold(int conditionIndex, double delta) {
+        markCustom();
         Condition condition = condition(conditionIndex);
         Metric metric = metricFor(condition.rule.channel());
         double next = Math.clamp(
@@ -462,6 +472,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
     }
 
     private void toggleConditionB() {
+        markCustom();
         conditionBEnabled = !conditionBEnabled;
         if (!conditionBEnabled) {
             conditionB.lastObserved = null;
@@ -472,9 +483,52 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
     }
 
     private void toggleLogicOperator() {
+        markCustom();
         logicOperator = logicOperator == LogicOperator.AND
                 ? LogicOperator.OR
                 : LogicOperator.AND;
+        updateOutputFromConditions();
+        notifyConditionItems();
+    }
+
+    private void markCustom() {
+        if (preset != ControllerPreset.CUSTOM) {
+            preset = ControllerPreset.CUSTOM;
+            presetItem.notifyWindows();
+        }
+    }
+
+    private void cyclePreset(int direction) {
+        ControllerPreset[] presets = ControllerPreset.values();
+        int next = Math.floorMod(
+                preset.ordinal() + (direction >= 0 ? 1 : -1),
+                presets.length
+        );
+        ControllerPreset selected = presets[next];
+
+        if (selected == ControllerPreset.CUSTOM) {
+            preset = ControllerPreset.CUSTOM;
+            presetItem.notifyWindows();
+            return;
+        }
+
+        applyPreset(selected);
+    }
+
+    private void applyPreset(ControllerPreset selected) {
+        preset = Objects.requireNonNull(selected, "selected");
+
+        conditionA.rule = selected.ruleA();
+        resetConditionInput(conditionA);
+
+        conditionBEnabled = selected.conditionBEnabled();
+        logicOperator = selected.logicOperator();
+
+        if (selected.ruleB() != null) {
+            conditionB.rule = selected.ruleB();
+        }
+        resetConditionInput(conditionB);
+
         updateOutputFromConditions();
         notifyConditionItems();
     }
@@ -505,6 +559,7 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
         thresholdBItem.notifyWindows();
         sourceBItem.notifyWindows();
         nameItem.notifyWindows();
+        presetItem.notifyWindows();
         outputItem.notifyWindows();
     }
 
@@ -590,6 +645,16 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
             }
         }
         return LogicOperator.AND;
+    }
+
+    private static ControllerPreset parsePreset(String stored) {
+        if (stored != null) {
+            try {
+                return ControllerPreset.valueOf(stored);
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        return ControllerPreset.CUSTOM;
     }
 
     private static UUID uuidFromStored(String stored) {
@@ -959,6 +1024,40 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
         }
     }
 
+    private final class PresetItem extends ControllerItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            return item(Material.KNOWLEDGE_BOOK, "Preset: " + preset.displayName())
+                    .lore(
+                            Component.text(
+                                    "Left click: next preset",
+                                    NamedTextColor.YELLOW
+                            ),
+                            Component.text(
+                                    "Right click: previous preset",
+                                    NamedTextColor.YELLOW
+                            ),
+                            Component.text(
+                                    "Manual rule edits return to Custom",
+                                    NamedTextColor.GRAY
+                            )
+                    );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            if (clickType.isLeftClick()) {
+                cyclePreset(1);
+            } else if (clickType.isRightClick()) {
+                cyclePreset(-1);
+            }
+        }
+    }
+
     private final class ConditionToggleItem extends ControllerItem {
         @Override
         public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
@@ -1068,6 +1167,116 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock imple
 
         private Optional<Boolean> result() {
             return Optional.ofNullable(lastResult);
+        }
+    }
+
+    private enum ControllerPreset {
+        CUSTOM("Custom", null, false, LogicOperator.AND, null),
+        LOW_TANK(
+                "Low Tank",
+                new NumericControlRule(
+                        GridWorksChannels.FLUID_FILL_RATIO,
+                        ComparisonOperator.LESS_OR_EQUAL,
+                        0.25
+                ),
+                false,
+                LogicOperator.AND,
+                null
+        ),
+        HIGH_INVENTORY(
+                "Inventory High",
+                new NumericControlRule(
+                        GridWorksChannels.INVENTORY_OCCUPIED_RATIO,
+                        ComparisonOperator.GREATER_OR_EQUAL,
+                        0.75
+                ),
+                false,
+                LogicOperator.AND,
+                null
+        ),
+        REDSTONE_THRESHOLD(
+                "Redstone >= 8",
+                new NumericControlRule(
+                        GridWorksChannels.REDSTONE_STRENGTH,
+                        ComparisonOperator.GREATER_OR_EQUAL,
+                        8.0
+                ),
+                false,
+                LogicOperator.AND,
+                null
+        ),
+        STOCK_AND_FLUID_READY(
+                "Stock + Fluid Ready",
+                new NumericControlRule(
+                        GridWorksChannels.INVENTORY_ITEMS,
+                        ComparisonOperator.GREATER_OR_EQUAL,
+                        64.0
+                ),
+                true,
+                LogicOperator.AND,
+                new NumericControlRule(
+                        GridWorksChannels.FLUID_FILL_RATIO,
+                        ComparisonOperator.GREATER_OR_EQUAL,
+                        0.25
+                )
+        ),
+        SUPPLY_ALERT(
+                "Supply Alert",
+                new NumericControlRule(
+                        GridWorksChannels.INVENTORY_ITEMS,
+                        ComparisonOperator.LESS_OR_EQUAL,
+                        64.0
+                ),
+                true,
+                LogicOperator.OR,
+                new NumericControlRule(
+                        GridWorksChannels.FLUID_FILL_RATIO,
+                        ComparisonOperator.LESS_OR_EQUAL,
+                        0.25
+                )
+        );
+
+        private final String displayName;
+        private final NumericControlRule ruleA;
+        private final boolean conditionBEnabled;
+        private final LogicOperator logicOperator;
+        private final NumericControlRule ruleB;
+
+        ControllerPreset(
+                String displayName,
+                NumericControlRule ruleA,
+                boolean conditionBEnabled,
+                LogicOperator logicOperator,
+                NumericControlRule ruleB
+        ) {
+            this.displayName = displayName;
+            this.ruleA = ruleA;
+            this.conditionBEnabled = conditionBEnabled;
+            this.logicOperator = logicOperator;
+            this.ruleB = ruleB;
+        }
+
+        private String displayName() {
+            return displayName;
+        }
+
+        private NumericControlRule ruleA() {
+            if (ruleA == null) {
+                throw new IllegalStateException("Custom preset has no fixed rule");
+            }
+            return ruleA;
+        }
+
+        private boolean conditionBEnabled() {
+            return conditionBEnabled;
+        }
+
+        private LogicOperator logicOperator() {
+            return logicOperator;
+        }
+
+        private NumericControlRule ruleB() {
+            return ruleB;
         }
     }
 

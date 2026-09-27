@@ -89,3 +89,10 @@ AND/OR uses three-state logic. Unknown input is preserved as unknown unless the 
 Factory Controller names are stored in Rebar block PDC and edited through InvUI's native AnvilWindow text input; GridWorks does not capture global chat messages for naming.
 
 A WAITING controller is logically unknown but electrically fail-safe OFF. When a non-input peer becomes available, the controller always republishes its current wire-level output, including false while WAITING. This prevents a persisted relay that was previously ON from remaining ON after a partial chunk reload.
+
+
+## Controller presets
+
+Factory Controller presets are configuration templates, not alternate execution paths. Applying a preset writes the same condition/operator/threshold state used by Custom controllers, resets both sources to AUTO, clears prior observations, and forces fresh sensor data before the rule can become known.
+
+Manual edits to rule semantics mark the controller Custom again. Source selection and controller naming do not, because they do not change the preset's logical rule.

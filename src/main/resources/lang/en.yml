@@ -47,7 +47,7 @@ item:
     lore: |-
       <arrow> Combines up to two sensor conditions with AND/OR logic
       <arrow> AUTO-bind or explicitly choose directly linked sources
-      <arrow> Right click to configure conditions, thresholds, sources, and name
+      <arrow> Right click to configure rules, presets, sources, and name
 
   gridworks_linker:
     name: "GridWorks Linker"
