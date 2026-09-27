@@ -12,28 +12,14 @@ item:
     lore: |-
       <arrow> Reads redstone power without polling every tick
       <arrow> Publishes powered state and signal strength
-      <arrow> Re-sends current state when a linked peer reconnects
+      <arrow> Link it to other GridWorks nodes with a Linker
 
   status_light:
     name: "Status Light"
     lore: |-
-      <arrow> Displays the boolean redstone state from the Control Bus
-      <arrow> Nearby vanilla redstone cannot take over its state
-      <arrow> Link it to a Redstone Sensor with a GridWorks Linker
-
-  control_relay:
-    name: "Control Relay"
-    lore: |-
-      <arrow> Converts a Control Bus boolean into vanilla redstone output
-      <arrow> Its lever state is controlled by GridWorks, not manual clicks
-      <arrow> Link it to a sensor or future controller with a Linker
-
-  inventory_sensor:
-    name: "Inventory Sensor"
-    lore: |-
-      <arrow> Watches the adjacent inventory in the direction it faces
-      <arrow> Supports Rebar logistics/virtual inventories and vanilla containers
-      <arrow> Publishes only when the measured inventory snapshot changes
+      <arrow> Lights when it receives an enabled signal
+      <arrow> Directly understands Redstone Sensor powered state
+      <arrow> Re-syncs automatically after links or chunks reload
 
   gridworks_linker:
     name: "GridWorks Linker"

@@ -5,7 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.wickidcow.gridworks.api.control.ControlChannel;
+import io.github.wickidcow.gridworks.api.control.ControlNode;
 import io.github.wickidcow.gridworks.api.control.ControlSignal;
+import io.github.wickidcow.gridworks.api.control.ControlStateSource;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.control.GraphControlBus;
 import java.nio.file.Path;
@@ -16,6 +18,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class PhysicalControlNetworkTest {
+    private static final ControlChannel STATE_CHANNEL =
+            ControlChannel.of("gridworks", "test/state");
+
     @TempDir
     Path tempDir;
 
@@ -23,8 +28,7 @@ class PhysicalControlNetworkTest {
     void unloadedNodesDoNotStayInLiveGraphButReconnectOnActivation() throws Exception {
         GraphControlBus bus = new GraphControlBus(32);
         PersistentConnectionStore store = new PersistentConnectionStore(tempDir.resolve("network.txt"));
-        List<RuntimeException> callbackFailures = new ArrayList<>();
-        PhysicalControlNetwork network = new PhysicalControlNetwork(bus, store, callbackFailures::add);
+        PhysicalControlNetwork network = new PhysicalControlNetwork(bus, store);
 
         TestNode a = new TestNode();
         TestNode b = new TestNode();
@@ -32,8 +36,6 @@ class PhysicalControlNetworkTest {
         network.activate(b);
         assertTrue(network.toggleLink(a.id(), b.id()));
         assertTrue(bus.isConnected(a.id(), b.id()));
-        assertEquals(List.of(b.id()), a.availablePeers);
-        assertEquals(List.of(a.id()), b.availablePeers);
 
         network.deactivate(b.id(), b);
         assertFalse(bus.isConnected(a.id(), b.id()));
@@ -42,16 +44,13 @@ class PhysicalControlNetworkTest {
         TestNode reloadedB = new TestNode(b.id());
         network.activate(reloadedB);
         assertTrue(bus.isConnected(a.id(), b.id()));
-        assertEquals(List.of(a.id()), reloadedB.availablePeers);
-        assertEquals(List.of(b.id(), b.id()), a.availablePeers);
-        assertTrue(callbackFailures.isEmpty());
     }
 
     @Test
     void snapshotCountsPersistentAndLoadedTopologySeparately() throws Exception {
         GraphControlBus bus = new GraphControlBus(32);
         PersistentConnectionStore store = new PersistentConnectionStore(tempDir.resolve("network.txt"));
-        PhysicalControlNetwork network = new PhysicalControlNetwork(bus, store, ignored -> {});
+        PhysicalControlNetwork network = new PhysicalControlNetwork(bus, store);
 
         TestNode a = new TestNode();
         TestNode b = new TestNode();
@@ -73,7 +72,7 @@ class PhysicalControlNetworkTest {
     void signalDeliveryResumesWhenPeerReloads() throws Exception {
         GraphControlBus bus = new GraphControlBus(32);
         PersistentConnectionStore store = new PersistentConnectionStore(tempDir.resolve("network.txt"));
-        PhysicalControlNetwork network = new PhysicalControlNetwork(bus, store, ignored -> {});
+        PhysicalControlNetwork network = new PhysicalControlNetwork(bus, store);
 
         TestNode a = new TestNode();
         TestNode b = new TestNode();
@@ -81,43 +80,40 @@ class PhysicalControlNetworkTest {
         network.activate(b);
         network.toggleLink(a.id(), b.id());
 
-        bus.publish(a.id(), ControlChannel.of("gridworks", "test"), ControlValue.of(true));
+        bus.publish(a.id(), STATE_CHANNEL, ControlValue.of(true));
         assertEquals(1, b.received.size());
 
         network.deactivate(b.id(), b);
         TestNode reloadedB = new TestNode(b.id());
         network.activate(reloadedB);
 
-        bus.publish(a.id(), ControlChannel.of("gridworks", "test"), ControlValue.of(false));
+        bus.publish(a.id(), STATE_CHANNEL, ControlValue.of(false));
         assertEquals(1, reloadedB.received.size());
     }
 
     @Test
-    void peerCallbackFailuresDoNotBreakTopologyChanges() throws Exception {
+    void stateSourceReplaysWhenPersistentPeerLoadsLater() throws Exception {
         GraphControlBus bus = new GraphControlBus(32);
         PersistentConnectionStore store = new PersistentConnectionStore(tempDir.resolve("network.txt"));
-        List<RuntimeException> failures = new ArrayList<>();
-        PhysicalControlNetwork network = new PhysicalControlNetwork(bus, store, failures::add);
+        PhysicalControlNetwork network = new PhysicalControlNetwork(bus, store);
 
-        TestNode a = new TestNode();
-        TestNode b = new TestNode();
-        a.throwOnPeerAvailable = true;
+        StatefulTestNode source = new StatefulTestNode(bus, true);
+        TestNode receiver = new TestNode();
 
-        network.activate(a);
-        network.activate(b);
-        assertTrue(network.toggleLink(a.id(), b.id()));
+        store.toggle(source.id(), receiver.id());
+        network.activate(source);
+        assertTrue(receiver.received.isEmpty());
 
-        assertTrue(bus.isConnected(a.id(), b.id()));
-        assertTrue(network.isLinked(a.id(), b.id()));
-        assertEquals(1, failures.size());
-        assertEquals(List.of(a.id()), b.availablePeers);
+        network.activate(receiver);
+
+        assertEquals(1, receiver.received.size());
+        assertEquals(STATE_CHANNEL, receiver.received.getFirst().channel());
+        assertEquals(new ControlValue.BooleanValue(true), receiver.received.getFirst().value());
     }
 
-    private static final class TestNode implements PhysicalControlEndpoint {
+    private static class TestNode implements ControlNode {
         private final UUID id;
         private final List<ControlSignal> received = new ArrayList<>();
-        private final List<UUID> availablePeers = new ArrayList<>();
-        private boolean throwOnPeerAvailable;
 
         private TestNode() {
             this(UUID.randomUUID());
@@ -136,13 +132,20 @@ class PhysicalControlNetworkTest {
         public void onSignal(ControlSignal signal) {
             received.add(signal);
         }
+    }
+
+    private static final class StatefulTestNode extends TestNode implements ControlStateSource {
+        private final GraphControlBus bus;
+        private final boolean state;
+
+        private StatefulTestNode(GraphControlBus bus, boolean state) {
+            this.bus = bus;
+            this.state = state;
+        }
 
         @Override
-        public void onControlPeerAvailable(UUID peerId) {
-            if (throwOnPeerAvailable) {
-                throw new IllegalStateException("test failure");
-            }
-            availablePeers.add(peerId);
+        public void publishCurrentState() {
+            bus.publish(id(), STATE_CHANNEL, ControlValue.of(state));
         }
     }
 }

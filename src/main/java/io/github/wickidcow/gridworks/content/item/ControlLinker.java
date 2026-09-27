@@ -8,8 +8,6 @@ import io.github.pylonmc.rebar.item.interfaces.BlockInteractRebarItemHandler;
 import io.github.wickidcow.gridworks.GridWorks;
 import io.github.wickidcow.gridworks.api.control.ControlSignal;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
-import io.github.wickidcow.gridworks.content.block.ControlRelayBlock;
-import io.github.wickidcow.gridworks.content.block.InventorySensorBlock;
 import io.github.wickidcow.gridworks.content.block.PhysicalControlNodeBlock;
 import io.github.wickidcow.gridworks.content.block.RedstoneSensorBlock;
 import io.github.wickidcow.gridworks.content.block.StatusLightBlock;
@@ -135,23 +133,14 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
 
         if (controlNode instanceof RedstoneSensorBlock sensor) {
             event.getPlayer().sendMessage(
-                    Component.text("Redstone input: ", NamedTextColor.GRAY)
+                    Component.text("Redstone: ", NamedTextColor.GRAY)
                             .append(Component.text(Integer.toString(sensor.getLastPower()), NamedTextColor.RED))
             );
-        } else if (controlNode instanceof StatusLightBlock statusLight) {
+        } else if (controlNode instanceof StatusLightBlock light) {
             event.getPlayer().sendMessage(
-                    Component.text("Status light: ", NamedTextColor.GRAY)
-                            .append(onOff(statusLight.isLit()))
-            );
-        } else if (controlNode instanceof ControlRelayBlock relay) {
-            event.getPlayer().sendMessage(
-                    Component.text("Redstone output: ", NamedTextColor.GRAY)
-                            .append(onOff(relay.isPowered()))
-            );
-        } else if (controlNode instanceof InventorySensorBlock sensor) {
-            event.getPlayer().sendMessage(
-                    Component.text("Inventory: ", NamedTextColor.GRAY)
-                            .append(Component.text(sensor.describeSnapshot(), NamedTextColor.WHITE))
+                    Component.text("Light: ", NamedTextColor.GRAY)
+                            .append(Component.text(light.isActive() ? "ON" : "OFF",
+                                    light.isActive() ? NamedTextColor.GREEN : NamedTextColor.RED))
             );
         }
 
@@ -163,13 +152,6 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
                                         NamedTextColor.WHITE
                                 ))
                 )
-        );
-    }
-
-    private static Component onOff(boolean enabled) {
-        return Component.text(
-                enabled ? "ON" : "OFF",
-                enabled ? NamedTextColor.GREEN : NamedTextColor.RED
         );
     }
 
