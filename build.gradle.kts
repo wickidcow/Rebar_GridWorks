@@ -61,6 +61,21 @@ bukkit {
     load = BukkitPluginDescription.PluginLoadOrder.STARTUP
     authors = listOf("wickidcow")
     description = "Industrial automation, smart power management, and factory control systems for Pylon/Rebar."
+
+    commands {
+        register("gridworks") {
+            description = "GridWorks administration and diagnostics."
+            usage = "/<command> doctor"
+            permission = "gridworks.admin"
+        }
+    }
+
+    permissions {
+        register("gridworks.admin") {
+            description = "Allows GridWorks administrative diagnostics."
+            default = BukkitPluginDescription.Permission.Default.OP
+        }
+    }
 }
 
 tasks.runServer {

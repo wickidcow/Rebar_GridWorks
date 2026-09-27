@@ -289,3 +289,10 @@ Normal plugin disable uses the same idempotent cleanup path, so cleanup behavior
 Successful `main` builds now boot a real Paper 26.2 test server through run-paper with released Rebar and the just-built GridWorks JAR before the rolling raw JAR is published. CI requires GridWorks to complete its 21-entry content/recipe validation and reach the Control Bus initialized state, then shuts the server down cleanly.
 
 This catches enable-time API/linkage problems, Rebar registration failures, bundled-language/recipe validation failures, and startup lifecycle regressions that unit tests alone cannot see. Pull requests continue to run compile/unit tests without publishing or replacing the development JAR.
+
+
+## `/gridworks doctor`
+
+Operators with `gridworks.admin` can run `/gridworks doctor` for a compact live health snapshot. It reports the plugin version, registered recipe/content count, active Control Bus nodes/live links/persisted links, loaded inventory/fluid/machine/power sensors, power-grid and branch-provider availability, loaded branch-control devices, and the number of pending GridWorks scheduler tasks.
+
+The real-server CI smoke test now executes the doctor command after startup and requires it to complete before shutdown. After `stop`, CI also scans the log for GridWorks cleanup/disable errors before the raw development JAR is allowed to publish.

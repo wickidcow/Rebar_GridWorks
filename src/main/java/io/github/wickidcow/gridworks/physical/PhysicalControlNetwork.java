@@ -144,6 +144,10 @@ public final class PhysicalControlNetwork implements AutoCloseable {
         return activeNodes.size();
     }
 
+    public synchronized int persistentConnectionCount() {
+        return connectionStore.links().size();
+    }
+
     /**
      * Returns directly linked nodes that are currently loaded.
      *

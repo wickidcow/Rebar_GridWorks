@@ -452,3 +452,10 @@ Cleanup is intentionally idempotent and step-isolated. One cleanup failure is lo
 The `main` CI path runs unit tests first and then starts Paper 26.2 with released Rebar plus the automatically detected GridWorks project JAR using run-paper. The smoke gate waits for both the runtime content-integrity validation and Control Bus initialization messages.
 
 The server is stopped through its console input after readiness is proven. A premature process exit, enable failure, missing readiness marker, or unclean shutdown fails the workflow. The rolling raw development JAR is published only after this smoke gate succeeds.
+
+
+## Live doctor diagnostics
+
+`/gridworks doctor` is an operator-only diagnostic surface backed entirely by existing runtime registries; it does not scan worlds or load chunks. The command reports content/recipe integrity, live and persisted Control Bus topology counts, loaded sensor/device counts, provider-service state, and pending plugin scheduler tasks.
+
+The CI smoke server invokes this command as part of every successful main build. This verifies generated command metadata, command registration, all diagnostic manager getters, and Adventure console output in a real Paper environment. CI then performs a clean stop and rejects GridWorks error/severe log lines or explicit cleanup failures.

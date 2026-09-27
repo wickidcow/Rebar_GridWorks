@@ -2,6 +2,7 @@ package io.github.wickidcow.gridworks;
 
 import io.github.pylonmc.rebar.addon.RebarAddon;
 import io.github.wickidcow.gridworks.api.control.ControlBus;
+import io.github.wickidcow.gridworks.command.GridWorksCommand;
 import io.github.wickidcow.gridworks.control.GraphControlBus;
 import io.github.wickidcow.gridworks.content.GridWorksContent;
 import io.github.wickidcow.gridworks.content.GridWorksRecipes;
@@ -22,6 +23,7 @@ import java.util.logging.Level;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.event.HandlerList;
+import org.bukkit.plugin.PluginCommand;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
@@ -134,8 +136,32 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
 
         GridWorksContent.register(this);
 
-        Bukkit.getServicesManager().register(ControlBus.class, controlBus, this, ServicePriority.Normal);
-        getLogger().info("GridWorks control bus initialized (max propagation: " + maxPropagationNodes + " nodes).");
+        Bukkit.getServicesManager().register(
+                ControlBus.class,
+                controlBus,
+                this,
+                ServicePriority.Normal
+        );
+        registerCommands();
+
+        getLogger().info(
+                "GridWorks control bus initialized (max propagation: "
+                        + maxPropagationNodes
+                        + " nodes)."
+        );
+    }
+
+    private void registerCommands() {
+        PluginCommand command = getCommand("gridworks");
+        if (command == null) {
+            throw new IllegalStateException(
+                    "Generated plugin metadata is missing the gridworks command"
+            );
+        }
+
+        GridWorksCommand executor = new GridWorksCommand(this);
+        command.setExecutor(executor);
+        command.setTabCompleter(executor);
     }
 
     @Override
