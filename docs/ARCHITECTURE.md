@@ -487,3 +487,10 @@ The publication job checks out the workflow event SHA explicitly and rebuilds on
 Runtime numeric settings are parsed once during enable into immutable `GridWorksSettings`. Missing keys use backward-compatible defaults, while explicitly present values must be positive integral numbers representable by the target Java type.
 
 No arbitrary upper gameplay cap is imposed beyond the destination type's range. This avoids silently rewriting administrator intent while still rejecting values that cannot be represented or that would produce invalid zero/negative scheduling and propagation behavior. Runtime code consumes the immutable settings snapshot rather than repeatedly querying mutable YAML.
+
+
+## Rebar public-API compatibility guard
+
+A source-level CI test protects the architectural adapter boundary. Production Java may not reference Rebar's internal `FluidManager`, internal `CargoRoutes`, internal `TickingRebarBlock.isTicking` helper, or the currently unreleased electricity package.
+
+The guard also checks that the pinned Rebar artifact is release-shaped, targets the same Minecraft line as GridWorks, and remains `compileOnly`. This turns the public-API policy into a regression constraint instead of relying on code-review memory.

@@ -327,3 +327,10 @@ Workflow concurrency also cancels superseded runs for the same ref. An older bui
 GridWorks now loads its runtime numeric settings through one validated `GridWorksSettings` snapshot. Existing configs that predate a key remain compatible because a missing value uses the documented default. If an administrator explicitly supplies a non-numeric, fractional, zero, negative, or out-of-range integer value, startup fails with the exact config path instead of silently clamping the mistake.
 
 The validated snapshot drives the Control Bus propagation cap, all four shared sensor sampling intervals, and Cargo Isolator transfer rate. `/gridworks doctor` prints the active snapshot so the live values are visible without rereading YAML.
+
+
+## Released Rebar API boundary
+
+CI now exhaustively scans every production Java source for the Rebar internals GridWorks has deliberately avoided: internal `FluidManager`, internal `CargoRoutes`, the internal `TickingRebarBlock.isTicking` helper, and the unreleased `io.github.pylonmc.rebar.electricity` package.
+
+The same regression test requires `rebar.version` to be a released artifact on the same Minecraft line as `minecraft.version` and keeps Rebar as a `compileOnly` server dependency. When Rebar eventually releases electricity publicly, this guard is the intentional place to review and update that boundary rather than quietly binding to a development branch.
