@@ -17,6 +17,7 @@ import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
 import io.github.wickidcow.gridworks.api.control.LogicOperator;
 import io.github.wickidcow.gridworks.api.control.MetricAvailability;
 import io.github.wickidcow.gridworks.api.control.NumericControlRule;
+import io.github.wickidcow.gridworks.machine.ObservedMachineCycleCounter;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -150,6 +151,15 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
                     20.0,
                     100.0,
                     Double.MAX_VALUE
+            ),
+            new Metric(
+                    "Observed Machine Cycles",
+                    GridWorksChannels.MACHINE_OBSERVED_CYCLES,
+                    Material.CRAFTING_TABLE,
+                    10.0,
+                    1.0,
+                    10.0,
+                    ObservedMachineCycleCounter.MAX_EXACT_COUNT
             ),
             new Metric(
                     "Power Capacity",

@@ -67,7 +67,9 @@ The **Machine Sensor** faces an adjacent loaded Rebar block and uses the release
 
 Progress is normalized to **0.0 → 1.0 completed** for both processor styles, rather than leaking the different raw progress semantics of the two Rebar interfaces. Idle machines publish zero process measurements. Unsupported blocks publish unavailable.
 
-All loaded Machine Sensors share one configurable sampler (1 second by default) and publish only when the snapshot changes. GridWorks deliberately does **not** use Rebar's internal `TickingRebarBlock.isTicking` helper as a proxy for “machine running”; scheduled ticking is not the same thing as active processing.
+All loaded Machine Sensors share one configurable sampler (1 second by default) and publish only when the snapshot changes. Each sensor also persists an **Observed Cycles** counter. A cycle increments only when a continuously available target is observed moving from processing to idle; initial/replayed state and unavailable-target transitions establish or clear the baseline without incrementing it. The sensor publishes `gridworks:machine/observed_cycles` plus `gridworks:machine/last_cycle_epoch_ms`, and Observed Cycles is available as a Factory Controller numeric metric.
+
+Observed Cycles is deliberately activity telemetry rather than a guaranteed crafted-output count. Released Rebar exposes common processor state but no universal completion event across both supported processor contracts, so GridWorks does not pretend an active-to-idle transition proves a recipe output. GridWorks also deliberately does **not** use Rebar's internal `TickingRebarBlock.isTicking` helper as a proxy for “machine running”; scheduled ticking is not the same thing as active processing.
 
 ### Fluid sensing
 

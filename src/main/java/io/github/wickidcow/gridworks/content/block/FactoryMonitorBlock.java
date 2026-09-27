@@ -67,6 +67,8 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
             new SignalDefinition(GridWorksChannels.MACHINE_PROGRESS, "Machine Progress", Material.CLOCK),
             new SignalDefinition(GridWorksChannels.MACHINE_PROCESS_TIME_TICKS, "Machine Process Time", Material.REPEATER),
             new SignalDefinition(GridWorksChannels.MACHINE_TICKS_REMAINING, "Machine Time Remaining", Material.COMPARATOR),
+            new SignalDefinition(GridWorksChannels.MACHINE_OBSERVED_CYCLES, "Observed Machine Cycles", Material.CRAFTING_TABLE),
+            new SignalDefinition(GridWorksChannels.MACHINE_LAST_CYCLE_EPOCH_MS, "Last Observed Cycle", Material.CLOCK),
 
             new SignalDefinition(GridWorksChannels.POWER_AVAILABLE, "Power Grid Available", Material.LIGHTNING_ROD),
             new SignalDefinition(GridWorksChannels.POWER_PRODUCTION_CAPACITY_WATTS, "Power Capacity", Material.REDSTONE_BLOCK),
@@ -134,7 +136,7 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
         return Gui.builder()
                 .setStructure(
                         "r s 0 1 2 3 4 n x",
-                        "a i o t f # # # #",
+                        "a i o t f C L # #",
                         "v p y m k z # # #",
                         "w u g h j # # # #",
                         "l c d E F G H I J",
@@ -155,6 +157,8 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
                 .addIngredient('o', item(GridWorksChannels.INVENTORY_OCCUPIED_SLOTS))
                 .addIngredient('t', item(GridWorksChannels.INVENTORY_TOTAL_SLOTS))
                 .addIngredient('f', item(GridWorksChannels.INVENTORY_OCCUPIED_RATIO))
+                .addIngredient('C', item(GridWorksChannels.MACHINE_OBSERVED_CYCLES))
+                .addIngredient('L', item(GridWorksChannels.MACHINE_LAST_CYCLE_EPOCH_MS))
                 .addIngredient('v', item(GridWorksChannels.FLUID_AVAILABLE))
                 .addIngredient('p', item(GridWorksChannels.FLUID_PRESENT))
                 .addIngredient('y', item(GridWorksChannels.FLUID_TYPE))

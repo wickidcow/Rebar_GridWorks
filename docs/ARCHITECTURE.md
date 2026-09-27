@@ -333,6 +333,10 @@ GridWorks does not use `TickingRebarBlock.isTicking` as machine state. That meth
 
 All loaded Machine Sensors share one configurable sampler (20 ticks by default), never load adjacent chunks, and publish only when the immutable snapshot changes. Unsupported targets publish a zero-valued unavailable snapshot rather than inferred failure reasons.
 
+Machine Sensor also owns a persisted `ObservedMachineCycleCounter`. The first available snapshot establishes a baseline. Only a continuously available processing -> idle transition increments the counter; an unavailable snapshot clears the baseline, so chunk unload, target replacement, reload, and topology replay cannot manufacture a cycle. The count saturates at the largest integer exactly representable by the Control Bus double transport. The last-cycle timestamp is monotonic and persisted with the block.
+
+The resulting `machine/observed_cycles` and `machine/last_cycle_epoch_ms` telemetry is replayable state. Observed Cycles is intentionally defined as activity telemetry, not a guaranteed recipe-output count, because released Rebar has no universal completion event spanning both processor interfaces GridWorks supports.
+
 
 ## Unified sensor availability semantics
 

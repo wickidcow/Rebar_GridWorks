@@ -7,18 +7,29 @@ import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
 import io.github.wickidcow.gridworks.machine.MachineProbe;
 import io.github.wickidcow.gridworks.machine.MachineSnapshot;
+import io.github.wickidcow.gridworks.machine.ObservedMachineCycleCounter;
 import java.util.Locale;
+import java.util.Objects;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Directional;
+import org.bukkit.NamespacedKey;
 import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
 import org.jetbrains.annotations.NotNull;
 
 public final class MachineSensorBlock extends PhysicalControlNodeBlock
         implements ControlStateSource {
+    private static final NamespacedKey OBSERVED_CYCLES_KEY = Objects.requireNonNull(
+            NamespacedKey.fromString("gridworks:machine_sensor_observed_cycles")
+    );
+    private static final NamespacedKey LAST_CYCLE_EPOCH_MS_KEY = Objects.requireNonNull(
+            NamespacedKey.fromString("gridworks:machine_sensor_last_cycle_epoch_ms")
+    );
 
+    private final ObservedMachineCycleCounter cycleCounter;
     private MachineSnapshot lastSnapshot;
 
     public MachineSensorBlock(
@@ -26,6 +37,7 @@ public final class MachineSensorBlock extends PhysicalControlNodeBlock
             @NotNull BlockCreateContext context
     ) {
         super(block, context);
+        this.cycleCounter = new ObservedMachineCycleCounter();
         setFacing(context.getFacing());
     }
 
@@ -34,6 +46,12 @@ public final class MachineSensorBlock extends PhysicalControlNodeBlock
             @NotNull PersistentDataContainer pdc
     ) {
         super(block, pdc);
+        Long storedCycles = pdc.get(OBSERVED_CYCLES_KEY, PersistentDataType.LONG);
+        Long storedLastCycle = pdc.get(LAST_CYCLE_EPOCH_MS_KEY, PersistentDataType.LONG);
+        this.cycleCounter = new ObservedMachineCycleCounter(
+                storedCycles == null ? 0L : storedCycles,
+                storedLastCycle == null ? 0L : storedLastCycle
+        );
     }
 
     @Override
@@ -52,6 +70,12 @@ public final class MachineSensorBlock extends PhysicalControlNodeBlock
     }
 
     @Override
+    protected void writeNodeData(@NotNull PersistentDataContainer pdc) {
+        pdc.set(OBSERVED_CYCLES_KEY, PersistentDataType.LONG, cycleCounter.observedCycles());
+        pdc.set(LAST_CYCLE_EPOCH_MS_KEY, PersistentDataType.LONG, cycleCounter.lastCycleEpochMillis());
+    }
+
+    @Override
     public void publishCurrentState() {
         if (lastSnapshot == null) {
             sampleNow();
@@ -62,7 +86,12 @@ public final class MachineSensorBlock extends PhysicalControlNodeBlock
 
     public void sampleNow() {
         MachineSnapshot snapshot = readTarget();
-        if (snapshot.equals(lastSnapshot)) {
+        boolean completedObservedCycle = cycleCounter.observe(
+                snapshot,
+                System.currentTimeMillis()
+        );
+
+        if (snapshot.equals(lastSnapshot) && !completedObservedCycle) {
             return;
         }
 
@@ -72,11 +101,17 @@ public final class MachineSensorBlock extends PhysicalControlNodeBlock
 
     public @NotNull String describeSnapshot() {
         MachineSnapshot snapshot = lastSnapshot;
+        long observedCycles = cycleCounter.observedCycles();
         if (snapshot == null || !snapshot.available()) {
-            return "no supported Rebar processor target";
+            return "no supported Rebar processor target, "
+                    + observedCycles
+                    + " observed cycle(s)";
         }
         if (!snapshot.processing()) {
-            return snapshot.kind() + ", idle";
+            return snapshot.kind()
+                    + ", idle, "
+                    + observedCycles
+                    + " observed cycle(s)";
         }
 
         return snapshot.kind()
@@ -84,7 +119,9 @@ public final class MachineSensorBlock extends PhysicalControlNodeBlock
                 + String.format(Locale.ROOT, "%.0f%%", snapshot.progress() * 100.0)
                 + ", "
                 + snapshot.ticksRemaining()
-                + " ticks remaining";
+                + " ticks remaining, "
+                + observedCycles
+                + " observed cycle(s)";
     }
 
     private MachineSnapshot readTarget() {
@@ -141,34 +178,23 @@ public final class MachineSensorBlock extends PhysicalControlNodeBlock
                 ControlValue.of(snapshot.available())
         );
 
-        if (!snapshot.available()) {
-            return;
+        if (snapshot.available()) {
+            bus.publish(getNodeId(), GridWorksChannels.MACHINE_KIND, ControlValue.of(snapshot.kind()));
+            bus.publish(getNodeId(), GridWorksChannels.MACHINE_PROCESSING, ControlValue.of(snapshot.processing()));
+            bus.publish(getNodeId(), GridWorksChannels.MACHINE_PROGRESS, ControlValue.of(snapshot.progress()));
+            bus.publish(getNodeId(), GridWorksChannels.MACHINE_PROCESS_TIME_TICKS, ControlValue.of((double) snapshot.processTimeTicks()));
+            bus.publish(getNodeId(), GridWorksChannels.MACHINE_TICKS_REMAINING, ControlValue.of((double) snapshot.ticksRemaining()));
         }
 
         bus.publish(
                 getNodeId(),
-                GridWorksChannels.MACHINE_KIND,
-                ControlValue.of(snapshot.kind())
+                GridWorksChannels.MACHINE_OBSERVED_CYCLES,
+                ControlValue.of((double) cycleCounter.observedCycles())
         );
         bus.publish(
                 getNodeId(),
-                GridWorksChannels.MACHINE_PROCESSING,
-                ControlValue.of(snapshot.processing())
-        );
-        bus.publish(
-                getNodeId(),
-                GridWorksChannels.MACHINE_PROGRESS,
-                ControlValue.of(snapshot.progress())
-        );
-        bus.publish(
-                getNodeId(),
-                GridWorksChannels.MACHINE_PROCESS_TIME_TICKS,
-                ControlValue.of((double) snapshot.processTimeTicks())
-        );
-        bus.publish(
-                getNodeId(),
-                GridWorksChannels.MACHINE_TICKS_REMAINING,
-                ControlValue.of((double) snapshot.ticksRemaining())
+                GridWorksChannels.MACHINE_LAST_CYCLE_EPOCH_MS,
+                ControlValue.of((double) cycleCounter.lastCycleEpochMillis())
         );
     }
 }

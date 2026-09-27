@@ -86,6 +86,8 @@ item:
     lore: |-
       <arrow> Watches an adjacent released Rebar processor/recipe processor
       <arrow> Publishes processing state, normalized progress, and time remaining
+      <arrow> Persists observed active-to-idle cycle count and last-cycle time
+      <arrow> Cycle count is activity telemetry, not a guaranteed output count
       <arrow> Unsupported blocks report unavailable instead of guessing
       <arrow> Never uses Rebar's internal ticking registry
 

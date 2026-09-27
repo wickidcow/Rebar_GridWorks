@@ -58,6 +58,12 @@ public final class GridWorksChannels {
     public static final ControlChannel MACHINE_TICKS_REMAINING =
             ControlChannel.of("gridworks", "machine/ticks_remaining");
 
+    public static final ControlChannel MACHINE_OBSERVED_CYCLES =
+            ControlChannel.of("gridworks", "machine/observed_cycles");
+
+    public static final ControlChannel MACHINE_LAST_CYCLE_EPOCH_MS =
+            ControlChannel.of("gridworks", "machine/last_cycle_epoch_ms");
+
     /**
      * Backward-compatible default boolean command circuit.
      */
