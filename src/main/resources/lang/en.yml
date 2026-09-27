@@ -81,6 +81,14 @@ item:
       <arrow> Unsupported blocks report unavailable instead of guessing
       <arrow> Never uses Rebar's internal ticking registry
 
+  fluid_valve:
+    name: "Fluid Valve"
+    lore: |-
+      <arrow> Public-API Rebar fluid pass-through with a one-bucket transit buffer
+      <arrow> CLOSED requests and supplies 0 mB; stored fluid remains safely buffered
+      <arrow> Accepts Default/A-D circuits or addressed Control Bus commands
+      <arrow> Route changes fail safe CLOSED before state replay
+
   fluid_sensor:
     name: "Fluid Tank Sensor"
     lore: |-

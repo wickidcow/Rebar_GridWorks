@@ -220,3 +220,12 @@ Providers may support switching without supporting limits; the limiter surfaces 
 Smart Breaker and Power Limiter now clear transient command state before switching their Control Bus input route. Changing a breaker from one circuit/address to another first requests **OPEN**; changing a limiter route first requests **BYPASS**. Component state replay then establishes the new route's actual command if a state source exists.
 
 New Smart Breakers also start OPEN rather than automatically closing an adjacent branch on placement. This prevents configuration work or a missing upstream command from energizing a branch implicitly.
+
+
+### Fluid Valve
+
+The **Fluid Valve** is implemented entirely on released Rebar fluid interfaces; it does not call the internal `FluidManager`. It creates a public fluid input on its rear face and output on its facing side, backed by a one-bucket transit tank.
+
+When OPEN, the valve requests compatible fluid up to its remaining buffer space and exposes stored fluid to the output network. When CLOSED, it requests and supplies exactly 0 mB while preserving whatever fluid is already inside. This gives the valve a real isolation behavior without disconnecting or rewriting Rebar's pipe graph.
+
+Fluid Valve accepts Default/A-D circuits or an addressed boolean command and defaults CLOSED. Input-route changes close it before normal state replay, matching the fail-safe behavior of Smart Breaker and Power Limiter.

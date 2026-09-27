@@ -388,3 +388,12 @@ Smart Breaker and Power Limiter implement the internal `PowerBranchDevice` contr
 Control input routing is configuration state, not an implicit command. Smart Breaker therefore resets its desired state to OPEN before changing route mode, circuit, or active address. Power Limiter resets to BYPASS before the equivalent route change. After the safe state has been reconciled to the provider, normal component state replay may establish a command from the newly selected route.
 
 A newly placed Smart Breaker also defaults OPEN. Missing persistent desired-state data loads OPEN, which gives migrations and partially configured devices the same fail-safe baseline.
+
+
+## Fluid Valve on released Rebar APIs
+
+Fluid Valve deliberately avoids Rebar's internal `FluidManager`. It implements the public `FluidTankRebarBlock` contract, uses public fluid connection points, and lets Rebar's own segment/ticker implementation move fluid into and out of its one-bucket transit tank.
+
+The flow policy is simple and testable: CLOSED means requested amount = 0 and supplied amount = 0; OPEN means request only compatible fluid up to remaining tank space and supply the currently stored amount. Closing does not discard buffered fluid.
+
+The input point is on the rear face and output point on the valve's facing side. Because the valve is an endpoint bridge rather than an in-place pipe mutation, no CargoRoutes/FluidManager internals or chunk-forcing behavior are required.

@@ -13,6 +13,7 @@ import io.github.wickidcow.gridworks.content.block.DelayRelayBlock;
 import io.github.wickidcow.gridworks.content.block.FactoryControllerBlock;
 import io.github.wickidcow.gridworks.content.block.FactoryMonitorBlock;
 import io.github.wickidcow.gridworks.content.block.FluidSensorBlock;
+import io.github.wickidcow.gridworks.content.block.FluidValveBlock;
 import io.github.wickidcow.gridworks.content.block.InventorySensorBlock;
 import io.github.wickidcow.gridworks.content.block.LoadSheddingControllerBlock;
 import io.github.wickidcow.gridworks.content.block.MachineSensorBlock;
@@ -42,6 +43,7 @@ public final class GridWorksContent {
     public static NamespacedKey MACHINE_SENSOR;
     public static NamespacedKey PULSE_RELAY;
     public static NamespacedKey FLUID_SENSOR;
+    public static NamespacedKey FLUID_VALVE;
     public static NamespacedKey POWER_GRID_SENSOR;
     public static NamespacedKey POWER_LIMITER;
     public static NamespacedKey FACTORY_CONTROLLER;
@@ -62,6 +64,7 @@ public final class GridWorksContent {
     public static ItemStack MACHINE_SENSOR_ITEM;
     public static ItemStack PULSE_RELAY_ITEM;
     public static ItemStack FLUID_SENSOR_ITEM;
+    public static ItemStack FLUID_VALVE_ITEM;
     public static ItemStack POWER_GRID_SENSOR_ITEM;
     public static ItemStack POWER_LIMITER_ITEM;
     public static ItemStack FACTORY_CONTROLLER_ITEM;
@@ -87,6 +90,7 @@ public final class GridWorksContent {
         MACHINE_SENSOR = new NamespacedKey(plugin, "machine_sensor");
         PULSE_RELAY = new NamespacedKey(plugin, "pulse_relay");
         FLUID_SENSOR = new NamespacedKey(plugin, "fluid_sensor");
+        FLUID_VALVE = new NamespacedKey(plugin, "fluid_valve");
         POWER_GRID_SENSOR = new NamespacedKey(plugin, "power_grid_sensor");
         POWER_LIMITER = new NamespacedKey(plugin, "power_limiter");
         FACTORY_CONTROLLER = new NamespacedKey(plugin, "factory_controller");
@@ -111,6 +115,7 @@ public final class GridWorksContent {
         );
         RebarBlock.register(PULSE_RELAY, Material.LEVER, PulseRelayBlock.class);
         RebarBlock.register(FLUID_SENSOR, Material.LIGHT_BLUE_GLAZED_TERRACOTTA, FluidSensorBlock.class);
+        RebarBlock.register(FLUID_VALVE, Material.END_ROD, FluidValveBlock.class);
         RebarBlock.register(POWER_GRID_SENSOR, Material.LIGHTNING_ROD, PowerGridSensorBlock.class);
         RebarBlock.register(POWER_LIMITER, Material.COMPARATOR, PowerLimiterBlock.class);
         RebarBlock.register(FACTORY_CONTROLLER, Material.CHISELED_COPPER, FactoryControllerBlock.class);
@@ -137,6 +142,7 @@ public final class GridWorksContent {
         ).build();
         PULSE_RELAY_ITEM = ItemStackBuilder.rebar(Material.LEVER, PULSE_RELAY).build();
         FLUID_SENSOR_ITEM = ItemStackBuilder.rebar(Material.LIGHT_BLUE_GLAZED_TERRACOTTA, FLUID_SENSOR).build();
+        FLUID_VALVE_ITEM = ItemStackBuilder.rebar(Material.END_ROD, FLUID_VALVE).build();
         POWER_GRID_SENSOR_ITEM = ItemStackBuilder.rebar(Material.LIGHTNING_ROD, POWER_GRID_SENSOR).build();
         POWER_LIMITER_ITEM = ItemStackBuilder.rebar(Material.COMPARATOR, POWER_LIMITER).build();
         FACTORY_CONTROLLER_ITEM = ItemStackBuilder.rebar(Material.CHISELED_COPPER, FACTORY_CONTROLLER).build();
@@ -163,6 +169,7 @@ public final class GridWorksContent {
         RebarItem.register(RebarItem.class, MACHINE_SENSOR_ITEM, MACHINE_SENSOR);
         RebarItem.register(RebarItem.class, PULSE_RELAY_ITEM, PULSE_RELAY);
         RebarItem.register(RebarItem.class, FLUID_SENSOR_ITEM, FLUID_SENSOR);
+        RebarItem.register(RebarItem.class, FLUID_VALVE_ITEM, FLUID_VALVE);
         RebarItem.register(RebarItem.class, POWER_GRID_SENSOR_ITEM, POWER_GRID_SENSOR);
         RebarItem.register(RebarItem.class, POWER_LIMITER_ITEM, POWER_LIMITER);
         RebarItem.register(RebarItem.class, FACTORY_CONTROLLER_ITEM, FACTORY_CONTROLLER);

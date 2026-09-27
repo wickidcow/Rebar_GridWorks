@@ -18,6 +18,7 @@ import io.github.wickidcow.gridworks.content.block.DelayRelayBlock;
 import io.github.wickidcow.gridworks.content.block.FactoryControllerBlock;
 import io.github.wickidcow.gridworks.content.block.FactoryMonitorBlock;
 import io.github.wickidcow.gridworks.content.block.FluidSensorBlock;
+import io.github.wickidcow.gridworks.content.block.FluidValveBlock;
 import io.github.wickidcow.gridworks.content.block.InventorySensorBlock;
 import io.github.wickidcow.gridworks.content.block.LoadSheddingControllerBlock;
 import io.github.wickidcow.gridworks.content.block.MachineSensorBlock;
@@ -308,6 +309,26 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
             event.getPlayer().sendMessage(
                     Component.text("Inventory: ", NamedTextColor.GRAY)
                             .append(Component.text(sensor.describeSnapshot(), NamedTextColor.WHITE))
+            );
+        } else if (controlNode instanceof FluidValveBlock valve) {
+            event.getPlayer().sendMessage(
+                    Component.text("Fluid valve: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    valve.describeValve(),
+                                    NamedTextColor.WHITE
+                            ))
+            );
+            event.getPlayer().sendMessage(
+                    Component.text("Valve input: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    valve.getRouteMode().displayName()
+                                            + " / "
+                                            + (valve.getRouteMode()
+                                                    == io.github.wickidcow.gridworks.api.control.ControlInputRouteMode.ADDRESS
+                                                    ? valve.getAddress().channel()
+                                                    : valve.getCircuit().channel()),
+                                    NamedTextColor.AQUA
+                            ))
             );
         } else if (controlNode instanceof FluidSensorBlock sensor) {
             event.getPlayer().sendMessage(
