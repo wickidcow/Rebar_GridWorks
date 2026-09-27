@@ -303,6 +303,6 @@ The rolling `dev-build` release metadata is updated to the exact smoke-tested co
 
 ## Paper startup smoke test
 
-Every CI build now goes beyond compilation and unit tests: it starts a real Paper 26.2 server through `run-paper`, loads the freshly built GridWorks JAR alongside Rebar, waits for Paper's normal startup completion, verifies GridWorks' 21-entry content validation and Control Bus initialization messages, and then shuts the server down cleanly.
+Successful `main` builds now go beyond compilation and unit tests: CI starts a real Paper 26.2 server through `run-paper`, loads the freshly built GridWorks JAR alongside Rebar, waits for Paper's normal `Done` marker, verifies GridWorks' 21-entry content validation and Control Bus initialization, executes the live `gridworks doctor` command, and then requires a clean shutdown.
 
-The rolling raw development JAR is published only after this startup smoke test succeeds. This catches classloading, plugin-enable, Rebar registration, bundled-resource, recipe-registration, and scheduler/listener startup failures that ordinary unit tests cannot exercise.
+The rolling raw development JAR is published only after this single integration gate succeeds. Pull requests still run the compile/unit-test gate without publishing a development JAR. The smoke gate catches classloading, plugin-enable, Rebar registration, bundled-resource, recipe-registration, command, scheduler/listener startup, and shutdown failures that ordinary unit tests cannot exercise.

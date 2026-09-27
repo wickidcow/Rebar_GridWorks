@@ -463,6 +463,6 @@ The CI smoke server invokes this command as part of every successful main build.
 
 ## Server startup smoke gate
 
-CI uses the existing `run-paper` task to launch Paper 26.2 with the just-built GridWorks artifact and released Rebar dependency. The smoke gate requires Paper's normal `Done` marker plus GridWorks' content-integrity and Control Bus initialization messages.
+On successful `main` candidates, CI uses the existing `run-paper` task to launch Paper 26.2 with the just-built GridWorks artifact and released Rebar dependency. One FIFO-backed integration gate requires Paper's normal `Done` marker plus GridWorks' content-integrity and Control Bus initialization messages, then executes `gridworks doctor` and requires its completion marker.
 
-A queued `stop` command allows startup to complete and then terminates the server normally. The workflow has a hard timeout and uses shell pipe-failure semantics, so a hung server, Gradle failure, missing success marker, or explicit GridWorks enable failure fails the build. Development release publication occurs only after this gate.
+The server is stopped through its normal console command and must terminate within 30 seconds; otherwise CI terminates the process and fails the build. Fatal GridWorks startup/shutdown log patterns, missing readiness markers, doctor failure, Gradle failure, or abnormal shutdown all block development release publication.
