@@ -16,6 +16,8 @@ jobs:
   build:
     permissions:
       contents: read
+    outputs:
+      tested-jar-sha256: ${{ steps.tested-jar.outputs.sha256 }}
     runs-on: ubuntu-latest
     env:
       GIT_CONFIG_COUNT: '1'
@@ -157,6 +159,21 @@ jobs:
           grep -F "Done (" "$LOG_FILE"
           grep -F "GridWorks Doctor result: PASS" "$LOG_FILE"
 
+      - name: Record smoke-tested raw JAR digest
+        id: tested-jar
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR="$(find build/libs -maxdepth 1 -type f -name 'Rebar_GridWorks-*.jar' | sort | head -n 1)"
+          if [[ -z "$JAR" || ! -f "$JAR" ]]; then
+            echo "Smoke-tested GridWorks JAR was not found."
+            exit 1
+          fi
+          SHA256="$(sha256sum "$JAR" | awk '{print $1}')"
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+          echo "Smoke-tested JAR SHA-256: $SHA256"
+
   publish-development-jar:
     name: Publish raw development JAR
     if: >
@@ -185,6 +202,30 @@ jobs:
       - name: Build raw JAR from tested commit
         run: ./gradlew clean jar --stacktrace --no-daemon
 
+      - name: Verify raw JAR matches smoke-tested bytes
+        env:
+          TESTED_SHA256: ${{ needs.build.outputs.tested-jar-sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR="$(find build/libs -maxdepth 1 -type f -name 'Rebar_GridWorks-*.jar' | sort | head -n 1)"
+          if [[ -z "$JAR" || ! -f "$JAR" ]]; then
+            echo "Rebuilt GridWorks JAR was not found."
+            exit 1
+          fi
+          if [[ -z "$TESTED_SHA256" ]]; then
+            echo "Smoke-tested JAR digest was not propagated from the build job."
+            exit 1
+          fi
+          REBUILT_SHA256="$(sha256sum "$JAR" | awk '{print $1}')"
+          if [[ "$REBUILT_SHA256" != "$TESTED_SHA256" ]]; then
+            echo "Rebuilt JAR does not match the smoke-tested JAR."
+            echo "Smoke-tested: $TESTED_SHA256"
+            echo "Rebuilt:      $REBUILT_SHA256"
+            exit 1
+          fi
+          echo "Raw JAR byte match verified: $REBUILT_SHA256"
+
       - name: Publish rolling development JAR
         env:
           GH_TOKEN: ${{ github.token }}
@@ -208,3 +249,17 @@ jobs:
           else
             gh release create dev-build "$JAR"               --repo "$GITHUB_REPOSITORY"               --target "$GITHUB_SHA"               --title "GridWorks Development Build"               --notes "Rolling raw JAR from the latest successful smoke-tested main build. Tested commit: $GITHUB_SHA. Development snapshot; not a stable release."               --prerelease
           fi
+
+          EXPECTED_DIGEST="sha256:$(sha256sum "$JAR" | awk '{print $1}')"
+          ASSET_NAME="$(basename "$JAR")"
+          RELEASE_JSON="$(gh api "/repos/$GITHUB_REPOSITORY/releases/tags/dev-build")"
+          PUBLISHED_DIGEST="$(printf '%s' "$RELEASE_JSON" | jq -r --arg name "$ASSET_NAME" '.assets[] | select(.name == $name) | .digest')"
+
+          if [[ "$PUBLISHED_DIGEST" != "$EXPECTED_DIGEST" ]]; then
+            echo "Published GitHub asset digest does not match the verified raw JAR."
+            echo "Expected:  $EXPECTED_DIGEST"
+            echo "Published: $PUBLISHED_DIGEST"
+            exit 1
+          fi
+
+          echo "Published raw JAR digest verified: $PUBLISHED_DIGEST"

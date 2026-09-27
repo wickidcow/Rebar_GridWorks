@@ -48,6 +48,11 @@ tasks.test {
     useJUnitPlatform()
 }
 
+tasks.withType<org.gradle.api.tasks.bundling.AbstractArchiveTask>().configureEach {
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
+}
+
 tasks.jar {
     archiveBaseName.set("Rebar_GridWorks")
 }

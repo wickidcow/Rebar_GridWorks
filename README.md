@@ -334,3 +334,10 @@ The validated snapshot drives the Control Bus propagation cap, all four shared s
 CI now exhaustively scans every production Java source for the Rebar internals GridWorks has deliberately avoided: internal `FluidManager`, internal `CargoRoutes`, the internal `TickingRebarBlock.isTicking` helper, and the unreleased `io.github.pylonmc.rebar.electricity` package.
 
 The same regression test requires `rebar.version` to be a released artifact on the same Minecraft line as `minecraft.version` and keeps Rebar as a `compileOnly` server dependency. When Rebar eventually releases electricity publicly, this guard is the intentional place to review and update that boundary rather than quietly binding to a development branch.
+
+
+## Byte-for-byte development release verification
+
+GridWorks archive tasks are reproducible: archive entry order is fixed and source file timestamps are not preserved. After the live Paper smoke test, CI records the SHA-256 of the exact JAR that was exercised. The isolated publisher rebuilds from the exact tested commit and refuses to publish unless its JAR has the identical SHA-256.
+
+After upload, CI reads GitHub's release-asset digest back and requires it to match the same verified raw JAR. The rolling `dev-build` asset is therefore byte-for-byte tied to the binary that passed the live server gate, while the user-facing download remains a raw `.jar`.

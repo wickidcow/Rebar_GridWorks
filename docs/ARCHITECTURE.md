@@ -494,3 +494,10 @@ No arbitrary upper gameplay cap is imposed beyond the destination type's range. 
 A source-level CI test protects the architectural adapter boundary. Production Java may not reference Rebar's internal `FluidManager`, internal `CargoRoutes`, internal `TickingRebarBlock.isTicking` helper, or the currently unreleased electricity package.
 
 The guard also checks that the pinned Rebar artifact is release-shaped, targets the same Minecraft line as GridWorks, and remains `compileOnly`. This turns the public-API policy into a regression constraint instead of relying on code-review memory.
+
+
+## Reproducible raw-JAR release chain
+
+Archive tasks disable source-file timestamps and use reproducible entry ordering. The smoke job exports the SHA-256 of its post-smoke GridWorks JAR. The write-capable publication job rebuilds from the exact event SHA and must reproduce that digest before modifying the rolling release.
+
+After upload, GitHub's own release-asset digest is read back and compared with the verified local SHA-256. This closes the gap between “same tested source” and “same tested binary” without changing the user-facing raw-JAR delivery.
