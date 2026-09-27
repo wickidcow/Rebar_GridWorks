@@ -92,4 +92,6 @@ tasks.runServer {
         github("pylonmc", "rebar", rebarVersion, "rebar-$rebarVersion.jar")
     }
     minecraftVersion(minecraftVersion)
+    maxHeapSize = "1G"
+    jvmArgs("-Dcom.mojang.eula.agree=true")
 }

@@ -348,3 +348,10 @@ After upload, CI reads GitHub's release-asset digest back and requires it to mat
 CI now inspects the raw JAR itself before Paper is started. The package must contain generated `plugin.yml`, `config.yml`, `lang/en.yml`, the GridWorks main/catalog classes, and a bundled GPLv3 license at `META-INF/LICENSE-GridWorks`. Generated plugin metadata must identify the correct main class, Rebar dependency, `gridworks` command, and `gridworks.admin` permission.
 
 The package gate also rejects accidentally bundled Rebar, Paper/Bukkit, or InvUI classes. Those remain server-provided dependencies rather than becoming shaded duplicates inside GridWorks.
+
+
+## Real-server CI smoke test
+
+Every successful `main` build now boots an actual Paper 26.2 server through `run-paper 3.1.0`, downloads the released Rebar dependency, loads the freshly built GridWorks JAR, and waits for GridWorks' explicit successful-enable marker.
+
+CI then sends Paper a normal `stop` console command and requires the server process to exit cleanly. Fatal GridWorks enable/classloading errors fail the workflow. The rolling raw development JAR is published only after this real Paper + Rebar smoke test passes.

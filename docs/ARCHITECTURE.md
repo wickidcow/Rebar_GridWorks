@@ -508,3 +508,10 @@ After upload, GitHub's own release-asset digest is read back and compared with t
 After Gradle's normal build, CI inspects the actual GridWorks JAR before launching Paper. Required runtime resources/classes and generated plugin metadata are checked directly from the archive, including command/permission/dependency metadata.
 
 The distributed JAR embeds the project GPLv3 license under `META-INF/LICENSE-GridWorks`. The same gate rejects package entries from Rebar, Paper/Bukkit, and InvUI namespaces so provided dependencies cannot be accidentally shaded into the addon.
+
+
+## Paper/Rebar runtime smoke gate
+
+The main-branch CI gate now goes beyond compilation. `runServer` boots Paper 26.2 with the released Rebar dependency and the current GridWorks JAR. GridWorks logs a dedicated successful-enable marker only after its complete runtime initializer—including content registration/validation and command registration—has finished.
+
+The workflow waits up to 180 seconds for that marker, checks for fatal enable/classloading failures, sends a normal Paper `stop` command through run-paper's forwarded standard input, and requires shutdown within 60 seconds. Development-release publication occurs only after this smoke gate succeeds.
