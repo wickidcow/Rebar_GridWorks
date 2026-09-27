@@ -345,6 +345,21 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
         }
     }
 
+    private static boolean invalidateConditionForUnavailablePeer(
+            Condition condition,
+            UUID peerId
+    ) {
+        if (condition.sourceId == null
+                || !condition.sourceId.equals(peerId)
+                || (condition.lastObserved == null && condition.lastResult == null)) {
+            return false;
+        }
+
+        condition.lastObserved = null;
+        condition.lastResult = null;
+        return true;
+    }
+
     private static boolean invalidateUnavailablePowerCondition(
             Condition condition,
             UUID source
@@ -359,6 +374,28 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
         condition.lastObserved = null;
         condition.lastResult = null;
         return true;
+    }
+
+    @Override
+    public void onControlPeerUnavailable(@NotNull UUID peerId) {
+        runOnServerThreadIfActive(() -> {
+            boolean changed = invalidateConditionForUnavailablePeer(
+                    conditionA,
+                    peerId
+            );
+
+            if (conditionBEnabled) {
+                changed |= invalidateConditionForUnavailablePeer(
+                        conditionB,
+                        peerId
+                );
+            }
+
+            if (changed) {
+                updateOutputFromConditions();
+                notifyConditionItems();
+            }
+        });
     }
 
     @Override

@@ -65,14 +65,27 @@ public final class PhysicalControlNetwork implements AutoCloseable {
         replayStateSources(nodeId);
     }
 
-    public synchronized void deactivate(UUID nodeId, ControlNode expectedNode) {
-        ControlNode active = activeNodes.get(nodeId);
-        if (active != expectedNode) {
-            return;
+    public void deactivate(UUID nodeId, ControlNode expectedNode) {
+        List<ControlNode> unavailablePeers = new ArrayList<>();
+
+        synchronized (this) {
+            ControlNode active = activeNodes.get(nodeId);
+            if (active != expectedNode) {
+                return;
+            }
+
+            for (UUID neighborId : connectionStore.neighbors(nodeId)) {
+                ControlNode neighbor = activeNodes.get(neighborId);
+                if (neighbor != null) {
+                    unavailablePeers.add(neighbor);
+                }
+            }
+
+            activeNodes.remove(nodeId);
+            controlBus.unregister(nodeId);
         }
 
-        activeNodes.remove(nodeId);
-        controlBus.unregister(nodeId);
+        notifyPeersUnavailable(nodeId, unavailablePeers);
     }
 
     public synchronized void remove(UUID nodeId, ControlNode expectedNode) throws IOException {
@@ -112,6 +125,9 @@ public final class PhysicalControlNetwork implements AutoCloseable {
             notifyPeerAvailable(firstNode, second);
             notifyPeerAvailable(secondNode, first);
             replayStateSources(first);
+        } else {
+            notifyPeerUnavailable(firstNode, second);
+            notifyPeerUnavailable(secondNode, first);
         }
         return connected;
     }
@@ -216,6 +232,24 @@ public final class PhysicalControlNetwork implements AutoCloseable {
 
         try {
             endpoint.onControlPeerAvailable(peerId);
+        } catch (RuntimeException exception) {
+            callbackFailureHandler.accept(exception);
+        }
+    }
+
+    private void notifyPeersUnavailable(UUID unavailablePeerId, List<ControlNode> peers) {
+        for (ControlNode peer : peers) {
+            notifyPeerUnavailable(peer, unavailablePeerId);
+        }
+    }
+
+    private void notifyPeerUnavailable(ControlNode node, UUID peerId) {
+        if (!(node instanceof PhysicalControlEndpoint endpoint)) {
+            return;
+        }
+
+        try {
+            endpoint.onControlPeerUnavailable(peerId);
         } catch (RuntimeException exception) {
             callbackFailureHandler.accept(exception);
         }

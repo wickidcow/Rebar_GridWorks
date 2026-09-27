@@ -271,3 +271,10 @@ All loaded sensors share one configurable sampler (20 ticks by default). Sensors
 An unavailable sensor publishes only `power/available=false`. It does not publish synthetic zero capacity/demand values.
 
 Factory Controller treats that availability channel specially for power metrics. If the unavailable signal comes from the sensor currently bound to a power condition, only the condition's cached observation/result is cleared; its selected source remains bound. The controller then recomputes through its normal three-state logic and uses fail-safe OFF when the result becomes genuinely unknown.
+
+
+## Peer unavailability
+
+The physical network now emits both peer-available and peer-unavailable callbacks for directly linked loaded nodes. Unavailability is sent after an unload removes the peer from the live graph and after an explicit unlink disconnects two loaded peers. Callbacks execute outside the topology monitor and failures are isolated through the existing callback failure handler.
+
+Factory Controller uses this lifecycle signal for every metric type, not only power. If its bound source unloads or is unlinked, the controller preserves the selected source UUID but clears the cached observation/result and immediately recomputes through three-state logic. This prevents stale inventory, fluid, redstone, or power measurements from continuing to drive automation while the source is absent.

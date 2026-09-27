@@ -39,6 +39,7 @@ class PhysicalControlNetworkTest {
         network.deactivate(b.id(), b);
         assertFalse(bus.isConnected(a.id(), b.id()));
         assertTrue(network.isLinked(a.id(), b.id()));
+        assertEquals(List.of(b.id()), a.unavailablePeers);
 
         TestNode reloadedB = new TestNode(b.id());
         network.activate(reloadedB);
@@ -46,6 +47,24 @@ class PhysicalControlNetworkTest {
         assertEquals(List.of(a.id()), reloadedB.availablePeers);
         assertEquals(List.of(b.id(), b.id()), a.availablePeers);
         assertTrue(callbackFailures.isEmpty());
+    }
+
+    @Test
+    void unlinkNotifiesBothLoadedPeersUnavailable() throws Exception {
+        GraphControlBus bus = new GraphControlBus(32);
+        PersistentConnectionStore store = new PersistentConnectionStore(tempDir.resolve("network.txt"));
+        PhysicalControlNetwork network = new PhysicalControlNetwork(bus, store, ignored -> {});
+
+        TestNode a = new TestNode();
+        TestNode b = new TestNode();
+        network.activate(a);
+        network.activate(b);
+        network.toggleLink(a.id(), b.id());
+
+        assertFalse(network.toggleLink(a.id(), b.id()));
+
+        assertEquals(List.of(b.id()), a.unavailablePeers);
+        assertEquals(List.of(a.id()), b.unavailablePeers);
     }
 
     @Test
@@ -137,6 +156,13 @@ class PhysicalControlNetworkTest {
         assertTrue(network.isLinked(a.id(), b.id()));
         assertEquals(1, failures.size());
         assertEquals(List.of(a.id()), b.availablePeers);
+
+        b.throwOnPeerUnavailable = true;
+        network.deactivate(a.id(), a);
+
+        assertEquals(2, failures.size());
+        assertFalse(network.isActive(a.id()));
+        assertTrue(network.isActive(b.id()));
     }
 
     private static final class StatefulTestNode implements ControlStateSource {
@@ -172,7 +198,9 @@ class PhysicalControlNetworkTest {
         private final UUID id;
         private final List<ControlSignal> received = new ArrayList<>();
         private final List<UUID> availablePeers = new ArrayList<>();
+        private final List<UUID> unavailablePeers = new ArrayList<>();
         private boolean throwOnPeerAvailable;
+        private boolean throwOnPeerUnavailable;
 
         private TestNode() {
             this(UUID.randomUUID());
@@ -198,6 +226,14 @@ class PhysicalControlNetworkTest {
                 throw new IllegalStateException("test failure");
             }
             availablePeers.add(peerId);
+        }
+
+        @Override
+        public void onControlPeerUnavailable(UUID peerId) {
+            if (throwOnPeerUnavailable) {
+                throw new IllegalStateException("test failure");
+            }
+            unavailablePeers.add(peerId);
         }
     }
 }

@@ -113,6 +113,8 @@ The Factory Monitor is a passive diagnostic node. It displays the latest built-i
 
 Stateful devices implement `ControlStateSource`. When loaded topology expands, GridWorks replays current state from every loaded state source in that component. This means a monitor or actuator joining through an intermediate Control Interface receives current state even when the original sensor is several hops away.
 
+Direct-link lifecycle is symmetric: controllers are notified when a bound peer unloads or is explicitly unlinked. Cached measurements from that source are invalidated immediately, so a missing sensor cannot leave automation running forever on stale data.
+
 ## Threading safety
 
 Control Bus callbacks deliberately run on the publisher's thread. Physical GridWorks nodes therefore marshal all Bukkit world mutations and InvUI refreshes onto the primary server thread and verify the node is still active before delayed work executes. This lets third-party addons publish asynchronously without making GridWorks actuators touch unloaded chunks or Bukkit state off-thread.
