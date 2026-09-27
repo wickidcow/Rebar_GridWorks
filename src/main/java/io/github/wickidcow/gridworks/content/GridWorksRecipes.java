@@ -223,10 +223,13 @@ public final class GridWorksRecipes {
             ItemStack result,
             String... shape
     ) {
-        return new ShapedRecipe(new NamespacedKey(plugin, key), result.clone())
-                .shape(shape)
-                .setGroup(GROUP)
-                .setCategory(CraftingBookCategory.REDSTONE);
+        ShapedRecipe recipe = new ShapedRecipe(
+                new NamespacedKey(plugin, key),
+                result.clone()
+        ).shape(shape);
+        recipe.setGroup(GROUP);
+        recipe.setCategory(CraftingBookCategory.REDSTONE);
+        return recipe;
     }
 
     private static ItemStack amount(ItemStack template, int amount) {
