@@ -29,6 +29,11 @@ public final class FluidSensorBlock extends PhysicalControlNodeBlock implements 
     }
 
     @Override
+    protected void beforeActivated() {
+        lastSnapshot = null;
+    }
+
+    @Override
     protected void afterActivated() {
         GridWorks.getInstance().getFluidSensorManager().register(this);
     }

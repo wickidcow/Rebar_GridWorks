@@ -40,6 +40,11 @@ public final class PowerGridSensorBlock extends PhysicalControlNodeBlock
     }
 
     @Override
+    protected void beforeActivated() {
+        lastSnapshot = null;
+    }
+
+    @Override
     protected void afterActivated() {
         GridWorks.getInstance().getPowerGridSensorManager().register(this);
     }

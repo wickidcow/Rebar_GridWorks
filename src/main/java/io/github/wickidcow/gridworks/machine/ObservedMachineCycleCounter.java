@@ -68,6 +68,17 @@ public final class ObservedMachineCycleCounter {
         lastCycleEpochMillis = 0L;
     }
 
+    /**
+     * Clears only the transient processing baseline.
+     *
+     * <p>Persisted totals/history remain intact. This is used when a sensor
+     * leaves and later re-enters the live topology so an old processing state
+     * cannot be paired with a new idle sample and counted as a completion.</p>
+     */
+    public synchronized void resetObservation() {
+        previousSnapshot = null;
+    }
+
     public synchronized long observedCycles() {
         return observedCycles;
     }

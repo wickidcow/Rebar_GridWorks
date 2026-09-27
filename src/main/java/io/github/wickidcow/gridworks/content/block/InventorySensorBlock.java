@@ -28,6 +28,11 @@ public final class InventorySensorBlock extends PhysicalControlNodeBlock impleme
     }
 
     @Override
+    protected void beforeActivated() {
+        lastSnapshot = null;
+    }
+
+    @Override
     protected void afterActivated() {
         GridWorks.getInstance().getInventorySensorManager().register(this);
     }

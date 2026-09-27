@@ -70,6 +70,12 @@ public final class MachineSensorBlock extends PhysicalControlNodeBlock
     }
 
     @Override
+    protected void beforeActivated() {
+        lastSnapshot = null;
+        cycleCounter.resetObservation();
+    }
+
+    @Override
     protected void afterActivated() {
         GridWorks.getInstance().getMachineSensorManager().register(this);
     }

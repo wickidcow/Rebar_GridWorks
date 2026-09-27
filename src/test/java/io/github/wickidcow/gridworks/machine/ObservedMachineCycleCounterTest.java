@@ -53,6 +53,18 @@ class ObservedMachineCycleCounterTest {
     }
 
     @Test
+    void resettingObservationDropsOnlyTransientProcessingBaseline() {
+        ObservedMachineCycleCounter counter = new ObservedMachineCycleCounter(7L, 500L);
+        counter.observe(MachineSnapshot.processing("processor", 100, 25), 600L);
+
+        counter.resetObservation();
+
+        assertFalse(counter.observe(MachineSnapshot.idle("processor"), 700L));
+        assertEquals(7L, counter.observedCycles());
+        assertEquals(500L, counter.lastCycleEpochMillis());
+    }
+
+    @Test
     void resetPreservesActiveProcessingBaselineForTheNextBatch() {
         ObservedMachineCycleCounter counter = new ObservedMachineCycleCounter(9L, 500L);
         counter.observe(MachineSnapshot.processing("processor", 100, 25), 600L);

@@ -114,7 +114,9 @@ This is not a polling loop. It only runs on topology changes and prevents multi-
 
 Physical control blocks now have explicit pre- and post-activation lifecycle hooks. `beforeActivated()` runs after Rebar block initialization but before the node joins the live graph, while `afterActivated()` runs only after activation and component state replay finish.
 
-Replay-sensitive devices reset transient input baselines in the pre-activation hook. This is critical for Pulse Relay, Delay Relay, Alarm Indicator, and Sequence Controller: replay establishes their first observed state, and the post-activation hook must not erase that baseline. Otherwise the first real post-restart transition could be missed or a delayed transition scheduled from replay could be invalidated.
+Replay-sensitive devices reset transient input baselines in the pre-activation hook. This is critical for Pulse Relay, Delay Relay, Alarm Indicator, Sequence Controller, and Batch Controller reset input: replay establishes their first observed state, and the post-activation hook must not erase that baseline. Otherwise the first real post-restart transition could be missed or a delayed transition scheduled from replay could be invalidated.
+
+Sampler-backed Inventory, Fluid, Machine, and Power Grid sensors also clear only their transient cached snapshots in `beforeActivated()`. Their first replay therefore reads the current adjacent target rather than re-emitting a snapshot retained by a reactivated block instance. Machine Sensor additionally clears only `ObservedMachineCycleCounter`'s transient previous-processing observation while preserving persisted cycle totals and timestamp history; this prevents an old pre-unload processing state from pairing with a new idle sample and manufacturing a cycle.
 
 ## Factory Monitor
 
