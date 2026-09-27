@@ -89,16 +89,21 @@ jobs:
           echo "gridworks doctor" >&3
 
           DOCTOR_READY=0
+          DOCTOR_FAILED=0
           for _ in $(seq 1 15); do
-            if grep -Fq "GridWorks Doctor complete." "$LOG_FILE"; then
+            if grep -Fq "GridWorks Doctor result: PASS" "$LOG_FILE"; then
               DOCTOR_READY=1
+              break
+            fi
+            if grep -Fq "GridWorks Doctor result: FAIL" "$LOG_FILE"; then
+              DOCTOR_FAILED=1
               break
             fi
             sleep 1
           done
 
-          if [[ "$DOCTOR_READY" -ne 1 ]]; then
-            echo "The live GridWorks doctor command did not complete."
+          if [[ "$DOCTOR_READY" -ne 1 || "$DOCTOR_FAILED" -eq 1 ]]; then
+            echo "The live GridWorks doctor did not report PASS."
             cat "$LOG_FILE"
             echo "stop" >&3 || true
             exec 3>&-
@@ -144,7 +149,7 @@ jobs:
           grep -F "Validated 21 GridWorks content entries and survival recipes." "$LOG_FILE"
           grep -F "GridWorks control bus initialized" "$LOG_FILE"
           grep -F "Done (" "$LOG_FILE"
-          grep -F "GridWorks Doctor complete." "$LOG_FILE"
+          grep -F "GridWorks Doctor result: PASS" "$LOG_FILE"
 
       - name: Publish raw development JAR
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'

@@ -466,3 +466,10 @@ The CI smoke server invokes this command as part of every successful main build.
 On successful `main` candidates, CI uses the existing `run-paper` task to launch Paper 26.2 with the just-built GridWorks artifact and released Rebar dependency. One FIFO-backed integration gate requires Paper's normal `Done` marker plus GridWorks' content-integrity and Control Bus initialization messages, then executes `gridworks doctor` and requires its completion marker.
 
 The server is stopped through its normal console command and must terminate within 30 seconds; otherwise CI terminates the process and fails the build. Fatal GridWorks startup/shutdown log patterns, missing readiness markers, doctor failure, Gradle failure, or abnormal shutdown all block development release publication.
+
+
+## Doctor invariants
+
+The live doctor is part of the release gate, so completion alone is not treated as health. It verifies that the registered recipe list exactly matches the canonical content catalog, Bukkit's `ControlBus` service resolves to the current live bus, the inventory/fluid/machine/power shared sampler tasks are still scheduled, and the static GridWorks instance matches the enabled plugin.
+
+Provider availability, loaded node/sensor/device counts, and pending task totals are diagnostic context rather than pass/fail criteria. This keeps a normal installation without an electricity provider healthy while still catching internal lifecycle corruption.

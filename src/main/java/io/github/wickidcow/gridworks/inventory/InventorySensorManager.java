@@ -38,6 +38,10 @@ public final class InventorySensorManager implements AutoCloseable {
         return sensors.size();
     }
 
+    public boolean isScheduled() {
+        return !task.isCancelled();
+    }
+
     private void sampleAll() {
         for (InventorySensorBlock sensor : List.copyOf(sensors)) {
             sample(sensor);

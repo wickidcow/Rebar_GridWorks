@@ -1,9 +1,12 @@
 package io.github.wickidcow.gridworks.command;
 
 import io.github.wickidcow.gridworks.GridWorks;
+import io.github.wickidcow.gridworks.api.control.ControlBus;
 import io.github.wickidcow.gridworks.content.GridWorksContentCatalog;
 import io.github.wickidcow.gridworks.content.GridWorksRecipes;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.Locale;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -59,8 +62,25 @@ public final class GridWorksCommand implements CommandExecutor, TabCompleter {
     }
 
     private void sendDoctor(CommandSender sender) {
-        var bus = plugin.getControlBus();
+        ControlBus bus = plugin.getControlBus();
         var physical = plugin.getPhysicalControlNetwork();
+
+        List<String> registeredRecipeIds = GridWorksRecipes.registeredIds();
+        Set<String> uniqueRecipeIds = new LinkedHashSet<>(registeredRecipeIds);
+        boolean contentHealthy =
+                registeredRecipeIds.size() == GridWorksContentCatalog.ALL_IDS.size()
+                        && uniqueRecipeIds.equals(GridWorksContentCatalog.ALL_ID_SET);
+
+        boolean serviceHealthy =
+                Bukkit.getServicesManager().load(ControlBus.class) == bus;
+
+        boolean sensorSchedulersHealthy =
+                plugin.getInventorySensorManager().isScheduled()
+                        && plugin.getFluidSensorManager().isScheduled()
+                        && plugin.getMachineSensorManager().isScheduled()
+                        && plugin.getPowerGridSensorManager().isScheduled();
+
+        boolean instanceHealthy = GridWorks.getInstance() == plugin;
 
         long scheduledTasks = Bukkit.getScheduler()
                 .getPendingTasks()
@@ -68,17 +88,48 @@ public final class GridWorksCommand implements CommandExecutor, TabCompleter {
                 .filter(task -> task.getOwner().equals(plugin))
                 .count();
 
+        boolean healthy =
+                contentHealthy
+                        && serviceHealthy
+                        && sensorSchedulersHealthy
+                        && instanceHealthy;
+
         sender.sendMessage(Component.text(
                 "GridWorks Doctor — " + plugin.getPluginMeta().getVersion(),
                 NamedTextColor.GOLD
         ));
-        line(
+        checkLine(
                 sender,
                 "Content",
-                GridWorksRecipes.registeredIds().size()
+                contentHealthy,
+                registeredRecipeIds.size()
                         + "/"
                         + GridWorksContentCatalog.ALL_IDS.size()
-                        + " recipes registered"
+                        + " recipes match catalog"
+        );
+        checkLine(
+                sender,
+                "Control Bus service",
+                serviceHealthy,
+                serviceHealthy
+                        ? "registered service points to the live bus"
+                        : "Bukkit service does not point to the live bus"
+        );
+        checkLine(
+                sender,
+                "Sensor schedulers",
+                sensorSchedulersHealthy,
+                sensorSchedulersHealthy
+                        ? "inventory/fluid/machine/power samplers scheduled"
+                        : "one or more shared sensor samplers are cancelled"
+        );
+        checkLine(
+                sender,
+                "Plugin instance",
+                instanceHealthy,
+                instanceHealthy
+                        ? "static instance matches enabled plugin"
+                        : "static instance does not match enabled plugin"
         );
         line(
                 sender,
@@ -125,10 +176,30 @@ public final class GridWorksCommand implements CommandExecutor, TabCompleter {
                         + " loaded"
         );
         line(sender, "Plugin scheduler", scheduledTasks + " pending tasks");
+
+        sender.sendMessage(Component.text(
+                "GridWorks Doctor result: " + (healthy ? "PASS" : "FAIL"),
+                healthy ? NamedTextColor.GREEN : NamedTextColor.RED
+        ));
         sender.sendMessage(Component.text(
                 "GridWorks Doctor complete.",
-                NamedTextColor.GREEN
+                healthy ? NamedTextColor.GREEN : NamedTextColor.RED
         ));
+    }
+
+    private static void checkLine(
+            CommandSender sender,
+            String label,
+            boolean healthy,
+            String value
+    ) {
+        sender.sendMessage(
+                Component.text(
+                                (healthy ? "[PASS] " : "[FAIL] ") + label + ": ",
+                                healthy ? NamedTextColor.GREEN : NamedTextColor.RED
+                        )
+                        .append(Component.text(value, NamedTextColor.WHITE))
+        );
     }
 
     private static void line(

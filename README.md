@@ -306,3 +306,10 @@ The rolling `dev-build` release metadata is updated to the exact smoke-tested co
 Successful `main` builds now go beyond compilation and unit tests: CI starts a real Paper 26.2 server through `run-paper`, loads the freshly built GridWorks JAR alongside Rebar, waits for Paper's normal `Done` marker, verifies GridWorks' 21-entry content validation and Control Bus initialization, executes the live `gridworks doctor` command, and then requires a clean shutdown.
 
 The rolling raw development JAR is published only after this single integration gate succeeds. Pull requests still run the compile/unit-test gate without publishing a development JAR. The smoke gate catches classloading, plugin-enable, Rebar registration, bundled-resource, recipe-registration, command, scheduler/listener startup, and shutdown failures that ordinary unit tests cannot exercise.
+
+
+## Doctor health result
+
+`/gridworks doctor` now distinguishes informational telemetry from runtime invariants. The command reports PASS/FAIL checks for exact recipe/catalog registration, the live Bukkit `ControlBus` service identity, all four shared sensor samplers, and the enabled GridWorks singleton. Power-provider absence remains informational because electricity integrations are optional.
+
+CI requires the explicit `GridWorks Doctor result: PASS` marker before it accepts the live Paper smoke test or publishes the rolling raw JAR.

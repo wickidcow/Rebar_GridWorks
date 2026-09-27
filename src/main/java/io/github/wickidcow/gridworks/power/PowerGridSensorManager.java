@@ -41,6 +41,10 @@ public final class PowerGridSensorManager implements AutoCloseable {
         return sensors.size();
     }
 
+    public boolean isScheduled() {
+        return !task.isCancelled();
+    }
+
     private void sampleAll() {
         boolean available = plugin.getPowerGridBridge().isAvailable();
 

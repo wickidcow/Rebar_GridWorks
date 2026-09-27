@@ -38,6 +38,10 @@ public final class FluidSensorManager implements AutoCloseable {
         return sensors.size();
     }
 
+    public boolean isScheduled() {
+        return !task.isCancelled();
+    }
+
     private void sampleAll() {
         for (FluidSensorBlock sensor : List.copyOf(sensors)) {
             sample(sensor);
