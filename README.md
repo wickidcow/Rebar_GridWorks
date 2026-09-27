@@ -247,3 +247,10 @@ GridWorks now registers shaped crafting recipes through Rebar's `RecipeType.VANI
 The progression intentionally starts with vanilla copper/redstone/quartz components for Control Interfaces, the Linker, basic sensors, lights, and relays. Advanced devices then consume earlier GridWorks components: timed/addressed relays build from Control Relay, Factory Controller/Monitor build from Control Interface, alarm infrastructure builds from Status Light/Control Interface, and the Part 3 power/flow devices build from the established control components.
 
 Recipes are registered under the `gridworks` crafting-book group and are explicitly removed from Rebar's recipe type when GridWorks disables, avoiding stale recipe registrations during plugin lifecycle changes.
+
+
+### Shared actuator input routing
+
+Smart Breaker, Power Limiter, Fluid Valve, and Cargo Isolator now use one immutable `ControlInputRoute` model for Circuit vs Address routing. The model owns safe parsing of persisted mode/circuit/address values, active-channel selection, circuit cycling, address replacement, and whether a configuration edit actually changes the active input route.
+
+Each physical actuator still owns its domain-specific fail-safe action, but it only applies that action when `RouteChange.activeRouteChanged()` is true. Editing an inactive saved address therefore no longer causes unnecessary physical switching, while toggling route mode or changing the active circuit/address always triggers the correct safe state before replay.

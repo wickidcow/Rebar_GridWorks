@@ -415,3 +415,12 @@ GridWorks recipes are registered through Rebar's released vanilla-shaped recipe 
 Foundational recipes use vanilla materials only. Higher-tier recipes may use exact GridWorks `ItemStack` ingredients, allowing Rebar's item-aware recipe matcher to preserve custom item identity rather than accepting any vanilla item with the same base material.
 
 `GridWorksRecipes` tracks every registered key and removes those recipes on plugin disable. All recipe keys use the GridWorks plugin namespace and a shared `gridworks` crafting-book group.
+
+
+## Shared ControlInputRoute state model
+
+Part 3 actuators no longer duplicate Circuit/Address routing state machines. `ControlInputRoute` is an immutable value containing mode, compact command circuit, and addressed command. Its nested `RouteChange` explicitly reports both structural configuration change and active-route change.
+
+This distinction matters for physical devices. Changing an address while a device is listening to a circuit is persisted without opening/closing hardware unnecessarily. Changing the active circuit, changing an address while Address mode is active, or toggling mode reports `activeRouteChanged=true`; the owning actuator then applies its own fail-safe state before requesting component state replay.
+
+Persistent parsing continues to use the existing conservative fallbacks: invalid/missing mode -> Circuit, invalid/missing circuit -> Default, invalid/missing address -> the node-derived fallback.

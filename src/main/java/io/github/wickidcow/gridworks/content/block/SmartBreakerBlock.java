@@ -8,6 +8,7 @@ import io.github.wickidcow.gridworks.GridWorks;
 import io.github.wickidcow.gridworks.api.control.ControlAddress;
 import io.github.wickidcow.gridworks.api.control.ControlChannel;
 import io.github.wickidcow.gridworks.api.control.ControlCommandChannel;
+import io.github.wickidcow.gridworks.api.control.ControlInputRoute;
 import io.github.wickidcow.gridworks.api.control.ControlInputRouteMode;
 import io.github.wickidcow.gridworks.api.control.ControlSignal;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
@@ -46,9 +47,7 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
     private static final NamespacedKey ADDRESS_KEY = key("smart_breaker_address");
     private static final NamespacedKey DESIRED_ENABLED_KEY = key("smart_breaker_desired_enabled");
 
-    private ControlInputRouteMode routeMode;
-    private ControlCommandChannel circuit;
-    private ControlAddress address;
+    private ControlInputRoute inputRoute;
     private boolean desiredEnabled;
 
     private Optional<PowerBranchSnapshot> observedBranch = Optional.empty();
@@ -67,9 +66,9 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
         super(block, context);
         setFacing(context.getFacing());
 
-        this.routeMode = ControlInputRouteMode.CIRCUIT;
-        this.circuit = ControlCommandChannel.DEFAULT;
-        this.address = ControlAddress.defaultFor(getNodeId(), "breaker");
+        this.inputRoute = ControlInputRoute.defaults(
+                ControlAddress.defaultFor(getNodeId(), "breaker")
+        );
         this.desiredEnabled = false;
     }
 
@@ -79,13 +78,9 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
     ) {
         super(block, pdc);
 
-        this.routeMode = ControlInputRouteMode.fromStored(
-                pdc.get(ROUTE_MODE_KEY, PersistentDataType.STRING)
-        );
-        this.circuit = ControlCommandChannel.fromStored(
-                pdc.get(CIRCUIT_KEY, PersistentDataType.STRING)
-        );
-        this.address = ControlAddress.fromStoredOrDefault(
+        this.inputRoute = ControlInputRoute.fromStored(
+                pdc.get(ROUTE_MODE_KEY, PersistentDataType.STRING),
+                pdc.get(CIRCUIT_KEY, PersistentDataType.STRING),
                 pdc.get(ADDRESS_KEY, PersistentDataType.STRING),
                 ControlAddress.defaultFor(getNodeId(), "breaker")
         );
@@ -128,9 +123,9 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
 
     @Override
     protected void writeNodeData(@NotNull PersistentDataContainer pdc) {
-        pdc.set(ROUTE_MODE_KEY, PersistentDataType.STRING, routeMode.name());
-        pdc.set(CIRCUIT_KEY, PersistentDataType.STRING, circuit.name());
-        pdc.set(ADDRESS_KEY, PersistentDataType.STRING, address.value());
+        pdc.set(ROUTE_MODE_KEY, PersistentDataType.STRING, inputRoute.mode().name());
+        pdc.set(CIRCUIT_KEY, PersistentDataType.STRING, inputRoute.circuit().name());
+        pdc.set(ADDRESS_KEY, PersistentDataType.STRING, inputRoute.address().value());
         pdc.set(
                 DESIRED_ENABLED_KEY,
                 PersistentDataType.BYTE,
@@ -159,15 +154,15 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
     }
 
     public @NotNull ControlInputRouteMode getRouteMode() {
-        return routeMode;
+        return inputRoute.mode();
     }
 
     public @NotNull ControlCommandChannel getCircuit() {
-        return circuit;
+        return inputRoute.circuit();
     }
 
     public @NotNull ControlAddress getAddress() {
-        return address;
+        return inputRoute.address();
     }
 
     public boolean isDesiredEnabled() {
@@ -292,44 +287,34 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
     }
 
     private void toggleRouteMode() {
-        desiredEnabled = false;
-        routeMode = routeMode.toggle();
-        reconcileBranch();
-        routeModeItem.notifyWindows();
-        circuitItem.notifyWindows();
-        addressItem.notifyWindows();
-
-        requestStateReplay();
+        applyRouteChange(inputRoute.toggleMode());
     }
 
     private void changeCircuit(int direction) {
-        if (routeMode != ControlInputRouteMode.CIRCUIT) {
-            return;
-        }
-
-        desiredEnabled = false;
-        circuit = circuit.cycle(direction);
-        reconcileBranch();
-        circuitItem.notifyWindows();
-
-        requestStateReplay();
+        applyRouteChange(inputRoute.cycleCircuit(direction));
     }
 
     private void setAddress(ControlAddress next) {
-        if (address.equals(next)) {
+        applyRouteChange(inputRoute.withAddress(next));
+    }
+
+    private void applyRouteChange(ControlInputRoute.RouteChange change) {
+        if (!change.changed()) {
             return;
         }
 
-        boolean activeAddressRoute = routeMode == ControlInputRouteMode.ADDRESS;
-        if (activeAddressRoute) {
+        if (change.activeRouteChanged()) {
             desiredEnabled = false;
+            reconcileBranch();
         }
 
-        address = next;
+        inputRoute = change.route();
+        routeModeItem.notifyWindows();
+        circuitItem.notifyWindows();
         addressItem.notifyWindows();
+        commandItem.notifyWindows();
 
-        if (activeAddressRoute) {
-            reconcileBranch();
+        if (change.activeRouteChanged()) {
             requestStateReplay();
         }
     }
@@ -341,9 +326,7 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
     }
 
     private ControlChannel activeInputChannel() {
-        return routeMode == ControlInputRouteMode.ADDRESS
-                ? address.channel()
-                : circuit.channel();
+        return inputRoute.activeChannel();
     }
 
     private Target targetCoordinates() {
@@ -397,7 +380,7 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
                 .addIngredient(
                         'a',
                         ItemStackBuilder.of(Material.NAME_TAG)
-                                .name(Component.text(address.value(), NamedTextColor.GOLD))
+                                .name(Component.text(inputRoute.address().value(), NamedTextColor.GOLD))
                 )
                 .build();
 
@@ -540,10 +523,10 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
         @Override
         public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
             return item(
-                    routeMode == ControlInputRouteMode.ADDRESS
+                    inputRoute.mode() == ControlInputRouteMode.ADDRESS
                             ? Material.ENDER_EYE
                             : Material.REDSTONE,
-                    "Input route: " + routeMode.displayName()
+                    "Input route: " + inputRoute.mode().displayName()
             ).lore(Component.text(
                     "Click to switch Circuit / Address",
                     NamedTextColor.YELLOW
@@ -564,16 +547,16 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
         @Override
         public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
             ItemStackBuilder builder = item(
-                    routeMode == ControlInputRouteMode.CIRCUIT
+                    inputRoute.mode() == ControlInputRouteMode.CIRCUIT
                             ? Material.REDSTONE_TORCH
                             : Material.GRAY_DYE,
-                    "Circuit: " + circuit.displayName()
+                    "Circuit: " + inputRoute.circuit().displayName()
             ).lore(Component.text(
-                    circuit.channel().toString(),
+                    inputRoute.circuit().channel().toString(),
                     NamedTextColor.GRAY
             ));
 
-            if (routeMode == ControlInputRouteMode.CIRCUIT) {
+            if (inputRoute.mode() == ControlInputRouteMode.CIRCUIT) {
                 builder.lore(Component.text(
                         "Left/right click to cycle Default / A / B / C / D",
                         NamedTextColor.YELLOW
@@ -600,16 +583,16 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
         @Override
         public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
             ItemStackBuilder builder = item(
-                    routeMode == ControlInputRouteMode.ADDRESS
+                    inputRoute.mode() == ControlInputRouteMode.ADDRESS
                             ? Material.NAME_TAG
                             : Material.GRAY_DYE,
-                    "Address: " + address.value()
+                    "Address: " + inputRoute.address().value()
             ).lore(Component.text(
-                    address.channel().toString(),
+                    inputRoute.address().channel().toString(),
                     NamedTextColor.GRAY
             ));
 
-            if (routeMode == ControlInputRouteMode.ADDRESS) {
+            if (inputRoute.mode() == ControlInputRouteMode.ADDRESS) {
                 builder.lore(Component.text(
                         "Click to edit address",
                         NamedTextColor.YELLOW

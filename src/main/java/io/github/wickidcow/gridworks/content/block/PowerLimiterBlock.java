@@ -8,6 +8,7 @@ import io.github.wickidcow.gridworks.GridWorks;
 import io.github.wickidcow.gridworks.api.control.ControlAddress;
 import io.github.wickidcow.gridworks.api.control.ControlChannel;
 import io.github.wickidcow.gridworks.api.control.ControlCommandChannel;
+import io.github.wickidcow.gridworks.api.control.ControlInputRoute;
 import io.github.wickidcow.gridworks.api.control.ControlInputRouteMode;
 import io.github.wickidcow.gridworks.api.control.ControlSignal;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
@@ -52,9 +53,7 @@ public final class PowerLimiterBlock extends PhysicalControlNodeBlock
     private static final double MIN_LIMIT_WATTS = 1.0;
     private static final double MAX_LIMIT_WATTS = 1_000_000_000_000.0;
 
-    private ControlInputRouteMode routeMode;
-    private ControlCommandChannel circuit;
-    private ControlAddress address;
+    private ControlInputRoute inputRoute;
     private PowerLimitSetting setting;
 
     private Optional<PowerBranchSnapshot> observedBranch = Optional.empty();
@@ -74,9 +73,9 @@ public final class PowerLimiterBlock extends PhysicalControlNodeBlock
         super(block, context);
         setFacing(context.getFacing());
 
-        this.routeMode = ControlInputRouteMode.CIRCUIT;
-        this.circuit = ControlCommandChannel.DEFAULT;
-        this.address = ControlAddress.defaultFor(getNodeId(), "limiter");
+        this.inputRoute = ControlInputRoute.defaults(
+                ControlAddress.defaultFor(getNodeId(), "limiter")
+        );
         this.setting = new PowerLimitSetting(false, DEFAULT_LIMIT_WATTS);
     }
 
@@ -86,13 +85,9 @@ public final class PowerLimiterBlock extends PhysicalControlNodeBlock
     ) {
         super(block, pdc);
 
-        this.routeMode = ControlInputRouteMode.fromStored(
-                pdc.get(ROUTE_MODE_KEY, PersistentDataType.STRING)
-        );
-        this.circuit = ControlCommandChannel.fromStored(
-                pdc.get(CIRCUIT_KEY, PersistentDataType.STRING)
-        );
-        this.address = ControlAddress.fromStoredOrDefault(
+        this.inputRoute = ControlInputRoute.fromStored(
+                pdc.get(ROUTE_MODE_KEY, PersistentDataType.STRING),
+                pdc.get(CIRCUIT_KEY, PersistentDataType.STRING),
                 pdc.get(ADDRESS_KEY, PersistentDataType.STRING),
                 ControlAddress.defaultFor(getNodeId(), "limiter")
         );
@@ -139,9 +134,9 @@ public final class PowerLimiterBlock extends PhysicalControlNodeBlock
 
     @Override
     protected void writeNodeData(@NotNull PersistentDataContainer pdc) {
-        pdc.set(ROUTE_MODE_KEY, PersistentDataType.STRING, routeMode.name());
-        pdc.set(CIRCUIT_KEY, PersistentDataType.STRING, circuit.name());
-        pdc.set(ADDRESS_KEY, PersistentDataType.STRING, address.value());
+        pdc.set(ROUTE_MODE_KEY, PersistentDataType.STRING, inputRoute.mode().name());
+        pdc.set(CIRCUIT_KEY, PersistentDataType.STRING, inputRoute.circuit().name());
+        pdc.set(ADDRESS_KEY, PersistentDataType.STRING, inputRoute.address().value());
         pdc.set(
                 LIMIT_ENABLED_KEY,
                 PersistentDataType.BYTE,
@@ -176,15 +171,15 @@ public final class PowerLimiterBlock extends PhysicalControlNodeBlock
     }
 
     public @NotNull ControlInputRouteMode getRouteMode() {
-        return routeMode;
+        return inputRoute.mode();
     }
 
     public @NotNull ControlCommandChannel getCircuit() {
-        return circuit;
+        return inputRoute.circuit();
     }
 
     public @NotNull ControlAddress getAddress() {
-        return address;
+        return inputRoute.address();
     }
 
     public @NotNull PowerLimitSetting getSetting() {
@@ -327,42 +322,31 @@ public final class PowerLimiterBlock extends PhysicalControlNodeBlock
     }
 
     private void toggleRouteMode() {
-        setting = setting.withEnabled(false);
-        routeMode = routeMode.toggle();
-        reconcileBranch();
-        notifyItems();
-        requestStateReplay();
+        applyRouteChange(inputRoute.toggleMode());
     }
 
     private void changeCircuit(int direction) {
-        if (routeMode != ControlInputRouteMode.CIRCUIT) {
-            return;
-        }
-
-        setting = setting.withEnabled(false);
-        circuit = circuit.cycle(direction);
-        reconcileBranch();
-        circuitItem.notifyWindows();
-        toggleItem.notifyWindows();
-        requestStateReplay();
+        applyRouteChange(inputRoute.cycleCircuit(direction));
     }
 
     private void setAddress(ControlAddress next) {
-        if (address.equals(next)) {
+        applyRouteChange(inputRoute.withAddress(next));
+    }
+
+    private void applyRouteChange(ControlInputRoute.RouteChange change) {
+        if (!change.changed()) {
             return;
         }
 
-        boolean activeAddressRoute = routeMode == ControlInputRouteMode.ADDRESS;
-        if (activeAddressRoute) {
+        if (change.activeRouteChanged()) {
             setting = setting.withEnabled(false);
+            reconcileBranch();
         }
 
-        address = next;
-        addressItem.notifyWindows();
+        inputRoute = change.route();
+        notifyItems();
 
-        if (activeAddressRoute) {
-            reconcileBranch();
-            toggleItem.notifyWindows();
+        if (change.activeRouteChanged()) {
             requestStateReplay();
         }
     }
@@ -374,9 +358,7 @@ public final class PowerLimiterBlock extends PhysicalControlNodeBlock
     }
 
     private ControlChannel activeInputChannel() {
-        return routeMode == ControlInputRouteMode.ADDRESS
-                ? address.channel()
-                : circuit.channel();
+        return inputRoute.activeChannel();
     }
 
     private Target targetCoordinates() {
@@ -430,7 +412,7 @@ public final class PowerLimiterBlock extends PhysicalControlNodeBlock
                 .addIngredient(
                         'a',
                         ItemStackBuilder.of(Material.NAME_TAG)
-                                .name(Component.text(address.value(), NamedTextColor.GOLD))
+                                .name(Component.text(inputRoute.address().value(), NamedTextColor.GOLD))
                 )
                 .build();
 
@@ -586,10 +568,10 @@ public final class PowerLimiterBlock extends PhysicalControlNodeBlock
         @Override
         public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
             return item(
-                    routeMode == ControlInputRouteMode.ADDRESS
+                    inputRoute.mode() == ControlInputRouteMode.ADDRESS
                             ? Material.ENDER_EYE
                             : Material.REDSTONE,
-                    "Input route: " + routeMode.displayName()
+                    "Input route: " + inputRoute.mode().displayName()
             ).lore(Component.text(
                     "Click to switch Circuit / Address",
                     NamedTextColor.YELLOW
@@ -610,13 +592,13 @@ public final class PowerLimiterBlock extends PhysicalControlNodeBlock
         @Override
         public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
             ItemStackBuilder builder = item(
-                    routeMode == ControlInputRouteMode.CIRCUIT
+                    inputRoute.mode() == ControlInputRouteMode.CIRCUIT
                             ? Material.REDSTONE_TORCH
                             : Material.GRAY_DYE,
-                    "Circuit: " + circuit.displayName()
-            ).lore(Component.text(circuit.channel().toString(), NamedTextColor.GRAY));
+                    "Circuit: " + inputRoute.circuit().displayName()
+            ).lore(Component.text(inputRoute.circuit().channel().toString(), NamedTextColor.GRAY));
 
-            if (routeMode == ControlInputRouteMode.CIRCUIT) {
+            if (inputRoute.mode() == ControlInputRouteMode.CIRCUIT) {
                 builder.lore(Component.text(
                         "Left/right click to cycle Default / A / B / C / D",
                         NamedTextColor.YELLOW
@@ -643,13 +625,13 @@ public final class PowerLimiterBlock extends PhysicalControlNodeBlock
         @Override
         public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
             ItemStackBuilder builder = item(
-                    routeMode == ControlInputRouteMode.ADDRESS
+                    inputRoute.mode() == ControlInputRouteMode.ADDRESS
                             ? Material.NAME_TAG
                             : Material.GRAY_DYE,
-                    "Address: " + address.value()
-            ).lore(Component.text(address.channel().toString(), NamedTextColor.GRAY));
+                    "Address: " + inputRoute.address().value()
+            ).lore(Component.text(inputRoute.address().channel().toString(), NamedTextColor.GRAY));
 
-            if (routeMode == ControlInputRouteMode.ADDRESS) {
+            if (inputRoute.mode() == ControlInputRouteMode.ADDRESS) {
                 builder.lore(Component.text(
                         "Click to edit address",
                         NamedTextColor.YELLOW
