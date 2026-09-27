@@ -288,8 +288,14 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
 
     @Override
     public boolean accepts(@NotNull ControlChannel channel) {
-        return conditionA.rule.channel().equals(channel)
-                || (conditionBEnabled && conditionB.rule.channel().equals(channel));
+        if (conditionA.rule.channel().equals(channel)
+                || (conditionBEnabled && conditionB.rule.channel().equals(channel))) {
+            return true;
+        }
+
+        return GridWorksChannels.POWER_AVAILABLE.equals(channel)
+                && (isPowerMetric(conditionA.rule.channel())
+                || (conditionBEnabled && isPowerMetric(conditionB.rule.channel())));
     }
 
     @Override
@@ -298,6 +304,11 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
     }
 
     private void handleSignalOnServerThread(@NotNull ControlSignal signal) {
+        if (GridWorksChannels.POWER_AVAILABLE.equals(signal.channel())) {
+            handlePowerAvailability(signal);
+            return;
+        }
+
         boolean changed = acceptForCondition(conditionA, signal, sourceAItem);
 
         if (conditionBEnabled) {
@@ -308,6 +319,46 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
             updateOutputFromConditions();
             notifyConditionItems();
         }
+    }
+
+    private void handlePowerAvailability(@NotNull ControlSignal signal) {
+        if (!(signal.value() instanceof ControlValue.BooleanValue booleanValue)
+                || booleanValue.value()) {
+            return;
+        }
+
+        boolean changed = invalidateUnavailablePowerCondition(
+                conditionA,
+                signal.source()
+        );
+
+        if (conditionBEnabled) {
+            changed |= invalidateUnavailablePowerCondition(
+                    conditionB,
+                    signal.source()
+            );
+        }
+
+        if (changed) {
+            updateOutputFromConditions();
+            notifyConditionItems();
+        }
+    }
+
+    private static boolean invalidateUnavailablePowerCondition(
+            Condition condition,
+            UUID source
+    ) {
+        if (!isPowerMetric(condition.rule.channel())
+                || condition.sourceId == null
+                || !condition.sourceId.equals(source)
+                || (condition.lastObserved == null && condition.lastResult == null)) {
+            return false;
+        }
+
+        condition.lastObserved = null;
+        condition.lastResult = null;
+        return true;
     }
 
     @Override
@@ -914,6 +965,15 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
         } catch (IllegalArgumentException ignored) {
             return null;
         }
+    }
+
+    private static boolean isPowerMetric(ControlChannel channel) {
+        return GridWorksChannels.POWER_PRODUCTION_CAPACITY_WATTS.equals(channel)
+                || GridWorksChannels.POWER_DEMAND_WATTS.equals(channel)
+                || GridWorksChannels.POWER_RESERVE_WATTS.equals(channel)
+                || GridWorksChannels.POWER_LOAD_RATIO.equals(channel)
+                || GridWorksChannels.POWER_POWERED_CONSUMER_RATIO.equals(channel)
+                || GridWorksChannels.POWER_UNPOWERED_CONSUMERS.equals(channel);
     }
 
     private static Metric metricFor(ControlChannel channel) {

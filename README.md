@@ -125,11 +125,17 @@ The neutral snapshot already defines the measurements GridWorks needs: node/prod
 
 Any addon can register `PowerGridProvider` through Bukkit's `ServicesManager`; Bukkit's normal service priority selects the active provider. That gives third-party electricity systems an integration path now, while a future native Rebar adapter can implement the same contract later.
 
+### Power Grid Sensor
+
+The **Power Grid Sensor** is provider-neutral and faces one adjacent loaded block. If the active `PowerGridProvider` associates that block with a grid, the sensor publishes the stable `gridworks:power/*` telemetry set. A single shared sampler handles all loaded Power Grid Sensors, defaults to once per second, and publishes only when the snapshot changes.
+
+When the provider disappears, the target chunk unloads, or the target is no longer a known power grid, the sensor publishes only `power/available=false`. Power-aware Factory Controller conditions bound to that sensor immediately discard their previous numeric observation and return to `WAITING`, preventing stale power data from holding a load-shed command ON or OFF.
+
 ## Planned systems
 
 The load-shedding core is also prepared ahead of the native bridge. `LoadSheddingPolicy` uses hysteresis with three stages: Normal, Shed Optional, and Shed Normal + Optional. Default thresholds shed optional loads at 90% load and restore them at 80%; severe shedding begins at 100% load or whenever the provider reports any unpowered consumer, and normal loads recover only after load falls to 90% with no unpowered consumers. Essential loads are never disabled by the policy.
 
-The next work is the actual Rebar electricity adapter once that API lands in a released dependency, then the player-facing Power Grid Sensor and Smart Breaker that consume these already-tested rules.
+The next native-electricity step is the actual Rebar `PowerGridProvider` adapter once that API lands in a released dependency, followed by the Smart Breaker. The Power Grid Sensor, controller metrics, telemetry channels, and load-shedding policy are already provider-neutral.
 
 ## Requirements
 

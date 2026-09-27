@@ -260,3 +260,14 @@ Recovery is deliberately staged: severe -> optional-shed -> normal. This prevent
 External addons can implement `io.github.wickidcow.gridworks.api.power.PowerGridProvider` and register it with Bukkit's `ServicesManager`. GridWorks intentionally does not cache the provider object across calls; service resolution follows Bukkit's highest-priority registration semantics, so provider enable/disable or replacement does not leave a stale reference inside GridWorks.
 
 A provider must return snapshots only for already-loaded blocks and must never force chunk loads. Returning `Optional.empty()` means the queried block is not associated with a known grid. Returning `null` is treated as a provider contract violation.
+
+
+## Power Grid Sensor
+
+Power Grid Sensor is the first player-facing consumer of the provider-neutral electricity API. It faces one adjacent block and asks the currently selected `PowerGridProvider` for a snapshot only when that adjacent chunk is already loaded.
+
+All loaded sensors share one configurable sampler (20 ticks by default). Sensors compare record snapshots and publish only on meaningful changes. When no provider is registered, the manager does not repeatedly walk every sensor; it publishes the transition to unavailable once and waits until a provider becomes available again.
+
+An unavailable sensor publishes only `power/available=false`. It does not publish synthetic zero capacity/demand values.
+
+Factory Controller treats that availability channel specially for power metrics. If the unavailable signal comes from the sensor currently bound to a power condition, only the condition's cached observation/result is cleared; its selected source remains bound. The controller then recomputes through its normal three-state logic and uses fail-safe OFF when the result becomes genuinely unknown.

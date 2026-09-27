@@ -80,6 +80,14 @@ item:
       <arrow> Publishes fluid type, amount, capacity, and fill ratio
       <arrow> Never loads another chunk just to sample a tank
 
+  power_grid_sensor:
+    name: "Power Grid Sensor"
+    lore: |-
+      <arrow> Faces an adjacent block exposed by a registered power provider
+      <arrow> Publishes capacity, demand, reserve, load, and consumer health
+      <arrow> Samples once per configured interval and only publishes changes
+      <arrow> Never forces adjacent chunks to load
+
   factory_controller:
     name: "Factory Controller"
     lore: |-

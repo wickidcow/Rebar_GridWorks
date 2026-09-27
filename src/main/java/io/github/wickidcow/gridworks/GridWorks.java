@@ -9,6 +9,7 @@ import io.github.wickidcow.gridworks.inventory.InventorySensorManager;
 import io.github.wickidcow.gridworks.physical.PersistentConnectionStore;
 import io.github.wickidcow.gridworks.physical.PhysicalControlNetwork;
 import io.github.wickidcow.gridworks.power.PowerGridBridge;
+import io.github.wickidcow.gridworks.power.PowerGridSensorManager;
 import io.github.wickidcow.gridworks.power.ServicePowerGridBridge;
 import java.io.IOException;
 import java.util.Locale;
@@ -27,6 +28,7 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
     private InventorySensorManager inventorySensorManager;
     private FluidSensorManager fluidSensorManager;
     private PowerGridBridge powerGridBridge;
+    private PowerGridSensorManager powerGridSensorManager;
 
     @Override
     public void onLoad() {
@@ -82,6 +84,15 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
                 "No PowerGridProvider is registered"
         );
 
+        long powerSampleInterval = Math.max(
+                1L,
+                getConfig().getLong("sensors.power.sample-interval-ticks", 20L)
+        );
+        powerGridSensorManager = new PowerGridSensorManager(
+                this,
+                powerSampleInterval
+        );
+
         GridWorksContent.register(this);
 
         Bukkit.getServicesManager().register(ControlBus.class, controlBus, this, ServicePriority.Normal);
@@ -100,6 +111,11 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
         if (inventorySensorManager != null) {
             inventorySensorManager.close();
             inventorySensorManager = null;
+        }
+
+        if (powerGridSensorManager != null) {
+            powerGridSensorManager.close();
+            powerGridSensorManager = null;
         }
 
         powerGridBridge = null;
@@ -144,6 +160,13 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
             throw new IllegalStateException("GridWorks is not enabled");
         }
         return inventorySensorManager;
+    }
+
+    public @NotNull PowerGridSensorManager getPowerGridSensorManager() {
+        if (powerGridSensorManager == null) {
+            throw new IllegalStateException("GridWorks is not enabled");
+        }
+        return powerGridSensorManager;
     }
 
     public @NotNull PowerGridBridge getPowerGridBridge() {
