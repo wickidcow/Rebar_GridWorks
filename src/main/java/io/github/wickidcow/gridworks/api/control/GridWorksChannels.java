@@ -58,6 +58,15 @@ public final class GridWorksChannels {
     public static final ControlChannel CONTROL_D =
             ControlChannel.of("gridworks", "control/d");
 
+    public static final ControlChannel ALARM_CONDITION_ACTIVE =
+            ControlChannel.of("gridworks", "alarm/condition_active");
+
+    public static final ControlChannel ALARM_LATCHED =
+            ControlChannel.of("gridworks", "alarm/latched");
+
+    public static final ControlChannel ALARM_ACKNOWLEDGED =
+            ControlChannel.of("gridworks", "alarm/acknowledged");
+
     private GridWorksChannels() {
         throw new AssertionError("Utility class");
     }

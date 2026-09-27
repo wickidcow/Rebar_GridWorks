@@ -152,3 +152,12 @@ Backward compatibility is explicit: an actuator with no stored routing setting l
 Changing a controller's output circuit first publishes OFF on the old circuit before publishing its current state on the new one. This prevents downstream devices on the old circuit from being stranded ON.
 
 Changing an actuator input circuit resets transient output/edge/timer state to a safe baseline, then requests component-wide state replay. No chunk loads or polling are introduced.
+
+
+## Alarm telemetry
+
+Alarm Indicator is also a `ControlStateSource`. It publishes three read-only boolean telemetry channels: current condition, latched state, and acknowledgement state.
+
+Telemetry is emitted when the alarm condition changes, when an operator acknowledges it, and during component state replay. These channels are separate from command circuits, so observing alarm state cannot accidentally drive an actuator configured for Default/A-D commands.
+
+Factory Monitor subscribes to these bounded channels like any other built-in measurement; no direct block lookup or alarm polling is required.

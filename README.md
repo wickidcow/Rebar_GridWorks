@@ -33,6 +33,8 @@ The **Delay Relay** has independently configurable ON and OFF delays from instan
 
 The **Alarm Indicator** is the first non-redstone action device and now uses industrial-style acknowledgement. A new false-to-true fault latches the indicator and optionally rings a local bell once. If the condition clears before an operator acknowledges it, the lamp stays latched so the event is not lost. If the alarm is acknowledged while the condition is still active, it remains visibly acknowledged and clears automatically when the fault later disappears. Replayed state after restart/topology recovery is silent.
 
+Alarm Indicators also publish bounded telemetry on `gridworks:alarm/condition_active`, `gridworks:alarm/latched`, and `gridworks:alarm/acknowledged`. They implement `ControlStateSource`, so a Factory Monitor joining later receives the current alarm state without polling the alarm block.
+
 ### Inventory sensing
 
 The Inventory Sensor faces an adjacent inventory and publishes availability, total item count, occupied slots, total slots, and occupied-slot ratio. It understands Rebar virtual/logistic inventories before falling back to ordinary Bukkit container inventories.
@@ -92,7 +94,7 @@ Fluid Tank Sensor ---/       A: items >= 64
 
 ## Factory Monitor
 
-The Factory Monitor is a passive diagnostic node. It displays the latest built-in redstone, inventory, fluid, and controller-output signals seen on its loaded Control Bus component, including the source node ID and signal sequence. It does not poll machines.
+The Factory Monitor is a passive diagnostic node. It displays the latest built-in redstone, command-circuit, inventory, fluid, controller-output, and alarm-state signals seen on its loaded Control Bus component, including the source node ID and signal sequence. It does not poll machines.
 
 Stateful devices implement `ControlStateSource`. When loaded topology expands, GridWorks replays current state from every loaded state source in that component. This means a monitor or actuator joining through an intermediate Control Interface receives current state even when the original sensor is several hops away.
 

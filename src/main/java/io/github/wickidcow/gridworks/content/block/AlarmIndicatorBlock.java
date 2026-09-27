@@ -9,6 +9,7 @@ import io.github.wickidcow.gridworks.api.control.BooleanInputConfigurable;
 import io.github.wickidcow.gridworks.api.control.BooleanInputMode;
 import io.github.wickidcow.gridworks.api.control.ControlChannel;
 import io.github.wickidcow.gridworks.api.control.ControlSignal;
+import io.github.wickidcow.gridworks.api.control.ControlStateSource;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
 import io.github.wickidcow.gridworks.control.AlarmLatch;
@@ -33,7 +34,7 @@ import xyz.xenondevs.invui.item.AbstractItem;
 import xyz.xenondevs.invui.item.ItemProvider;
 
 public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
-        implements GuiRebarBlock, BooleanInputConfigurable {
+        implements GuiRebarBlock, BooleanInputConfigurable, ControlStateSource {
     private static final NamespacedKey SOUND_ENABLED_KEY = Objects.requireNonNull(
             NamespacedKey.fromString("gridworks:alarm_sound_enabled")
     );
@@ -99,6 +100,11 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
 
         boolean input = booleanValue.value();
         runOnServerThreadIfActive(() -> acceptInput(input));
+    }
+
+    @Override
+    public void publishCurrentState() {
+        publishAlarmState();
     }
 
     @Override
@@ -182,6 +188,7 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
         applyVisualState();
         acknowledgeItem.notifyWindows();
         statusItem.notifyWindows();
+        publishAlarmState();
 
         if (ring && soundEnabled) {
             playAlarmSound();
@@ -193,6 +200,27 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
         applyVisualState();
         acknowledgeItem.notifyWindows();
         statusItem.notifyWindows();
+        publishAlarmState();
+    }
+
+    private void publishAlarmState() {
+        var bus = GridWorks.getInstance().getControlBus();
+
+        bus.publish(
+                getNodeId(),
+                GridWorksChannels.ALARM_CONDITION_ACTIVE,
+                ControlValue.of(alarmLatch.isConditionActive())
+        );
+        bus.publish(
+                getNodeId(),
+                GridWorksChannels.ALARM_LATCHED,
+                ControlValue.of(alarmLatch.isLatched())
+        );
+        bus.publish(
+                getNodeId(),
+                GridWorksChannels.ALARM_ACKNOWLEDGED,
+                ControlValue.of(alarmLatch.isAcknowledged())
+        );
     }
 
     private void toggleSound() {
