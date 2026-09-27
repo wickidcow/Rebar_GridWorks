@@ -326,7 +326,7 @@ Pull-request builds still run the full compile/test gate but do not publish a do
 
 ## Content integrity checks
 
-GridWorks now has a canonical catalog for all 21 player-facing content IDs. Startup validates that every catalog entry has a registered survival recipe and bundled English item metadata; a mismatch stops enablement with the exact missing/extra IDs instead of leaving a partially usable addon.
+GridWorks now has a canonical catalog for all 23 player-facing content IDs. Startup validates that every catalog entry has a registered survival recipe and bundled English item metadata; a mismatch stops enablement with the exact missing/extra IDs instead of leaving a partially usable addon.
 
 CI also source-checks the actual `NamespacedKey` registrations, recipe declarations, and `lang/en.yml` item keys against that same catalog. Adding a future machine while forgetting its recipe or language entry therefore fails tests before the rolling development JAR is published.
 
@@ -340,7 +340,7 @@ Normal plugin disable uses the same idempotent cleanup path, so cleanup behavior
 
 ## Real-server CI smoke gate
 
-Successful `main` builds now boot a real Paper 26.2 test server through run-paper with released Rebar and the just-built GridWorks JAR before the rolling raw JAR is published. CI requires GridWorks to complete its 21-entry content/recipe validation and reach the Control Bus initialized state, then shuts the server down cleanly.
+Successful `main` builds now boot a real Paper 26.2 test server through run-paper with released Rebar and the just-built GridWorks JAR before the rolling raw JAR is published. CI requires GridWorks to complete its 23-entry content/recipe validation and reach the Control Bus initialized state, then shuts the server down cleanly.
 
 This catches enable-time API/linkage problems, Rebar registration failures, bundled-language/recipe validation failures, and startup lifecycle regressions that unit tests alone cannot see. Pull requests continue to run compile/unit tests without publishing or replacing the development JAR.
 
@@ -357,7 +357,7 @@ The rolling `dev-build` release metadata is updated to the exact smoke-tested co
 
 ## Paper startup smoke test
 
-Successful `main` builds now go beyond compilation and unit tests: CI starts a real Paper 26.2 server through `run-paper`, loads the freshly built GridWorks JAR alongside Rebar, waits for Paper's normal `Done` marker, verifies GridWorks' 21-entry content validation and Control Bus initialization, executes the live `gridworks doctor` command, and then requires a clean shutdown.
+Successful `main` builds now go beyond compilation and unit tests: CI starts a real Paper 26.2 server through `run-paper`, loads the freshly built GridWorks JAR alongside Rebar, waits for Paper's normal `Done` marker, verifies GridWorks' 23-entry content validation and Control Bus initialization, executes the live `gridworks doctor` command, and then requires a clean shutdown.
 
 The rolling raw development JAR is published only after this single integration gate succeeds. Pull requests still run the compile/unit-test gate without publishing a development JAR. The smoke gate catches classloading, plugin-enable, Rebar registration, bundled-resource, recipe-registration, command, scheduler/listener startup, and shutdown failures that ordinary unit tests cannot exercise.
 
