@@ -109,7 +109,7 @@ public final class AlarmConsoleBlock extends PhysicalControlNodeBlock implements
                 .setStructure(
                         "0 1 2 3 4 5 6 7 8",
                         "9 a b c d e f g h",
-                        "# f q # s # x # #"
+                        "# z q # s # x # #"
                 )
                 .addIngredient('#', GuiItems.background())
                 .addIngredient('0', alarmSlots.get(0))
@@ -130,7 +130,7 @@ public final class AlarmConsoleBlock extends PhysicalControlNodeBlock implements
                 .addIngredient('f', alarmSlots.get(15))
                 .addIngredient('g', alarmSlots.get(16))
                 .addIngredient('h', alarmSlots.get(17))
-                .addIngredient('f', filterItem)
+                .addIngredient('z', filterItem)
                 .addIngredient('q', refreshItem)
                 .addIngredient('s', summaryItem)
                 .addIngredient('x', acknowledgeAllItem)
@@ -191,7 +191,6 @@ public final class AlarmConsoleBlock extends PhysicalControlNodeBlock implements
         filter = filter.cycle(direction);
         rebuildVisibleAlarms();
         notifyItems();
-        filterItem.notifyWindows();
     }
 
     private void refreshFromBus() {
