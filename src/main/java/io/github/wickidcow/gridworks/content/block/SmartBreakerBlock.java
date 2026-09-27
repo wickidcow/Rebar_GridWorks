@@ -96,17 +96,17 @@ public final class SmartBreakerBlock extends PhysicalControlNodeBlock
 
     @Override
     protected void afterActivated() {
-        GridWorks.getInstance().getSmartBreakerManager().register(this);
+        GridWorks.getInstance().getPowerBranchDeviceManager().register(this);
     }
 
     @Override
     protected void afterDeactivated() {
-        GridWorks.getInstance().getSmartBreakerManager().unregister(this);
+        GridWorks.getInstance().getPowerBranchDeviceManager().unregister(this);
     }
 
     @Override
     protected void afterRemoved() {
-        GridWorks.getInstance().getSmartBreakerManager().unregister(this);
+        GridWorks.getInstance().getPowerBranchDeviceManager().unregister(this);
     }
 
     @Override
