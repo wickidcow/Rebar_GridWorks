@@ -45,9 +45,9 @@ item:
   factory_controller:
     name: "Factory Controller"
     lore: |-
-      <arrow> Converts inventory or fluid measurements into ON/OFF control
-      <arrow> Direct-link the source sensor, then connect relays or lights
-      <arrow> Right click to configure its rule
+      <arrow> Combines up to two sensor conditions with AND/OR logic
+      <arrow> AUTO-bind or explicitly choose directly linked sources
+      <arrow> Right click to configure conditions, thresholds, and output
 
   gridworks_linker:
     name: "GridWorks Linker"

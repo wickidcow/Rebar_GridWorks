@@ -125,6 +125,21 @@ public final class PhysicalControlNetwork implements AutoCloseable {
         return activeNodes.size();
     }
 
+    /**
+     * Returns directly linked nodes that are currently loaded.
+     *
+     * <p>This never loads chunks or scans the world. It intersects the persisted
+     * direct-link set with the live-node registry.</p>
+     */
+    public synchronized List<UUID> activeLinkedNodes(UUID nodeId) {
+        requireActive(nodeId);
+
+        return connectionStore.neighbors(nodeId).stream()
+                .filter(activeNodes::containsKey)
+                .sorted()
+                .toList();
+    }
+
     public synchronized ControlNetworkSnapshot snapshot(UUID nodeId) {
         Set<UUID> component = connectionStore.componentOf(nodeId);
         int loaded = 0;

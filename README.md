@@ -49,28 +49,33 @@ Controllers will publish their boolean result on `gridworks:control/enabled`. Th
 
 ## Factory Controller
 
-The Factory Controller is the first configurable logic block. It evaluates one numeric measurement from a directly linked sensor and publishes its result on `gridworks:control/enabled`.
+The Factory Controller is a configurable logic block. It now supports **Condition A** plus an optional **Condition B**, combined with AND or OR, and publishes its result on `gridworks:control/enabled`.
 
 Its Rebar/InvUI screen configures:
 
-- input metric;
-- comparison operator;
-- numeric threshold;
-- bound source/reset;
+- metric, comparison, threshold, and source for Condition A;
+- optional Condition B with its own metric, comparison, threshold, and source;
+- AND/OR combination;
 - current output state.
 
-A controller auto-binds only after receiving its configured metric from a **directly linked** source. This prevents unrelated sensors elsewhere in the same connected Control Bus from taking ownership of the rule.
+Existing placed controllers remain compatible: their old single rule loads as Condition A and Condition B starts disabled.
+
+Each condition can use **AUTO** source binding or explicitly cycle through directly linked, currently loaded nodes. AUTO still binds only after receiving the configured metric from a directly linked source, so unrelated sensors elsewhere in the same connected Control Bus cannot take ownership.
+
+The logic uses safe three-state evaluation. Known results can short-circuit (`false AND ? = false`, `true OR ? = true`). If the result genuinely cannot be known yet, the controller displays `WAITING` and sends an OFF fail-safe command so actuators do not remain stuck in an old ON state.
 
 Example:
 
 ```text
-Fluid Tank Sensor --direct link--> Factory Controller --> Control Relay
-      fill_ratio                    <= 0.25               generator/redstone
+Inventory Sensor ----\
+                      > Factory Controller --AND--> Control Relay
+Fluid Tank Sensor ---/       A: items >= 64
+                              B: fluid fill >= 25%
 ```
 
 ## Planned systems
 
-The next controller work is multiple conditions (AND/OR), named rules, and richer source selection. After that, GridWorks can connect inventory/fluid/redstone measurements to relays and eventually to smart electricity controls as Rebar's electricity API stabilizes.
+The next controller work is player-defined rule names, more than two conditions, and reusable controller presets. After that, GridWorks can connect inventory/fluid/redstone measurements to relays and eventually to smart electricity controls as Rebar's electricity API stabilizes.
 
 ## Requirements
 
