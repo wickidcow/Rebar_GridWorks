@@ -132,6 +132,15 @@ item:
       <arrow> Reset starts a new batch while preserving live source baselines
       <arrow> Output through Default/A-D circuits or a named address
 
+  sequence_controller:
+    name: "Sequence Controller"
+    lore: |-
+      <arrow> Runs a four-stage event-driven factory sequence
+      <arrow> Each stage has a unique trigger address and active output address
+      <arrow> Rising-edge triggers advance only the currently active stage
+      <arrow> Start, stage and completion routes reject address collisions
+      <arrow> Sequence stage survives reload; replay never manufactures advances
+
   power_limiter:
     name: "Power Limiter"
     lore: |-

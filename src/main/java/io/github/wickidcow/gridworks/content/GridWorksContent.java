@@ -23,6 +23,7 @@ import io.github.wickidcow.gridworks.content.block.PulseRelayBlock;
 import io.github.wickidcow.gridworks.content.block.PowerGridSensorBlock;
 import io.github.wickidcow.gridworks.content.block.PowerLimiterBlock;
 import io.github.wickidcow.gridworks.content.block.RedstoneSensorBlock;
+import io.github.wickidcow.gridworks.content.block.SequenceControllerBlock;
 import io.github.wickidcow.gridworks.content.block.SmartBreakerBlock;
 import io.github.wickidcow.gridworks.content.block.StatusLightBlock;
 import io.github.wickidcow.gridworks.content.item.ControlLinker;
@@ -51,6 +52,7 @@ public final class GridWorksContent {
     public static NamespacedKey POWER_LIMITER;
     public static NamespacedKey FACTORY_CONTROLLER;
     public static NamespacedKey BATCH_CONTROLLER;
+    public static NamespacedKey SEQUENCE_CONTROLLER;
     public static NamespacedKey LOAD_SHEDDING_CONTROLLER;
     public static NamespacedKey SMART_BREAKER;
     public static NamespacedKey FACTORY_MONITOR;
@@ -74,6 +76,7 @@ public final class GridWorksContent {
     public static ItemStack POWER_LIMITER_ITEM;
     public static ItemStack FACTORY_CONTROLLER_ITEM;
     public static ItemStack BATCH_CONTROLLER_ITEM;
+    public static ItemStack SEQUENCE_CONTROLLER_ITEM;
     public static ItemStack LOAD_SHEDDING_CONTROLLER_ITEM;
     public static ItemStack SMART_BREAKER_ITEM;
     public static ItemStack FACTORY_MONITOR_ITEM;
@@ -102,6 +105,7 @@ public final class GridWorksContent {
         POWER_LIMITER = new NamespacedKey(plugin, "power_limiter");
         FACTORY_CONTROLLER = new NamespacedKey(plugin, "factory_controller");
         BATCH_CONTROLLER = new NamespacedKey(plugin, "batch_controller");
+        SEQUENCE_CONTROLLER = new NamespacedKey(plugin, "sequence_controller");
         LOAD_SHEDDING_CONTROLLER = new NamespacedKey(plugin, "load_shedding_controller");
         SMART_BREAKER = new NamespacedKey(plugin, "smart_breaker");
         FACTORY_MONITOR = new NamespacedKey(plugin, "factory_monitor");
@@ -129,6 +133,7 @@ public final class GridWorksContent {
         RebarBlock.register(POWER_LIMITER, Material.COMPARATOR, PowerLimiterBlock.class);
         RebarBlock.register(FACTORY_CONTROLLER, Material.CHISELED_COPPER, FactoryControllerBlock.class);
         RebarBlock.register(BATCH_CONTROLLER, Material.CRAFTER, BatchControllerBlock.class);
+        RebarBlock.register(SEQUENCE_CONTROLLER, Material.COPPER_BULB, SequenceControllerBlock.class);
         RebarBlock.register(
                 LOAD_SHEDDING_CONTROLLER,
                 Material.POLISHED_DEEPSLATE,
@@ -158,6 +163,7 @@ public final class GridWorksContent {
         POWER_LIMITER_ITEM = ItemStackBuilder.rebar(Material.COMPARATOR, POWER_LIMITER).build();
         FACTORY_CONTROLLER_ITEM = ItemStackBuilder.rebar(Material.CHISELED_COPPER, FACTORY_CONTROLLER).build();
         BATCH_CONTROLLER_ITEM = ItemStackBuilder.rebar(Material.CRAFTER, BATCH_CONTROLLER).build();
+        SEQUENCE_CONTROLLER_ITEM = ItemStackBuilder.rebar(Material.COPPER_BULB, SEQUENCE_CONTROLLER).build();
         LOAD_SHEDDING_CONTROLLER_ITEM = ItemStackBuilder.rebar(
                 Material.POLISHED_DEEPSLATE,
                 LOAD_SHEDDING_CONTROLLER
@@ -187,6 +193,7 @@ public final class GridWorksContent {
         RebarItem.register(RebarItem.class, POWER_LIMITER_ITEM, POWER_LIMITER);
         RebarItem.register(RebarItem.class, FACTORY_CONTROLLER_ITEM, FACTORY_CONTROLLER);
         RebarItem.register(RebarItem.class, BATCH_CONTROLLER_ITEM, BATCH_CONTROLLER);
+        RebarItem.register(RebarItem.class, SEQUENCE_CONTROLLER_ITEM, SEQUENCE_CONTROLLER);
         RebarItem.register(
                 RebarItem.class,
                 LOAD_SHEDDING_CONTROLLER_ITEM,

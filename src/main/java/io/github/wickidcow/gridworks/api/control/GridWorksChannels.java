@@ -73,6 +73,15 @@ public final class GridWorksChannels {
     public static final ControlChannel BATCH_COMPLETE =
             ControlChannel.of("gridworks", "batch/complete");
 
+    public static final ControlChannel SEQUENCE_RUNNING =
+            ControlChannel.of("gridworks", "sequence/running");
+
+    public static final ControlChannel SEQUENCE_STAGE =
+            ControlChannel.of("gridworks", "sequence/stage");
+
+    public static final ControlChannel SEQUENCE_COMPLETE =
+            ControlChannel.of("gridworks", "sequence/complete");
+
     /**
      * Backward-compatible default boolean command circuit.
      */

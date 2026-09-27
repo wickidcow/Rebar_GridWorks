@@ -139,6 +139,14 @@ public final class GridWorksRecipes {
                 .setIngredient('R', Material.REPEATER)
                 .setIngredient('F', GridWorksContent.FACTORY_CONTROLLER_ITEM));
 
+        register(recipe(plugin, "sequence_controller", GridWorksContent.SEQUENCE_CONTROLLER_ITEM,
+                "RCR",
+                "CBC",
+                "RCR")
+                .setIngredient('R', Material.REPEATER)
+                .setIngredient('C', Material.COPPER_INGOT)
+                .setIngredient('B', GridWorksContent.BATCH_CONTROLLER_ITEM));
+
         register(recipe(plugin, "factory_monitor", GridWorksContent.FACTORY_MONITOR_ITEM,
                 "TGT",
                 "CIC",

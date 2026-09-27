@@ -30,6 +30,7 @@ public final class GridWorksContentCatalog {
             "power_limiter",
             "factory_controller",
             "batch_controller",
+            "sequence_controller",
             "load_shedding_controller",
             "smart_breaker",
             "factory_monitor",

@@ -57,7 +57,7 @@ class GridWorksContentConsistencyTest {
     void catalogIdentifiersAreUniqueAndNormalized() {
         GridWorksContentCatalog.validateCatalog();
 
-        assertEquals(22, GridWorksContentCatalog.ALL_IDS.size());
+        assertEquals(23, GridWorksContentCatalog.ALL_IDS.size());
         assertTrue(
                 GridWorksContentCatalog.ALL_IDS.stream()
                         .allMatch(id -> id.matches("[a-z0-9_]+"))

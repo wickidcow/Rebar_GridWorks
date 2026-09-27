@@ -94,6 +94,33 @@ Machine Sensor B ----/                                  |
                                                         +--> Cargo/Fluid control
 ```
 
+### Sequence Controller
+
+The **Sequence Controller** provides a persistent four-stage event-driven workflow for factories that need ordered operations instead of one boolean rule. Starting the sequence activates Stage 1's named output. Each stage listens only to its own named trigger address; a rising edge advances to the next stage. Advancing from Stage 4 clears all stage outputs and latches the named completion output ON.
+
+Each stage has two editable addresses: **Output** and **Trigger**. The controller also has a separate **Start Input** and **Completion Output**. All ten routes must be unique, so an output can never accidentally feed one of the controller's own inputs. Route editing is locked while the sequence is running; aborting returns to IDLE and clears stage/completion outputs before editing.
+
+Trigger handling uses the same replay-safe edge semantics as Pulse Relay. When a sequence starts, advances, reloads, or reconnects, the active stage's first observed trigger value establishes a baseline only. A trigger that is already true therefore does not skip a stage; it must become false and then rise true again to advance.
+
+The current phase and stage persist across reloads. Stage outputs are replayed from state rather than driven by a timer, and the controller has no repeating task, world scan, or chunk-loading behavior. It publishes `gridworks:sequence/running`, `gridworks:sequence/stage`, and `gridworks:sequence/complete` for Factory Monitor diagnostics.
+
+This makes stage-specific Factory Controllers practical: each condition can publish to only its stage's trigger address, while the Sequence Controller ignores all non-current stage triggers.
+
+```text
+Start condition ------------------------> seq_start
+
+Stage 1 output --> fill valve
+Tank full controller -------------------> stage_1_trigger
+Stage 2 output --> mixer / machine line
+Machine/batch condition ----------------> stage_2_trigger
+Stage 3 output --> drain valve
+Tank empty controller ------------------> stage_3_trigger
+Stage 4 output --> cargo release
+Inventory condition --------------------> stage_4_trigger
+                                          |
+                                          +--> sequence complete
+```
+
 ### Fluid sensing
 
 The Fluid Tank Sensor faces an adjacent block implementing Rebar's released `FluidTankRebarBlock` API and publishes:

@@ -353,6 +353,19 @@ The target-complete state is derived from `progress >= target`; it is not separa
 The implementation is bounded by the largest integer exactly representable by Control Bus numeric transport. It has no scheduler, no world scan, and no chunk-loading behavior.
 
 
+## Part 4 Sequence Controller
+
+`SequenceStateMachine` is a pure persisted state machine with IDLE, RUNNING, and COMPLETE phases. RUNNING contains exactly one active stage from 1 through 4. Start/restart selects Stage 1, advance moves through stages in order, the fourth advance enters COMPLETE, and abort returns to IDLE.
+
+`SequenceRoutes` owns ten unique addresses: start input, completion output, four stage triggers, and four stage outputs. Construction and edits reject any collision across the entire set. Persisted routes are loaded atomically; invalid or colliding stored data falls back to the deterministic node-derived route set instead of allowing an output-to-input feedback loop.
+
+Only the current stage trigger is accepted while RUNNING. Start has its own independent rising-edge detector. Entering a stage resets the stage edge detector and requests normal component state replay. The first current trigger value after start/advance/reload therefore establishes a baseline rather than advancing; only a later false-to-true transition advances the sequence.
+
+State publication is complete and idempotent: sequence running/stage/complete telemetry is published, all four stage output addresses are explicitly written true/false, and the completion output is written from the COMPLETE phase. Restart and abort therefore clear abandoned outputs without requiring a separate cleanup scan.
+
+Route edits are disallowed while RUNNING. When an output or completion address is edited while IDLE/COMPLETE, the previous address is explicitly cleared before the new route publishes current state. Start-address edits reset their edge baseline and request replay. The controller itself has no ticker, delayed task, world scan, or chunk-loading behavior.
+
+
 ## Unified sensor availability semantics
 
 Inventory, fluid, machine, and power telemetry now share one controller rule: an unavailable target is unknown data, not numeric zero.

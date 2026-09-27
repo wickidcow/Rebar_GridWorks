@@ -54,7 +54,7 @@ jobs:
 
           READY=0
           for _ in $(seq 1 120); do
-            if grep -Fq "Validated 22 GridWorks content entries and survival recipes." "$LOG_FILE" \
+            if grep -Fq "Validated 23 GridWorks content entries and survival recipes." "$LOG_FILE" \
               && grep -Fq "GridWorks control bus initialized" "$LOG_FILE" \
               && grep -Fq "Done (" "$LOG_FILE"; then
               READY=1
@@ -146,7 +146,7 @@ jobs:
           fi
 
           echo "GridWorks Paper smoke test passed."
-          grep -F "Validated 22 GridWorks content entries and survival recipes." "$LOG_FILE"
+          grep -F "Validated 23 GridWorks content entries and survival recipes." "$LOG_FILE"
           grep -F "GridWorks control bus initialized" "$LOG_FILE"
           grep -F "Done (" "$LOG_FILE"
           grep -F "GridWorks Doctor result: PASS" "$LOG_FILE"

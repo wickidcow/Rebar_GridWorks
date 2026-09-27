@@ -29,6 +29,7 @@ import io.github.wickidcow.gridworks.content.block.PulseRelayBlock;
 import io.github.wickidcow.gridworks.content.block.PowerGridSensorBlock;
 import io.github.wickidcow.gridworks.content.block.PowerLimiterBlock;
 import io.github.wickidcow.gridworks.content.block.RedstoneSensorBlock;
+import io.github.wickidcow.gridworks.content.block.SequenceControllerBlock;
 import io.github.wickidcow.gridworks.content.block.SmartBreakerBlock;
 import io.github.wickidcow.gridworks.content.block.StatusLightBlock;
 import io.github.wickidcow.gridworks.physical.ControlNetworkSnapshot;
@@ -412,6 +413,49 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
                                     NamedTextColor.AQUA
                             ))
             );
+        } else if (controlNode instanceof SequenceControllerBlock controller) {
+            event.getPlayer().sendMessage(
+                    Component.text("Sequence: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    controller.getSequencePhase().name()
+                                            + (controller.getCurrentStage() > 0
+                                            ? " / stage " + controller.getCurrentStage()
+                                            : ""),
+                                    controller.getSequencePhase()
+                                            == io.github.wickidcow.gridworks.production.SequenceStateMachine.Phase.COMPLETE
+                                            ? NamedTextColor.GREEN
+                                            : NamedTextColor.WHITE
+                            ))
+            );
+            event.getPlayer().sendMessage(
+                    Component.text("Start route: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    controller.getRoutes().start().channel().toString(),
+                                    NamedTextColor.AQUA
+                            ))
+            );
+            if (controller.getCurrentStage() > 0) {
+                event.getPlayer().sendMessage(
+                        Component.text("Current trigger: ", NamedTextColor.GRAY)
+                                .append(Component.text(
+                                        controller.getRoutes()
+                                                .trigger(controller.getCurrentStage())
+                                                .channel()
+                                                .toString(),
+                                        NamedTextColor.AQUA
+                                ))
+                );
+                event.getPlayer().sendMessage(
+                        Component.text("Current output: ", NamedTextColor.GRAY)
+                                .append(Component.text(
+                                        controller.getRoutes()
+                                                .output(controller.getCurrentStage())
+                                                .channel()
+                                                .toString(),
+                                        NamedTextColor.AQUA
+                                ))
+                );
+            }
         } else if (controlNode instanceof BatchControllerBlock controller) {
             event.getPlayer().sendMessage(
                     Component.text("Batch: ", NamedTextColor.GRAY)

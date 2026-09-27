@@ -65,6 +65,9 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
             new SignalDefinition(GridWorksChannels.BATCH_PROGRESS, "Batch Progress", Material.CRAFTER),
             new SignalDefinition(GridWorksChannels.BATCH_TARGET, "Batch Target", Material.TARGET),
             new SignalDefinition(GridWorksChannels.BATCH_COMPLETE, "Batch Complete", Material.LIME_DYE),
+            new SignalDefinition(GridWorksChannels.SEQUENCE_RUNNING, "Sequence Running", Material.ORANGE_DYE),
+            new SignalDefinition(GridWorksChannels.SEQUENCE_STAGE, "Sequence Stage", Material.COPPER_BULB),
+            new SignalDefinition(GridWorksChannels.SEQUENCE_COMPLETE, "Sequence Complete", Material.LIME_CONCRETE),
 
             new SignalDefinition(GridWorksChannels.MACHINE_AVAILABLE, "Machine Available", Material.YELLOW_GLAZED_TERRACOTTA),
             new SignalDefinition(GridWorksChannels.MACHINE_KIND, "Machine Kind", Material.NAME_TAG),
@@ -142,7 +145,7 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
                 .setStructure(
                         "r s 0 1 2 3 4 n x",
                         "a i o t f C L # #",
-                        "v p y m k z # # #",
+                        "v p y m k z Y Z D",
                         "w u g h j b N e #",
                         "l c d E F G H I J",
                         "P Q R S T U V W X"
@@ -170,6 +173,9 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
                 .addIngredient('m', item(GridWorksChannels.FLUID_AMOUNT))
                 .addIngredient('k', item(GridWorksChannels.FLUID_CAPACITY))
                 .addIngredient('z', item(GridWorksChannels.FLUID_FILL_RATIO))
+                .addIngredient('Y', item(GridWorksChannels.SEQUENCE_RUNNING))
+                .addIngredient('Z', item(GridWorksChannels.SEQUENCE_STAGE))
+                .addIngredient('D', item(GridWorksChannels.SEQUENCE_COMPLETE))
                 .addIngredient('w', item(GridWorksChannels.ALARM_NAME))
                 .addIngredient('u', item(GridWorksChannels.ALARM_SEVERITY))
                 .addIngredient('g', item(GridWorksChannels.ALARM_CONDITION_ACTIVE))
