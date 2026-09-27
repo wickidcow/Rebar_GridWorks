@@ -19,7 +19,7 @@ public final class StatusLightBlock extends PhysicalControlNodeBlock {
             NamespacedKey.fromString("gridworks:status_light_lit")
     );
 
-    private boolean lit;
+    private volatile boolean lit;
 
     public StatusLightBlock(@NotNull Block block, @NotNull BlockCreateContext context) {
         super(block, context);
@@ -62,13 +62,8 @@ public final class StatusLightBlock extends PhysicalControlNodeBlock {
     }
 
     public void setLit(boolean lit) {
-        if (this.lit == lit) {
-            applyVisualState();
-            return;
-        }
-
         this.lit = lit;
-        applyVisualState();
+        runOnServerThreadIfActive(this::applyVisualState);
     }
 
     public void applyVisualState() {

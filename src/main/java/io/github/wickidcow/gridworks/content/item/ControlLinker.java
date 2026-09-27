@@ -14,6 +14,7 @@ import io.github.wickidcow.gridworks.content.block.FactoryMonitorBlock;
 import io.github.wickidcow.gridworks.content.block.FluidSensorBlock;
 import io.github.wickidcow.gridworks.content.block.InventorySensorBlock;
 import io.github.wickidcow.gridworks.content.block.PhysicalControlNodeBlock;
+import io.github.wickidcow.gridworks.content.block.PulseRelayBlock;
 import io.github.wickidcow.gridworks.content.block.RedstoneSensorBlock;
 import io.github.wickidcow.gridworks.content.block.StatusLightBlock;
 import io.github.wickidcow.gridworks.physical.ControlNetworkSnapshot;
@@ -150,6 +151,15 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
             event.getPlayer().sendMessage(
                     Component.text("Redstone output: ", NamedTextColor.GRAY)
                             .append(onOff(relay.isPowered()))
+            );
+        } else if (controlNode instanceof PulseRelayBlock pulseRelay) {
+            event.getPlayer().sendMessage(
+                    Component.text("Pulse relay: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    (pulseRelay.isPowered() ? "PULSING" : "IDLE")
+                                            + " / " + pulseRelay.getPulseTicks() + " ticks",
+                                    pulseRelay.isPowered() ? NamedTextColor.GREEN : NamedTextColor.WHITE
+                            ))
             );
         } else if (controlNode instanceof InventorySensorBlock sensor) {
             event.getPlayer().sendMessage(

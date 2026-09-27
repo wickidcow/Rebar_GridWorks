@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
 import org.bukkit.event.EventPriority;
@@ -124,5 +125,36 @@ public abstract class PhysicalControlNodeBlock extends RebarBlock
     }
 
     protected void afterRemoved() {
+    }
+
+    /**
+     * Executes a Bukkit/world/GUI mutation on the primary server thread only
+     * while this physical node is still part of the live GridWorks topology.
+     *
+     * <p>Control Bus publishers may call receivers from arbitrary threads. This
+     * guard prevents physical blocks from touching Bukkit state asynchronously
+     * and prevents delayed work from reviving an unloaded node or forcing its
+     * chunk back into memory.</p>
+     */
+    protected final void runOnServerThreadIfActive(@NotNull Runnable action) {
+        Objects.requireNonNull(action, "action");
+        GridWorks plugin = GridWorks.getInstance();
+
+        Runnable guarded = () -> {
+            try {
+                if (!plugin.getPhysicalControlNetwork().isActive(nodeId)) {
+                    return;
+                }
+            } catch (IllegalStateException ignored) {
+                return;
+            }
+            action.run();
+        };
+
+        if (Bukkit.isPrimaryThread()) {
+            guarded.run();
+        } else {
+            plugin.getServer().getScheduler().runTask(plugin, guarded);
+        }
     }
 }

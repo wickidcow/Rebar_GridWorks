@@ -28,6 +28,13 @@ item:
       <arrow> Its lever state is controlled by GridWorks, not manual clicks
       <arrow> Link it to a sensor or future controller with a Linker
 
+  pulse_relay:
+    name: "Pulse Relay"
+    lore: |-
+      <arrow> Fires a timed vanilla redstone pulse on a rising Control Bus edge
+      <arrow> Configure 1 tick to 60 seconds and test it from the GUI
+      <arrow> Replayed ON state after restart does not trigger a false pulse
+
   inventory_sensor:
     name: "Inventory Sensor"
     lore: |-

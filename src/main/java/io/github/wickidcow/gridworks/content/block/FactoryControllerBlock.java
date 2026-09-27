@@ -212,6 +212,10 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
 
     @Override
     protected void handleSignal(@NotNull ControlSignal signal) {
+        runOnServerThreadIfActive(() -> handleSignalOnServerThread(signal));
+    }
+
+    private void handleSignalOnServerThread(@NotNull ControlSignal signal) {
         boolean changed = acceptForCondition(conditionA, signal, sourceAItem);
 
         if (conditionBEnabled) {

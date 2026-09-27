@@ -4,7 +4,6 @@ import io.github.pylonmc.rebar.block.context.BlockCreateContext;
 import io.github.pylonmc.rebar.block.interfaces.GuiRebarBlock;
 import io.github.pylonmc.rebar.item.builder.ItemStackBuilder;
 import io.github.pylonmc.rebar.util.gui.GuiItems;
-import io.github.wickidcow.gridworks.GridWorks;
 import io.github.wickidcow.gridworks.api.control.ControlChannel;
 import io.github.wickidcow.gridworks.api.control.ControlSignal;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
@@ -16,7 +15,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -73,12 +71,7 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
             return;
         }
 
-        if (Bukkit.isPrimaryThread()) {
-            item.notifyWindows();
-        } else {
-            GridWorks plugin = GridWorks.getInstance();
-            plugin.getServer().getScheduler().runTask(plugin, item::notifyWindows);
-        }
+        runOnServerThreadIfActive(item::notifyWindows);
     }
 
     @Override

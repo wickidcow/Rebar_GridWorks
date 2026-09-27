@@ -28,7 +28,7 @@ public final class ControlRelayBlock extends PhysicalControlNodeBlock
             NamespacedKey.fromString("gridworks:relay_powered")
     );
 
-    private boolean powered;
+    private volatile boolean powered;
 
     public ControlRelayBlock(@NotNull Block block, @NotNull BlockCreateContext context) {
         super(block, context);
@@ -77,13 +77,8 @@ public final class ControlRelayBlock extends PhysicalControlNodeBlock
     }
 
     public void setPowered(boolean powered) {
-        if (this.powered == powered) {
-            applyOutputState();
-            return;
-        }
-
         this.powered = powered;
-        applyOutputState();
+        runOnServerThreadIfActive(this::applyOutputState);
     }
 
     private void applyOutputState() {

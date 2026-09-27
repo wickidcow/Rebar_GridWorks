@@ -107,3 +107,16 @@ This is not a polling loop. It only runs on topology changes and prevents multi-
 ## Factory Monitor
 
 The Factory Monitor subscribes only to a bounded set of built-in GridWorks channels and keeps one latest signal per channel. Its memory use therefore does not grow with event volume. GUI refreshes are marshalled onto the primary server thread when a signal is published asynchronously.
+
+
+## Physical-node thread boundary
+
+The public Control Bus remains thread-agnostic and invokes recipients on the publisher thread. Physical GridWorks blocks use `runOnServerThreadIfActive` before touching Bukkit world state or InvUI. The guard re-checks live topology before executing delayed work, so an asynchronous signal cannot mutate an unloaded node or force a chunk back into memory.
+
+Status Light, steady Control Relay, Pulse Relay, Factory Controller GUI updates, and Factory Monitor GUI updates all follow this boundary.
+
+## Pulse Relay
+
+Pulse Relay is edge-triggered rather than level-triggered. A small pure `RisingEdgeTrigger` treats the first observed state as a baseline and only fires on a later false-to-true transition. This deliberately prevents topology replay or server restart from manufacturing a fake rising edge.
+
+The relay uses Bukkit's delayed scheduler only when a pulse is active; there is no repeating timer. Retriggering after an intervening false state cancels the previous shutoff task and schedules a new one from the latest edge.

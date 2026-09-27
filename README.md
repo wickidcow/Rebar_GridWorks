@@ -17,10 +17,13 @@ The physical layer provides persistent node UUIDs, atomic link persistence, a Gr
 ```text
                      +--> Status Light
 Redstone Sensor -----|
-                     +--> Control Relay --> vanilla redstone
+                     +--> Control Relay --> steady vanilla redstone
+                     +--> Pulse Relay   --> timed vanilla redstone pulse
 ```
 
-The Redstone Sensor is event-driven and publishes analog strength plus boolean powered state. The Status Light displays the boolean state, while the Control Relay produces real vanilla redstone output.
+The Redstone Sensor is event-driven and publishes analog strength plus boolean powered state. The Status Light displays the boolean state, while the Control Relay produces steady vanilla redstone output.
+
+The **Pulse Relay** produces a configurable 1-tick to 60-second redstone pulse on an observed false-to-true edge. Its first replayed state after a load/relink only establishes a baseline, preventing server restarts from accidentally re-triggering one-shot machinery. A new rising edge during an active pulse restarts the timer from that edge.
 
 ### Inventory sensing
 
@@ -85,9 +88,13 @@ The Factory Monitor is a passive diagnostic node. It displays the latest built-i
 
 Stateful devices implement `ControlStateSource`. When loaded topology expands, GridWorks replays current state from every loaded state source in that component. This means a monitor or actuator joining through an intermediate Control Interface receives current state even when the original sensor is several hops away.
 
+## Threading safety
+
+Control Bus callbacks deliberately run on the publisher's thread. Physical GridWorks nodes therefore marshal all Bukkit world mutations and InvUI refreshes onto the primary server thread and verify the node is still active before delayed work executes. This lets third-party addons publish asynchronously without making GridWorks actuators touch unloaded chunks or Bukkit state off-thread.
+
 ## Planned systems
 
-The next work is controller-to-device actions beyond redstone and richer power-grid controls as Rebar's electricity API stabilizes. After that, GridWorks can connect inventory/fluid/redstone measurements to relays and eventually to smart electricity controls as Rebar's electricity API stabilizes.
+The next work is higher-level alarms/actions and richer power-grid controls as Rebar's electricity API stabilizes. After that, GridWorks can connect inventory/fluid/redstone measurements to relays and eventually to smart electricity controls as Rebar's electricity API stabilizes.
 
 ## Requirements
 
