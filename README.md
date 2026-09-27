@@ -188,7 +188,9 @@ Fluid Tank Sensor ---/       A: items >= 64
 
 ## Factory Monitor
 
-The Factory Monitor is a passive diagnostic node. It keeps built-in telemetry qualified by source node instead of collapsing every publisher onto one value per channel. The default Overview shows the newest value for each channel, while the source selector can isolate one observed node so multiple machines, tanks, inventories, or sensors using the same metric remain distinguishable. Addressed commands keep one latest value per source so dynamic addresses remain memory-bounded.
+The Factory Monitor is a passive diagnostic node. It keeps built-in telemetry qualified by source node instead of collapsing every publisher onto one value per channel. Telemetry is split into four pages—**Automation**, **Resources**, **Production**, and **Power & Alarms**—so GridWorks can keep adding diagnostics without consuming a fixed 54-slot ceiling. Left/right page arrows change only the viewer's page; the source selector continues to switch between newest-per-channel overview and one observed source on every page.
+
+The Production page contains machine, Batch Controller, and Sequence Controller telemetry, including batch/sequence fault state and configured watchdog/timeout values. The addressed-command diagnostic remains visible in the fixed header on every page. Addressed commands still keep one latest value per source so the dynamic address namespace remains memory-bounded.
 
 The Refresh control intersects cached telemetry with the currently loaded Control Bus component and requests normal ControlStateSource replay. It never scans worlds or loads chunks. The monitor itself still does no machine polling; Machine Sensors own their shared sampler.
 

@@ -120,6 +120,10 @@ Replay-sensitive devices reset transient input baselines in the pre-activation h
 
 The Factory Monitor subscribes only to a bounded set of built-in GridWorks channels and keeps one latest signal per source/channel pair. A dedicated source selector switches between an Overview (newest source for each channel) and one observed source, so identical metrics from multiple machines no longer overwrite each other. Addressed commands retain only the latest command per source, keeping the dynamic address namespace bounded.
 
+The GUI is category-paged rather than one permanently mapped 54-slot matrix. Automation, Resources, Production, and Power & Alarms each provide a bounded channel list, while the addressed-command diagnostic, source selector, refresh action, and page navigation stay in a fixed header. Page selection is viewer-local and does not alter telemetry subscription state.
+
+Each channel maps to one page-local slot index. A signal update therefore refreshes only the corresponding generic page-slot item rather than repainting every telemetry item; viewers on other pages may re-render that same slot index but no full-page refresh occurs. Page changes intentionally refresh the bounded page-slot set. Static initialization verifies every built-in monitor definition appears on exactly one page and that no page exceeds the available slot count.
+
 Per-key sequence checks reject late asynchronous callbacks that would otherwise overwrite newer state. Refresh prunes the cache against activeComponentNodes and requests normal component-wide state replay; it never scans worlds or loads chunks. GUI refreshes remain marshalled onto the primary server thread.
 
 

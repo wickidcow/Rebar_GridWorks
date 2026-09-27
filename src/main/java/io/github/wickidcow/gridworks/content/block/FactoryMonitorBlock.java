@@ -12,6 +12,7 @@ import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
 import io.github.wickidcow.gridworks.monitor.FactoryMonitorTelemetry;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -66,6 +67,7 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
             new SignalDefinition(GridWorksChannels.BATCH_TARGET, "Batch Target", Material.TARGET),
             new SignalDefinition(GridWorksChannels.BATCH_COMPLETE, "Batch Complete", Material.LIME_DYE),
             new SignalDefinition(GridWorksChannels.BATCH_FAULT, "Batch Fault", Material.RED_CONCRETE),
+            new SignalDefinition(GridWorksChannels.BATCH_WATCHDOG_TICKS, "Batch Watchdog", Material.CLOCK),
             new SignalDefinition(GridWorksChannels.SEQUENCE_RUNNING, "Sequence Running", Material.ORANGE_DYE),
             new SignalDefinition(GridWorksChannels.SEQUENCE_STAGE, "Sequence Stage", Material.COPPER_BULB),
             new SignalDefinition(GridWorksChannels.SEQUENCE_COMPLETE, "Sequence Complete", Material.LIME_CONCRETE),
@@ -92,12 +94,26 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
             new SignalDefinition(GridWorksChannels.POWER_PRODUCER_COUNT, "Power Producers", Material.BLAZE_POWDER)
     );
 
+    private static final char[] PAGE_SLOT_KEYS = {
+            'a', 'b', 'c', 'e', 'f', 'g', 'h', 'i', 'j',
+            'k', 'l', 'm', 'o', 'p', 'q', 'r', 's', 't',
+            'u', 'v', 'w', 'y', 'z', '0', '1', '2', '3',
+            '4', '5', '6', '7', '8', '9', 'A', 'B', 'C'
+    };
+    private static final Map<ControlChannel, Integer> CHANNEL_SLOT_INDEX =
+            createChannelSlotIndex();
+
     private final FactoryMonitorTelemetry telemetry = new FactoryMonitorTelemetry();
     private final Map<UUID, UUID> selectedSources = new ConcurrentHashMap<>();
+    private final Map<UUID, MonitorPage> selectedPages = new ConcurrentHashMap<>();
     private final Map<ControlChannel, SignalValueItem> signalItems = createSignalItems();
+    private final PageSignalItem[] pageSignalItems = createPageSignalItems();
     private final AddressedSignalItem addressedSignalItem = new AddressedSignalItem();
     private final SourceSelectorItem sourceSelectorItem = new SourceSelectorItem();
     private final RefreshItem refreshItem = new RefreshItem();
+    private final PageTitleItem pageTitleItem = new PageTitleItem();
+    private final PageNavItem previousPageItem = new PageNavItem(-1);
+    private final PageNavItem nextPageItem = new PageNavItem(1);
 
     public FactoryMonitorBlock(@NotNull Block block, @NotNull BlockCreateContext context) {
         super(block, context);
@@ -128,13 +144,13 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
             return;
         }
 
-        SignalValueItem item = signalItems.get(signal.channel());
-        if (item == null) {
+        Integer slotIndex = CHANNEL_SLOT_INDEX.get(signal.channel());
+        if (slotIndex == null) {
             return;
         }
 
         runOnServerThreadIfActive(() -> {
-            item.notifyWindows();
+            pageSignalItems[slotIndex].notifyWindows();
             sourceSelectorItem.notifyWindows();
             refreshItem.notifyWindows();
         });
@@ -144,71 +160,28 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
     public @NotNull Gui createGui() {
         pruneTelemetryToLiveComponent();
 
-        return Gui.builder()
+        var builder = Gui.builder()
                 .setStructure(
-                        "r s 0 1 2 3 4 n x",
-                        "a i o t f C L A B",
-                        "v p y m k z Y Z D",
-                        "w u g h j b N e K",
-                        "l c d E F G H I J",
-                        "P Q R S T U V W X"
+                        "L d # P # # n x R",
+                        "a b c e f g h i j",
+                        "k l m o p q r s t",
+                        "u v w y z 0 1 2 3",
+                        "4 5 6 7 8 9 A B C",
+                        "# # # # # # # # #"
                 )
                 .addIngredient('#', GuiItems.background())
-                .addIngredient('r', item(GridWorksChannels.REDSTONE_POWERED))
-                .addIngredient('s', item(GridWorksChannels.REDSTONE_STRENGTH))
-                .addIngredient('0', item(GridWorksChannels.CONTROL_ENABLED))
-                .addIngredient('1', item(GridWorksChannels.CONTROL_A))
-                .addIngredient('2', item(GridWorksChannels.CONTROL_B))
-                .addIngredient('3', item(GridWorksChannels.CONTROL_C))
-                .addIngredient('4', item(GridWorksChannels.CONTROL_D))
+                .addIngredient('L', previousPageItem)
+                .addIngredient('d', addressedSignalItem)
+                .addIngredient('P', pageTitleItem)
                 .addIngredient('n', sourceSelectorItem)
                 .addIngredient('x', refreshItem)
-                .addIngredient('a', item(GridWorksChannels.INVENTORY_AVAILABLE))
-                .addIngredient('i', item(GridWorksChannels.INVENTORY_ITEMS))
-                .addIngredient('o', item(GridWorksChannels.INVENTORY_OCCUPIED_SLOTS))
-                .addIngredient('t', item(GridWorksChannels.INVENTORY_TOTAL_SLOTS))
-                .addIngredient('f', item(GridWorksChannels.INVENTORY_OCCUPIED_RATIO))
-                .addIngredient('C', item(GridWorksChannels.MACHINE_OBSERVED_CYCLES))
-                .addIngredient('L', item(GridWorksChannels.MACHINE_LAST_CYCLE_EPOCH_MS))
-                .addIngredient('A', item(GridWorksChannels.SEQUENCE_FAULT))
-                .addIngredient('B', item(GridWorksChannels.SEQUENCE_TIMEOUT_TICKS))
-                .addIngredient('v', item(GridWorksChannels.FLUID_AVAILABLE))
-                .addIngredient('p', item(GridWorksChannels.FLUID_PRESENT))
-                .addIngredient('y', item(GridWorksChannels.FLUID_TYPE))
-                .addIngredient('m', item(GridWorksChannels.FLUID_AMOUNT))
-                .addIngredient('k', item(GridWorksChannels.FLUID_CAPACITY))
-                .addIngredient('z', item(GridWorksChannels.FLUID_FILL_RATIO))
-                .addIngredient('Y', item(GridWorksChannels.SEQUENCE_RUNNING))
-                .addIngredient('Z', item(GridWorksChannels.SEQUENCE_STAGE))
-                .addIngredient('D', item(GridWorksChannels.SEQUENCE_COMPLETE))
-                .addIngredient('w', item(GridWorksChannels.ALARM_NAME))
-                .addIngredient('u', item(GridWorksChannels.ALARM_SEVERITY))
-                .addIngredient('g', item(GridWorksChannels.ALARM_CONDITION_ACTIVE))
-                .addIngredient('h', item(GridWorksChannels.ALARM_LATCHED))
-                .addIngredient('j', item(GridWorksChannels.ALARM_ACKNOWLEDGED))
-                .addIngredient('b', item(GridWorksChannels.BATCH_PROGRESS))
-                .addIngredient('N', item(GridWorksChannels.BATCH_TARGET))
-                .addIngredient('e', item(GridWorksChannels.BATCH_COMPLETE))
-                .addIngredient('K', item(GridWorksChannels.BATCH_FAULT))
-                .addIngredient('l', item(GridWorksChannels.ALARM_OCCURRENCES))
-                .addIngredient('c', item(GridWorksChannels.ALARM_LAST_TRIGGERED_EPOCH_MS))
-                .addIngredient('d', addressedSignalItem)
-                .addIngredient('E', item(GridWorksChannels.MACHINE_AVAILABLE))
-                .addIngredient('F', item(GridWorksChannels.MACHINE_KIND))
-                .addIngredient('G', item(GridWorksChannels.MACHINE_PROCESSING))
-                .addIngredient('H', item(GridWorksChannels.MACHINE_PROGRESS))
-                .addIngredient('I', item(GridWorksChannels.MACHINE_PROCESS_TIME_TICKS))
-                .addIngredient('J', item(GridWorksChannels.MACHINE_TICKS_REMAINING))
-                .addIngredient('P', item(GridWorksChannels.POWER_AVAILABLE))
-                .addIngredient('Q', item(GridWorksChannels.POWER_PRODUCTION_CAPACITY_WATTS))
-                .addIngredient('R', item(GridWorksChannels.POWER_DEMAND_WATTS))
-                .addIngredient('S', item(GridWorksChannels.POWER_RESERVE_WATTS))
-                .addIngredient('T', item(GridWorksChannels.POWER_LOAD_RATIO))
-                .addIngredient('U', item(GridWorksChannels.POWER_POWERED_CONSUMER_RATIO))
-                .addIngredient('V', item(GridWorksChannels.POWER_UNPOWERED_CONSUMERS))
-                .addIngredient('W', item(GridWorksChannels.POWER_CONSUMER_COUNT))
-                .addIngredient('X', item(GridWorksChannels.POWER_PRODUCER_COUNT))
-                .build();
+                .addIngredient('R', nextPageItem);
+
+        for (int index = 0; index < PAGE_SLOT_KEYS.length; index++) {
+            builder.addIngredient(PAGE_SLOT_KEYS[index], pageSignalItems[index]);
+        }
+
+        return builder.build();
     }
 
     public int observedSignalCount() {
@@ -235,6 +208,21 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
 
     private List<UUID> sourceIds() {
         return telemetry.sourceIds().stream().sorted().toList();
+    }
+
+    private MonitorPage pageFor(Player player) {
+        return selectedPages.getOrDefault(
+                player.getUniqueId(),
+                MonitorPage.AUTOMATION
+        );
+    }
+
+    private void cyclePage(Player player, int delta) {
+        MonitorPage[] pages = MonitorPage.values();
+        MonitorPage current = pageFor(player);
+        int next = Math.floorMod(current.ordinal() + delta, pages.length);
+        selectedPages.put(player.getUniqueId(), pages[next]);
+        notifyPageItems();
     }
 
     private void cycleSource(Player player, int delta) {
@@ -295,12 +283,19 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
     }
 
     private void notifyMonitorItems() {
-        for (SignalValueItem item : signalItems.values()) {
-            item.notifyWindows();
-        }
+        notifyPageItems();
         addressedSignalItem.notifyWindows();
         sourceSelectorItem.notifyWindows();
         refreshItem.notifyWindows();
+    }
+
+    private void notifyPageItems() {
+        for (PageSignalItem item : pageSignalItems) {
+            item.notifyWindows();
+        }
+        pageTitleItem.notifyWindows();
+        previousPageItem.notifyWindows();
+        nextPageItem.notifyWindows();
     }
 
     private SignalValueItem item(ControlChannel channel) {
@@ -317,6 +312,46 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
             items.put(definition.channel(), new SignalValueItem(definition));
         }
         return Map.copyOf(items);
+    }
+
+    private PageSignalItem[] createPageSignalItems() {
+        PageSignalItem[] items = new PageSignalItem[PAGE_SLOT_KEYS.length];
+        for (int index = 0; index < items.length; index++) {
+            items[index] = new PageSignalItem(index);
+        }
+        return items;
+    }
+
+    private static Map<ControlChannel, Integer> createChannelSlotIndex() {
+        Map<ControlChannel, Integer> slots = new HashMap<>();
+        for (MonitorPage page : MonitorPage.values()) {
+            if (page.channels().size() > PAGE_SLOT_KEYS.length) {
+                throw new IllegalStateException(
+                        "Factory Monitor page " + page.displayName()
+                                + " has too many signals"
+                );
+            }
+
+            for (int index = 0; index < page.channels().size(); index++) {
+                ControlChannel channel = page.channels().get(index);
+                if (slots.put(channel, index) != null) {
+                    throw new IllegalStateException(
+                            "Factory Monitor channel appears on multiple pages: " + channel
+                    );
+                }
+            }
+        }
+
+        Set<ControlChannel> defined = DEFINITIONS.stream()
+                .map(SignalDefinition::channel)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        if (!slots.keySet().equals(defined)) {
+            throw new IllegalStateException(
+                    "Factory Monitor page definitions do not match signal definitions"
+            );
+        }
+
+        return Map.copyOf(slots);
     }
 
     private static String displayValue(ControlChannel channel, ControlValue value) {
@@ -351,6 +386,107 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
 
     private static String shortId(UUID id) {
         return id.toString().substring(0, 8).toUpperCase();
+    }
+
+    private final class PageSignalItem extends AbstractItem {
+        private final int slotIndex;
+
+        private PageSignalItem(int slotIndex) {
+            this.slotIndex = slotIndex;
+        }
+
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            MonitorPage page = pageFor(player);
+            if (slotIndex >= page.channels().size()) {
+                return ItemStackBuilder.of(Material.BLACK_STAINED_GLASS_PANE)
+                        .name(Component.text(" "));
+            }
+
+            ControlChannel channel = page.channels().get(slotIndex);
+            SignalValueItem item = signalItems.get(channel);
+            if (item == null) {
+                throw new IllegalStateException(
+                        "Factory Monitor has no item for " + channel
+                );
+            }
+            return item.getItemProvider(player);
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+        }
+    }
+
+    private final class PageTitleItem extends AbstractItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            MonitorPage page = pageFor(player);
+            return ItemStackBuilder.of(Material.WRITABLE_BOOK)
+                    .name(Component.text(page.displayName(), NamedTextColor.GOLD))
+                    .lore(
+                            Component.text(
+                                    "Page " + (page.ordinal() + 1)
+                                            + "/" + MonitorPage.values().length,
+                                    NamedTextColor.AQUA
+                            ),
+                            Component.text(
+                                    page.channels().size() + " telemetry channel(s)",
+                                    NamedTextColor.GRAY
+                            )
+                    );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+        }
+    }
+
+    private final class PageNavItem extends AbstractItem {
+        private final int direction;
+
+        private PageNavItem(int direction) {
+            this.direction = direction;
+        }
+
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            MonitorPage current = pageFor(player);
+            MonitorPage[] pages = MonitorPage.values();
+            MonitorPage destination = pages[Math.floorMod(
+                    current.ordinal() + direction,
+                    pages.length
+            )];
+
+            return ItemStackBuilder.of(Material.ARROW)
+                    .name(Component.text(
+                            direction < 0 ? "Previous Page" : "Next Page",
+                            NamedTextColor.GOLD
+                    ))
+                    .lore(Component.text(
+                            destination.displayName(),
+                            NamedTextColor.AQUA
+                    ));
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            if (clickType.isLeftClick() || clickType.isRightClick()) {
+                cyclePage(player, direction);
+            }
+        }
     }
 
     private final class SignalValueItem extends AbstractItem {
@@ -527,6 +663,97 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
             if (clickType.isLeftClick() || clickType.isRightClick()) {
                 refreshTelemetry();
             }
+        }
+    }
+
+    private enum MonitorPage {
+        AUTOMATION(
+                "Automation",
+                List.of(
+                        GridWorksChannels.REDSTONE_POWERED,
+                        GridWorksChannels.REDSTONE_STRENGTH,
+                        GridWorksChannels.CONTROL_ENABLED,
+                        GridWorksChannels.CONTROL_A,
+                        GridWorksChannels.CONTROL_B,
+                        GridWorksChannels.CONTROL_C,
+                        GridWorksChannels.CONTROL_D
+                )
+        ),
+        RESOURCES(
+                "Resources",
+                List.of(
+                        GridWorksChannels.INVENTORY_AVAILABLE,
+                        GridWorksChannels.INVENTORY_ITEMS,
+                        GridWorksChannels.INVENTORY_OCCUPIED_SLOTS,
+                        GridWorksChannels.INVENTORY_TOTAL_SLOTS,
+                        GridWorksChannels.INVENTORY_OCCUPIED_RATIO,
+                        GridWorksChannels.FLUID_AVAILABLE,
+                        GridWorksChannels.FLUID_PRESENT,
+                        GridWorksChannels.FLUID_TYPE,
+                        GridWorksChannels.FLUID_AMOUNT,
+                        GridWorksChannels.FLUID_CAPACITY,
+                        GridWorksChannels.FLUID_FILL_RATIO
+                )
+        ),
+        PRODUCTION(
+                "Production",
+                List.of(
+                        GridWorksChannels.MACHINE_AVAILABLE,
+                        GridWorksChannels.MACHINE_KIND,
+                        GridWorksChannels.MACHINE_PROCESSING,
+                        GridWorksChannels.MACHINE_PROGRESS,
+                        GridWorksChannels.MACHINE_PROCESS_TIME_TICKS,
+                        GridWorksChannels.MACHINE_TICKS_REMAINING,
+                        GridWorksChannels.MACHINE_OBSERVED_CYCLES,
+                        GridWorksChannels.MACHINE_LAST_CYCLE_EPOCH_MS,
+                        GridWorksChannels.BATCH_PROGRESS,
+                        GridWorksChannels.BATCH_TARGET,
+                        GridWorksChannels.BATCH_COMPLETE,
+                        GridWorksChannels.BATCH_FAULT,
+                        GridWorksChannels.BATCH_WATCHDOG_TICKS,
+                        GridWorksChannels.SEQUENCE_RUNNING,
+                        GridWorksChannels.SEQUENCE_STAGE,
+                        GridWorksChannels.SEQUENCE_COMPLETE,
+                        GridWorksChannels.SEQUENCE_FAULT,
+                        GridWorksChannels.SEQUENCE_TIMEOUT_TICKS
+                )
+        ),
+        POWER_AND_ALARMS(
+                "Power & Alarms",
+                List.of(
+                        GridWorksChannels.POWER_AVAILABLE,
+                        GridWorksChannels.POWER_PRODUCTION_CAPACITY_WATTS,
+                        GridWorksChannels.POWER_DEMAND_WATTS,
+                        GridWorksChannels.POWER_RESERVE_WATTS,
+                        GridWorksChannels.POWER_LOAD_RATIO,
+                        GridWorksChannels.POWER_POWERED_CONSUMER_RATIO,
+                        GridWorksChannels.POWER_UNPOWERED_CONSUMERS,
+                        GridWorksChannels.POWER_CONSUMER_COUNT,
+                        GridWorksChannels.POWER_PRODUCER_COUNT,
+                        GridWorksChannels.ALARM_NAME,
+                        GridWorksChannels.ALARM_SEVERITY,
+                        GridWorksChannels.ALARM_CONDITION_ACTIVE,
+                        GridWorksChannels.ALARM_LATCHED,
+                        GridWorksChannels.ALARM_ACKNOWLEDGED,
+                        GridWorksChannels.ALARM_OCCURRENCES,
+                        GridWorksChannels.ALARM_LAST_TRIGGERED_EPOCH_MS
+                )
+        );
+
+        private final String displayName;
+        private final List<ControlChannel> channels;
+
+        MonitorPage(String displayName, List<ControlChannel> channels) {
+            this.displayName = displayName;
+            this.channels = List.copyOf(channels);
+        }
+
+        private String displayName() {
+            return displayName;
+        }
+
+        private List<ControlChannel> channels() {
+            return channels;
         }
     }
 

@@ -175,7 +175,8 @@ item:
     name: "Factory Monitor"
     lore: |-
       <arrow> Displays live Control Bus telemetry without polling machines
-      <arrow> Cycle between Overview and individual source nodes
+      <arrow> Pages: Automation, Resources, Production, Power & Alarms
+      <arrow> Cycle between overview and individual source nodes on every page
       <arrow> Refresh prunes disconnected sources and replays loaded state
       <arrow> Never scans worlds or forces chunks to load
 
