@@ -236,3 +236,18 @@ Factory Controller's metric registry includes the provider-neutral power telemet
 Power metrics are appended to the existing registry. Persistent controller rules store the full channel identifier rather than a metric-list index, so adding these metrics does not reinterpret existing placed controllers.
 
 The built-in Power Load, Power Shortage, and Load Shed Trigger presets use the same `NumericControlRule` path as every other controller preset. If no linked source publishes the configured power metric, the rule remains unknown and the controller preserves its existing fail-safe OFF wire behavior. No special electricity execution path exists inside Factory Controller.
+
+
+## Load shedding policy
+
+`LoadSheddingPolicy` is provider-neutral and event-driven. It consumes a `PowerGridSnapshot` (or equivalent load ratio/unpowered-consumer values) only when telemetry changes; it has no scheduler or poll loop.
+
+The policy exposes three stages:
+
+- `NORMAL`: essential, normal, and optional loads are allowed;
+- `SHED_OPTIONAL`: optional loads are disabled, essential and normal remain allowed;
+- `SHED_NORMAL_AND_OPTIONAL`: only essential loads remain allowed.
+
+Default hysteresis is 90%/80% for optional shed/restore and 100%/90% for normal shed/restore. Any reported unpowered consumer forces the severe stage even when aggregate capacity-minus-demand appears healthy, because Rebar branch/edge limits can strand consumers independently of total capacity.
+
+Recovery is deliberately staged: severe -> optional-shed -> normal. This prevents a marginal grid from restoring all loads at once and immediately collapsing again.

@@ -125,7 +125,9 @@ The neutral snapshot already defines the measurements GridWorks needs: node/prod
 
 ## Planned systems
 
-The next work is the actual Rebar electricity adapter once that API lands in a released dependency, then the player-facing Power Grid Sensor and smart breaker. Factory Controller logic is already prepared for load-shedding rules through the stable power telemetry channels.
+The load-shedding core is also prepared ahead of the native bridge. `LoadSheddingPolicy` uses hysteresis with three stages: Normal, Shed Optional, and Shed Normal + Optional. Default thresholds shed optional loads at 90% load and restore them at 80%; severe shedding begins at 100% load or whenever the provider reports any unpowered consumer, and normal loads recover only after load falls to 90% with no unpowered consumers. Essential loads are never disabled by the policy.
+
+The next work is the actual Rebar electricity adapter once that API lands in a released dependency, then the player-facing Power Grid Sensor and Smart Breaker that consume these already-tested rules.
 
 ## Requirements
 
