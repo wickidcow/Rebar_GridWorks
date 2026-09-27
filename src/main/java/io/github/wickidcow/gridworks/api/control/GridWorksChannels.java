@@ -61,6 +61,9 @@ public final class GridWorksChannels {
     public static final ControlChannel ALARM_NAME =
             ControlChannel.of("gridworks", "alarm/name");
 
+    public static final ControlChannel ALARM_SEVERITY =
+            ControlChannel.of("gridworks", "alarm/severity");
+
     public static final ControlChannel ALARM_CONDITION_ACTIVE =
             ControlChannel.of("gridworks", "alarm/condition_active");
 

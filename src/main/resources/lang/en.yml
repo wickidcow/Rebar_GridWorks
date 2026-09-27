@@ -11,7 +11,8 @@ item:
     name: "Alarm Console"
     lore: |-
       <arrow> Central view of active Alarm Indicators on the Control Bus
-      <arrow> Shows named alarm state and supports per-alarm acknowledgement
+      <arrow> Shows named/severity alarm state with per-alarm acknowledgement
+      <arrow> Filter All, Warning+, Critical, Latched, or Unacknowledged alarms
       <arrow> Refreshes by replaying state; never scans or loads chunks
 
   alarm_indicator:
@@ -19,7 +20,8 @@ item:
     lore: |-
       <arrow> Latches faults until they are acknowledged or safely cleared
       <arrow> Rings once on a real false-to-true transition
-      <arrow> Name and acknowledge alarms from the GUI; restart replay stays silent
+      <arrow> Name alarms, set Critical/Warning/Info severity, and acknowledge them
+      <arrow> Restart replay stays silent
 
   redstone_sensor:
     name: "Redstone Sensor"

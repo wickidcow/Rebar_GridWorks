@@ -170,3 +170,12 @@ Alarm Indicators publish their name plus condition/latch/acknowledgement state a
 The Alarm Console aggregates telemetry by source UUID rather than by channel alone. Per-field sequence numbers prevent an out-of-order asynchronous callback from overwriting newer state. Its source map is pruned against `activeComponentNodes` whenever telemetry is rebuilt or the operator presses Refresh.
 
 The console does not enumerate worlds, query unloaded Rebar blocks, or keep a polling task. Refresh invokes the same component-wide `ControlStateSource` replay used by other topology recovery paths.
+
+
+## Alarm severity and console filtering
+
+Alarm severity is explicit telemetry with three levels: Critical, Warning, and Info. The persistent default is Warning so existing placed Alarm Indicators upgrade conservatively without becoming either silently informational or unexpectedly critical.
+
+The Alarm Console applies filtering to its already-bounded in-memory source snapshots; filtering never changes bus subscriptions and never causes additional sensor reads. Available filters are All, Warning+, Critical only, Latched only, and Unacknowledged only.
+
+Sorting remains operational rather than cosmetic: latched alarms appear before clear alarms, unacknowledged before acknowledged, then higher severity before lower severity, followed by active-condition state and stable name/source ordering.

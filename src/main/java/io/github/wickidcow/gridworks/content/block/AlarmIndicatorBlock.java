@@ -6,6 +6,7 @@ import io.github.pylonmc.rebar.item.builder.ItemStackBuilder;
 import io.github.pylonmc.rebar.util.gui.GuiItems;
 import io.github.wickidcow.gridworks.GridWorks;
 import io.github.wickidcow.gridworks.alarm.AlarmAcknowledgeRequest;
+import io.github.wickidcow.gridworks.alarm.AlarmSeverity;
 import io.github.wickidcow.gridworks.api.control.BooleanInputConfigurable;
 import io.github.wickidcow.gridworks.api.control.BooleanInputMode;
 import io.github.wickidcow.gridworks.api.control.ControlChannel;
@@ -40,6 +41,9 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
     private static final NamespacedKey NAME_KEY = Objects.requireNonNull(
             NamespacedKey.fromString("gridworks:alarm_name")
     );
+    private static final NamespacedKey SEVERITY_KEY = Objects.requireNonNull(
+            NamespacedKey.fromString("gridworks:alarm_severity")
+    );
     private static final NamespacedKey SOUND_ENABLED_KEY = Objects.requireNonNull(
             NamespacedKey.fromString("gridworks:alarm_sound_enabled")
     );
@@ -58,10 +62,12 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
 
     private final AlarmLatch alarmLatch;
     private volatile String alarmName;
+    private volatile AlarmSeverity severity;
     private volatile boolean soundEnabled;
     private volatile BooleanInputMode inputMode;
 
     private final NameItem nameItem = new NameItem();
+    private final SeverityItem severityItem = new SeverityItem();
     private final SoundItem soundItem = new SoundItem();
     private final AcknowledgeItem acknowledgeItem = new AcknowledgeItem();
     private final TestItem testItem = new TestItem();
@@ -70,6 +76,7 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
     public AlarmIndicatorBlock(@NotNull Block block, @NotNull BlockCreateContext context) {
         super(block, context);
         this.alarmName = DEFAULT_NAME;
+        this.severity = AlarmSeverity.WARNING;
         this.soundEnabled = true;
         this.inputMode = BooleanInputMode.LEGACY;
         this.alarmLatch = new AlarmLatch(false, false);
@@ -79,11 +86,13 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
         super(block, pdc);
 
         String storedName = pdc.get(NAME_KEY, PersistentDataType.STRING);
+        String storedSeverity = pdc.get(SEVERITY_KEY, PersistentDataType.STRING);
         Byte storedSound = pdc.get(SOUND_ENABLED_KEY, PersistentDataType.BYTE);
         Byte storedLatched = pdc.get(LATCHED_KEY, PersistentDataType.BYTE);
         Byte storedAcknowledged = pdc.get(ACKNOWLEDGED_KEY, PersistentDataType.BYTE);
 
         this.alarmName = normalizeName(storedName);
+        this.severity = AlarmSeverity.fromStored(storedSeverity);
         this.soundEnabled = storedSound == null || storedSound != 0;
         this.inputMode = BooleanInputMode.fromStored(
                 pdc.get(INPUT_MODE_KEY, PersistentDataType.STRING)
@@ -130,6 +139,7 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
     @Override
     protected void writeNodeData(@NotNull PersistentDataContainer pdc) {
         pdc.set(NAME_KEY, PersistentDataType.STRING, alarmName);
+        pdc.set(SEVERITY_KEY, PersistentDataType.STRING, severity.name());
         pdc.set(
                 SOUND_ENABLED_KEY,
                 PersistentDataType.BYTE,
@@ -161,9 +171,10 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
     @Override
     public @NotNull Gui createGui() {
         return Gui.builder()
-                .setStructure("n # s # a # t # x")
+                .setStructure("n # v # s a t # x")
                 .addIngredient('#', GuiItems.background())
                 .addIngredient('n', nameItem)
+                .addIngredient('v', severityItem)
                 .addIngredient('s', soundItem)
                 .addIngredient('a', acknowledgeItem)
                 .addIngredient('t', testItem)
@@ -196,6 +207,10 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
 
     public @NotNull String getAlarmName() {
         return alarmName;
+    }
+
+    public @NotNull AlarmSeverity getSeverity() {
+        return severity;
     }
 
     public boolean isConditionActive() {
@@ -241,6 +256,11 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
                 getNodeId(),
                 GridWorksChannels.ALARM_NAME,
                 ControlValue.of(alarmName)
+        );
+        bus.publish(
+                getNodeId(),
+                GridWorksChannels.ALARM_SEVERITY,
+                ControlValue.of(severity.name())
         );
         bus.publish(
                 getNodeId(),
@@ -341,6 +361,13 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
         }
     }
 
+    private void changeSeverity(int direction) {
+        severity = severity.cycle(direction);
+        severityItem.notifyWindows();
+        statusItem.notifyWindows();
+        publishAlarmState();
+    }
+
     private void toggleSound() {
         soundEnabled = !soundEnabled;
         soundItem.notifyWindows();
@@ -402,6 +429,42 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
                     GridWorks.getInstance(),
                     () -> openRenameWindow(player)
             );
+        }
+    }
+
+    private final class SeverityItem extends AlarmItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            Material material = switch (severity) {
+                case CRITICAL -> Material.RED_DYE;
+                case WARNING -> Material.YELLOW_DYE;
+                case INFO -> Material.LIGHT_BLUE_DYE;
+            };
+
+            return item(material, "Severity: " + severity.displayName())
+                    .lore(
+                            Component.text(
+                                    "Left/right click to cycle severity",
+                                    NamedTextColor.YELLOW
+                            ),
+                            Component.text(
+                                    "Existing alarms default to Warning",
+                                    NamedTextColor.DARK_GRAY
+                            )
+                    );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            if (clickType.isLeftClick()) {
+                changeSeverity(1);
+            } else if (clickType.isRightClick()) {
+                changeSeverity(-1);
+            }
         }
     }
 
@@ -496,6 +559,7 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
                     alarmLatch.isLatched() ? Material.REDSTONE_TORCH : Material.GRAY_DYE,
                     "Condition: " + condition
             ).lore(
+                    Component.text("Severity: " + severity.displayName(), NamedTextColor.WHITE),
                     Component.text("Latch: " + latch, NamedTextColor.WHITE),
                     Component.text(
                             "Unacknowledged faults stay latched after clearing",

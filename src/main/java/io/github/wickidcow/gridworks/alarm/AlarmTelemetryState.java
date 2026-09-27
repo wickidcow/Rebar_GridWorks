@@ -13,11 +13,13 @@ public final class AlarmTelemetryState {
     private final UUID source;
 
     private String name;
+    private AlarmSeverity severity;
     private Boolean conditionActive;
     private Boolean latched;
     private Boolean acknowledged;
 
     private long nameSequence = -1;
+    private long severitySequence = -1;
     private long conditionSequence = -1;
     private long latchedSequence = -1;
     private long acknowledgedSequence = -1;
@@ -25,6 +27,7 @@ public final class AlarmTelemetryState {
     public AlarmTelemetryState(UUID source) {
         this.source = Objects.requireNonNull(source, "source");
         this.name = "Alarm " + shortId(source);
+        this.severity = AlarmSeverity.WARNING;
     }
 
     public synchronized boolean apply(ControlSignal signal) {
@@ -40,6 +43,16 @@ public final class AlarmTelemetryState {
             }
             name = normalizeName(textValue.value());
             nameSequence = signal.sequence();
+            return true;
+        }
+
+        if (GridWorksChannels.ALARM_SEVERITY.equals(signal.channel())
+                && signal.value() instanceof ControlValue.TextValue textValue) {
+            if (signal.sequence() < severitySequence) {
+                return false;
+            }
+            severity = AlarmSeverity.fromStored(textValue.value());
+            severitySequence = signal.sequence();
             return true;
         }
 
@@ -79,13 +92,17 @@ public final class AlarmTelemetryState {
 
     public synchronized Snapshot snapshot() {
         long latest = Math.max(
-                Math.max(nameSequence, conditionSequence),
-                Math.max(latchedSequence, acknowledgedSequence)
+                Math.max(nameSequence, severitySequence),
+                Math.max(
+                        conditionSequence,
+                        Math.max(latchedSequence, acknowledgedSequence)
+                )
         );
 
         return new Snapshot(
                 source,
                 name,
+                severity,
                 conditionActive,
                 latched,
                 acknowledged,
@@ -113,6 +130,7 @@ public final class AlarmTelemetryState {
     public record Snapshot(
             UUID source,
             String name,
+            AlarmSeverity severity,
             Boolean conditionActive,
             Boolean latched,
             Boolean acknowledged,

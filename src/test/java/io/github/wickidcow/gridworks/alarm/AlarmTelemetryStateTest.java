@@ -25,9 +25,15 @@ class AlarmTelemetryStateTest {
         ));
         state.apply(new ControlSignal(
                 source,
+                GridWorksChannels.ALARM_SEVERITY,
+                ControlValue.of("CRITICAL"),
+                2
+        ));
+        state.apply(new ControlSignal(
+                source,
                 GridWorksChannels.ALARM_CONDITION_ACTIVE,
                 ControlValue.of(true),
-                2
+                4
         ));
         state.apply(new ControlSignal(
                 source,
@@ -39,15 +45,16 @@ class AlarmTelemetryStateTest {
                 source,
                 GridWorksChannels.ALARM_ACKNOWLEDGED,
                 ControlValue.of(false),
-                4
+                5
         ));
 
         AlarmTelemetryState.Snapshot snapshot = state.snapshot();
         assertEquals("Low Diesel", snapshot.name());
+        assertEquals(AlarmSeverity.CRITICAL, snapshot.severity());
         assertTrue(snapshot.isConditionActive());
         assertTrue(snapshot.isLatched());
         assertFalse(snapshot.isAcknowledged());
-        assertEquals(4, snapshot.latestSequence());
+        assertEquals(5, snapshot.latestSequence());
     }
 
     @Test

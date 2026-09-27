@@ -49,6 +49,8 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
             new SignalDefinition(GridWorksChannels.FLUID_CAPACITY, "Fluid Capacity", Material.CAULDRON),
             new SignalDefinition(GridWorksChannels.FLUID_FILL_RATIO, "Fluid Fill", Material.LIGHT_BLUE_STAINED_GLASS),
 
+            new SignalDefinition(GridWorksChannels.ALARM_NAME, "Alarm Name", Material.NAME_TAG),
+            new SignalDefinition(GridWorksChannels.ALARM_SEVERITY, "Alarm Severity", Material.YELLOW_DYE),
             new SignalDefinition(GridWorksChannels.ALARM_CONDITION_ACTIVE, "Alarm Condition", Material.REDSTONE_TORCH),
             new SignalDefinition(GridWorksChannels.ALARM_LATCHED, "Alarm Latched", Material.BELL),
             new SignalDefinition(GridWorksChannels.ALARM_ACKNOWLEDGED, "Alarm Acknowledged", Material.LIME_DYE)
@@ -89,7 +91,7 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
                         "r s 0 1 2 3 4 # #",
                         "a i o t f # # # #",
                         "v p y m k z # # #",
-                        "g h j # # # # # #"
+                        "w u g h j # # # #"
                 )
                 .addIngredient('#', GuiItems.background())
                 .addIngredient('r', item(GridWorksChannels.REDSTONE_POWERED))
@@ -110,6 +112,8 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
                 .addIngredient('m', item(GridWorksChannels.FLUID_AMOUNT))
                 .addIngredient('k', item(GridWorksChannels.FLUID_CAPACITY))
                 .addIngredient('z', item(GridWorksChannels.FLUID_FILL_RATIO))
+                .addIngredient('w', item(GridWorksChannels.ALARM_NAME))
+                .addIngredient('u', item(GridWorksChannels.ALARM_SEVERITY))
                 .addIngredient('g', item(GridWorksChannels.ALARM_CONDITION_ACTIVE))
                 .addIngredient('h', item(GridWorksChannels.ALARM_LATCHED))
                 .addIngredient('j', item(GridWorksChannels.ALARM_ACKNOWLEDGED))

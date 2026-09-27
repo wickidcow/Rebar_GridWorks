@@ -190,6 +190,17 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
                             .append(Component.text(alarm.getAlarmName(), NamedTextColor.WHITE))
             );
             event.getPlayer().sendMessage(
+                    Component.text("Alarm severity: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    alarm.getSeverity().displayName(),
+                                    switch (alarm.getSeverity()) {
+                                        case CRITICAL -> NamedTextColor.RED;
+                                        case WARNING -> NamedTextColor.YELLOW;
+                                        case INFO -> NamedTextColor.AQUA;
+                                    }
+                            ))
+            );
+            event.getPlayer().sendMessage(
                     Component.text("Alarm condition: ", NamedTextColor.GRAY)
                             .append(Component.text(
                                     alarm.isConditionActive() ? "ACTIVE" : "CLEAR",

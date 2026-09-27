@@ -6,6 +6,7 @@ import io.github.pylonmc.rebar.item.builder.ItemStackBuilder;
 import io.github.pylonmc.rebar.util.gui.GuiItems;
 import io.github.wickidcow.gridworks.GridWorks;
 import io.github.wickidcow.gridworks.alarm.AlarmAcknowledgeRequest;
+import io.github.wickidcow.gridworks.alarm.AlarmConsoleFilter;
 import io.github.wickidcow.gridworks.alarm.AlarmTelemetryState;
 import io.github.wickidcow.gridworks.api.control.ControlChannel;
 import io.github.wickidcow.gridworks.api.control.ControlSignal;
@@ -21,10 +22,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
 import org.jetbrains.annotations.NotNull;
 import xyz.xenondevs.invui.Click;
 import xyz.xenondevs.invui.gui.Gui;
@@ -33,26 +36,36 @@ import xyz.xenondevs.invui.item.ItemProvider;
 
 public final class AlarmConsoleBlock extends PhysicalControlNodeBlock implements GuiRebarBlock {
     private static final int SLOT_COUNT = 18;
+    private static final NamespacedKey FILTER_KEY = java.util.Objects.requireNonNull(
+            NamespacedKey.fromString("gridworks:alarm_console_filter")
+    );
 
     private final Map<UUID, AlarmTelemetryState> alarms = new ConcurrentHashMap<>();
     private volatile List<AlarmTelemetryState.Snapshot> visibleAlarms = List.of();
+    private volatile AlarmConsoleFilter filter;
 
     private final List<AlarmSlotItem> alarmSlots = createSlots();
     private final RefreshItem refreshItem = new RefreshItem();
+    private final FilterItem filterItem = new FilterItem();
     private final AcknowledgeAllItem acknowledgeAllItem = new AcknowledgeAllItem();
     private final SummaryItem summaryItem = new SummaryItem();
 
     public AlarmConsoleBlock(@NotNull Block block, @NotNull BlockCreateContext context) {
         super(block, context);
+        this.filter = AlarmConsoleFilter.ALL;
     }
 
     public AlarmConsoleBlock(@NotNull Block block, @NotNull PersistentDataContainer pdc) {
         super(block, pdc);
+        this.filter = AlarmConsoleFilter.fromStored(
+                pdc.get(FILTER_KEY, PersistentDataType.STRING)
+        );
     }
 
     @Override
     public boolean accepts(@NotNull ControlChannel channel) {
         return GridWorksChannels.ALARM_NAME.equals(channel)
+                || GridWorksChannels.ALARM_SEVERITY.equals(channel)
                 || GridWorksChannels.ALARM_CONDITION_ACTIVE.equals(channel)
                 || GridWorksChannels.ALARM_LATCHED.equals(channel)
                 || GridWorksChannels.ALARM_ACKNOWLEDGED.equals(channel);
@@ -74,6 +87,11 @@ public final class AlarmConsoleBlock extends PhysicalControlNodeBlock implements
     }
 
     @Override
+    protected void writeNodeData(@NotNull PersistentDataContainer pdc) {
+        pdc.set(FILTER_KEY, PersistentDataType.STRING, filter.name());
+    }
+
+    @Override
     protected void afterDeactivated() {
         alarms.clear();
         visibleAlarms = List.of();
@@ -91,7 +109,7 @@ public final class AlarmConsoleBlock extends PhysicalControlNodeBlock implements
                 .setStructure(
                         "0 1 2 3 4 5 6 7 8",
                         "9 a b c d e f g h",
-                        "# # q # s # x # #"
+                        "# f q # s # x # #"
                 )
                 .addIngredient('#', GuiItems.background())
                 .addIngredient('0', alarmSlots.get(0))
@@ -112,6 +130,7 @@ public final class AlarmConsoleBlock extends PhysicalControlNodeBlock implements
                 .addIngredient('f', alarmSlots.get(15))
                 .addIngredient('g', alarmSlots.get(16))
                 .addIngredient('h', alarmSlots.get(17))
+                .addIngredient('f', filterItem)
                 .addIngredient('q', refreshItem)
                 .addIngredient('s', summaryItem)
                 .addIngredient('x', acknowledgeAllItem)
@@ -119,7 +138,15 @@ public final class AlarmConsoleBlock extends PhysicalControlNodeBlock implements
     }
 
     public int trackedAlarmCount() {
+        return alarms.size();
+    }
+
+    public int visibleAlarmCount() {
         return visibleAlarms.size();
+    }
+
+    public @NotNull AlarmConsoleFilter getFilter() {
+        return filter;
     }
 
     private void rebuildVisibleAlarms() {
@@ -138,13 +165,17 @@ public final class AlarmConsoleBlock extends PhysicalControlNodeBlock implements
 
         List<AlarmTelemetryState.Snapshot> snapshots = new ArrayList<>();
         for (AlarmTelemetryState state : alarms.values()) {
-            snapshots.add(state.snapshot());
+            AlarmTelemetryState.Snapshot snapshot = state.snapshot();
+            if (filter.accepts(snapshot)) {
+                snapshots.add(snapshot);
+            }
         }
 
         snapshots.sort(
                 Comparator
                         .comparing((AlarmTelemetryState.Snapshot snapshot) -> !snapshot.isLatched())
                         .thenComparing(snapshot -> snapshot.isAcknowledged())
+                        .thenComparingInt(snapshot -> snapshot.severity().priority())
                         .thenComparing(snapshot -> !snapshot.isConditionActive())
                         .thenComparing(
                                 AlarmTelemetryState.Snapshot::name,
@@ -154,6 +185,13 @@ public final class AlarmConsoleBlock extends PhysicalControlNodeBlock implements
         );
 
         visibleAlarms = List.copyOf(snapshots);
+    }
+
+    private void changeFilter(int direction) {
+        filter = filter.cycle(direction);
+        rebuildVisibleAlarms();
+        notifyItems();
+        filterItem.notifyWindows();
     }
 
     private void refreshFromBus() {
@@ -185,6 +223,7 @@ public final class AlarmConsoleBlock extends PhysicalControlNodeBlock implements
         for (AlarmSlotItem item : alarmSlots) {
             item.notifyWindows();
         }
+        filterItem.notifyWindows();
         summaryItem.notifyWindows();
     }
 
@@ -234,6 +273,10 @@ public final class AlarmConsoleBlock extends PhysicalControlNodeBlock implements
                     .name(Component.text(alarm.name(), nameColor))
                     .lore(
                             Component.text(
+                                    "Severity: " + alarm.severity().displayName(),
+                                    severityColor(alarm.severity())
+                            ),
+                            Component.text(
                                     "Condition: " + state(alarm.conditionActive()),
                                     NamedTextColor.GRAY
                             ),
@@ -277,11 +320,53 @@ public final class AlarmConsoleBlock extends PhysicalControlNodeBlock implements
             }
         }
 
+        private NamedTextColor severityColor(io.github.wickidcow.gridworks.alarm.AlarmSeverity severity) {
+            return switch (severity) {
+                case CRITICAL -> NamedTextColor.RED;
+                case WARNING -> NamedTextColor.YELLOW;
+                case INFO -> NamedTextColor.AQUA;
+            };
+        }
+
         private String state(Boolean value) {
             if (value == null) {
                 return "WAITING";
             }
             return value ? "YES" : "NO";
+        }
+    }
+
+    private final class FilterItem extends AbstractItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            return ItemStackBuilder.of(Material.HOPPER)
+                    .name(Component.text(
+                            "Filter: " + filter.displayName(),
+                            NamedTextColor.GOLD
+                    ))
+                    .lore(
+                            Component.text(
+                                    "Left/right click to cycle filters",
+                                    NamedTextColor.YELLOW
+                            ),
+                            Component.text(
+                                    "All / Warning+ / Critical / Latched / Unacknowledged",
+                                    NamedTextColor.GRAY
+                            )
+                    );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            if (clickType.isLeftClick()) {
+                changeFilter(1);
+            } else if (clickType.isRightClick()) {
+                changeFilter(-1);
+            }
         }
     }
 
@@ -309,6 +394,7 @@ public final class AlarmConsoleBlock extends PhysicalControlNodeBlock implements
     private final class SummaryItem extends AbstractItem {
         @Override
         public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            int tracked = alarms.size();
             int total = visibleAlarms.size();
             int latched = 0;
             int unacknowledged = 0;
@@ -325,7 +411,11 @@ public final class AlarmConsoleBlock extends PhysicalControlNodeBlock implements
             return ItemStackBuilder.of(Material.PAPER)
                     .name(Component.text("Alarm Summary", NamedTextColor.GOLD))
                     .lore(
-                            Component.text("Tracked: " + total, NamedTextColor.WHITE),
+                            Component.text("Tracked: " + tracked, NamedTextColor.WHITE),
+                            Component.text(
+                                    "Visible: " + total + " (" + filter.displayName() + ")",
+                                    NamedTextColor.WHITE
+                            ),
                             Component.text("Latched: " + latched, NamedTextColor.YELLOW),
                             Component.text(
                                     "Unacknowledged: " + unacknowledged,
@@ -336,7 +426,7 @@ public final class AlarmConsoleBlock extends PhysicalControlNodeBlock implements
                             Component.text(
                                     total > SLOT_COUNT
                                             ? "Showing highest-priority " + SLOT_COUNT
-                                            : "Showing all active alarm sources",
+                                            : "Showing all matching alarm sources",
                                     NamedTextColor.DARK_GRAY
                             )
                     );
