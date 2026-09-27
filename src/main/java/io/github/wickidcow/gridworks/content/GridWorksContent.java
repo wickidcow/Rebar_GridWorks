@@ -4,6 +4,7 @@ import io.github.pylonmc.rebar.block.RebarBlock;
 import io.github.pylonmc.rebar.item.RebarItem;
 import io.github.pylonmc.rebar.item.builder.ItemStackBuilder;
 import io.github.wickidcow.gridworks.GridWorks;
+import io.github.wickidcow.gridworks.content.block.AlarmIndicatorBlock;
 import io.github.wickidcow.gridworks.content.block.ControlInterfaceBlock;
 import io.github.wickidcow.gridworks.content.block.ControlRelayBlock;
 import io.github.wickidcow.gridworks.content.block.DelayRelayBlock;
@@ -23,6 +24,7 @@ import org.bukkit.inventory.ItemStack;
 
 public final class GridWorksContent {
     public static NamespacedKey CONTROL_INTERFACE;
+    public static NamespacedKey ALARM_INDICATOR;
     public static NamespacedKey REDSTONE_SENSOR;
     public static NamespacedKey STATUS_LIGHT;
     public static NamespacedKey CONTROL_RELAY;
@@ -35,6 +37,7 @@ public final class GridWorksContent {
     public static NamespacedKey GRIDWORKS_LINKER;
 
     public static ItemStack CONTROL_INTERFACE_ITEM;
+    public static ItemStack ALARM_INDICATOR_ITEM;
     public static ItemStack REDSTONE_SENSOR_ITEM;
     public static ItemStack STATUS_LIGHT_ITEM;
     public static ItemStack CONTROL_RELAY_ITEM;
@@ -52,6 +55,7 @@ public final class GridWorksContent {
 
     public static void register(GridWorks plugin) {
         CONTROL_INTERFACE = new NamespacedKey(plugin, "control_interface");
+        ALARM_INDICATOR = new NamespacedKey(plugin, "alarm_indicator");
         REDSTONE_SENSOR = new NamespacedKey(plugin, "redstone_sensor");
         STATUS_LIGHT = new NamespacedKey(plugin, "status_light");
         CONTROL_RELAY = new NamespacedKey(plugin, "control_relay");
@@ -64,6 +68,7 @@ public final class GridWorksContent {
         GRIDWORKS_LINKER = new NamespacedKey(plugin, "gridworks_linker");
 
         RebarBlock.register(CONTROL_INTERFACE, Material.LODESTONE, ControlInterfaceBlock.class);
+        RebarBlock.register(ALARM_INDICATOR, Material.REDSTONE_LAMP, AlarmIndicatorBlock.class);
         RebarBlock.register(REDSTONE_SENSOR, Material.REDSTONE_LAMP, RedstoneSensorBlock.class);
         RebarBlock.register(STATUS_LIGHT, Material.REDSTONE_LAMP, StatusLightBlock.class);
         RebarBlock.register(CONTROL_RELAY, Material.LEVER, ControlRelayBlock.class);
@@ -75,6 +80,7 @@ public final class GridWorksContent {
         RebarBlock.register(FACTORY_MONITOR, Material.TINTED_GLASS, FactoryMonitorBlock.class);
 
         CONTROL_INTERFACE_ITEM = ItemStackBuilder.rebar(Material.LODESTONE, CONTROL_INTERFACE).build();
+        ALARM_INDICATOR_ITEM = ItemStackBuilder.rebar(Material.REDSTONE_LAMP, ALARM_INDICATOR).build();
         REDSTONE_SENSOR_ITEM = ItemStackBuilder.rebar(Material.REDSTONE_LAMP, REDSTONE_SENSOR).build();
         STATUS_LIGHT_ITEM = ItemStackBuilder.rebar(Material.REDSTONE_LAMP, STATUS_LIGHT).build();
         CONTROL_RELAY_ITEM = ItemStackBuilder.rebar(Material.LEVER, CONTROL_RELAY).build();
@@ -87,6 +93,7 @@ public final class GridWorksContent {
         GRIDWORKS_LINKER_ITEM = ItemStackBuilder.rebar(Material.RECOVERY_COMPASS, GRIDWORKS_LINKER).build();
 
         RebarItem.register(RebarItem.class, CONTROL_INTERFACE_ITEM, CONTROL_INTERFACE);
+        RebarItem.register(RebarItem.class, ALARM_INDICATOR_ITEM, ALARM_INDICATOR);
         RebarItem.register(RebarItem.class, REDSTONE_SENSOR_ITEM, REDSTONE_SENSOR);
         RebarItem.register(RebarItem.class, STATUS_LIGHT_ITEM, STATUS_LIGHT);
         RebarItem.register(RebarItem.class, CONTROL_RELAY_ITEM, CONTROL_RELAY);

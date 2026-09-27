@@ -127,3 +127,10 @@ The relay uses Bukkit's delayed scheduler only when a pulse is active; there is 
 Delay Relay uses a pure `DelayedBooleanTransition` state machine plus at most one Bukkit delayed task. ON and OFF delays are configured independently. Repeated identical inputs do not schedule duplicate work, and reversing an input before its pending transition fires cancels that stale transition.
 
 The output starts fail-safe OFF after load; current component state replay then establishes the desired level and applies the configured delay. No repeating ticker is used.
+
+
+## Alarm Indicator
+
+Alarm Indicator separates level state from event notification. The lamp follows the current boolean input, while `RisingEdgeTrigger` controls the audible bell. The first replayed value is only a baseline, so restart/reconnect state restoration is silent even when the alarm condition is already active.
+
+Its lamp is protected from ordinary redstone changes in the same listener used by Status Light; the Control Bus remains the authoritative state.

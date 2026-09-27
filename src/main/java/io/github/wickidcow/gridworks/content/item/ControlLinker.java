@@ -8,6 +8,7 @@ import io.github.pylonmc.rebar.item.interfaces.BlockInteractRebarItemHandler;
 import io.github.wickidcow.gridworks.GridWorks;
 import io.github.wickidcow.gridworks.api.control.ControlSignal;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
+import io.github.wickidcow.gridworks.content.block.AlarmIndicatorBlock;
 import io.github.wickidcow.gridworks.content.block.ControlRelayBlock;
 import io.github.wickidcow.gridworks.content.block.DelayRelayBlock;
 import io.github.wickidcow.gridworks.content.block.FactoryControllerBlock;
@@ -138,7 +139,22 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
                         .append(Component.text(shortNodeId(controlNode.getNodeId()), NamedTextColor.WHITE))
         );
 
-        if (controlNode instanceof RedstoneSensorBlock sensor) {
+        if (controlNode instanceof AlarmIndicatorBlock alarm) {
+            event.getPlayer().sendMessage(
+                    Component.text("Alarm: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    alarm.isActive() ? "ACTIVE" : "CLEAR",
+                                    alarm.isActive() ? NamedTextColor.RED : NamedTextColor.GREEN
+                            ))
+            );
+            event.getPlayer().sendMessage(
+                    Component.text("Alarm sound: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    alarm.isSoundEnabled() ? "ON" : "MUTED",
+                                    alarm.isSoundEnabled() ? NamedTextColor.WHITE : NamedTextColor.YELLOW
+                            ))
+            );
+        } else if (controlNode instanceof RedstoneSensorBlock sensor) {
             event.getPlayer().sendMessage(
                     Component.text("Redstone input: ", NamedTextColor.GRAY)
                             .append(Component.text(Integer.toString(sensor.getLastPower()), NamedTextColor.RED))

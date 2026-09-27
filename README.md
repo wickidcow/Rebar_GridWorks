@@ -16,6 +16,7 @@ The physical layer provides persistent node UUIDs, atomic link persistence, a Gr
 
 ```text
                      +--> Status Light
+                     +--> Alarm Indicator --> visible + one-shot local alert
 Redstone Sensor -----|
                      +--> Control Relay --> steady vanilla redstone
                      +--> Pulse Relay   --> timed vanilla redstone pulse
@@ -27,6 +28,8 @@ The Redstone Sensor is event-driven and publishes analog strength plus boolean p
 The **Pulse Relay** produces a configurable 1-tick to 60-second redstone pulse on an observed false-to-true edge. Its first replayed state after a load/relink only establishes a baseline, preventing server restarts from accidentally re-triggering one-shot machinery. A new rising edge during an active pulse restarts the timer from that edge.
 
 The **Delay Relay** has independently configurable ON and OFF delays from instant to 60 seconds. If the input reverses before a delayed transition fires, the stale task is cancelled. This makes it useful for startup delays, shutdown grace periods, debounce behavior, and preventing rapid machine cycling.
+
+The **Alarm Indicator** is the first non-redstone action device. It stays visibly lit while its boolean input is active and optionally rings a local bell once on a real false-to-true edge. Replayed state after a restart or topology change updates the light silently, so normal recovery does not generate nuisance alarms.
 
 ### Inventory sensing
 
@@ -97,7 +100,7 @@ Control Bus callbacks deliberately run on the publisher's thread. Physical GridW
 
 ## Planned systems
 
-The next work is higher-level alarms/indicators and richer power-grid controls as Rebar's electricity API stabilizes. After that, GridWorks can connect inventory/fluid/redstone measurements to relays and eventually to smart electricity controls as Rebar's electricity API stabilizes.
+The next work is richer alarm routing/acknowledgement and power-grid controls as Rebar's electricity API stabilizes. After that, GridWorks can connect inventory/fluid/redstone measurements to relays and eventually to smart electricity controls as Rebar's electricity API stabilizes.
 
 ## Requirements
 
