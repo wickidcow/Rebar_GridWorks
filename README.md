@@ -147,6 +147,10 @@ It publishes three independently editable addressed outputs: **Essential**, **No
 
 If telemetry disappears, the controller uses an explicit player-selected fail-safe mode: **Essential Only** (default), **Allow All**, or **Hold Last**. The last hysteresis stage is persisted so Hold Last and recovery behavior survive reloads.
 
+All four hysteresis thresholds are configurable in the controller GUI: optional shed/restore and normal shed/restore. Normal clicks adjust by 5 percentage points and shift-clicks by 25. Edits clamp against neighboring thresholds so an invalid hysteresis ordering cannot be created. Corrupt or partial persisted threshold data falls back atomically to the safe defaults instead of mixing old and new values.
+
+Saved tier routes are also repaired through a deterministic collision-safe route set. Even if legacy/corrupt PDC contains duplicate addresses—or one duplicate happens to equal the first generated fallback—the controller generates a distinct replacement before it can publish conflicting Essential/Normal/Optional states.
+
 The next native-electricity step is the actual Rebar `PowerGridProvider` adapter once that API lands in a released dependency, followed by the Smart Breaker. Power sensing, addressed load groups, controller metrics, telemetry channels, and load shedding are now provider-neutral and already implemented.
 
 ## Requirements

@@ -327,6 +327,21 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
                                     NamedTextColor.AQUA
                             ))
             );
+            var thresholds = controller.getThresholds();
+            event.getPlayer().sendMessage(
+                    Component.text("Shedding thresholds: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    String.format(
+                                            java.util.Locale.ROOT,
+                                            "optional %.0f/%.0f%%, normal %.0f/%.0f%%",
+                                            thresholds.optionalShedAt() * 100.0,
+                                            thresholds.optionalRestoreAt() * 100.0,
+                                            thresholds.normalShedAt() * 100.0,
+                                            thresholds.normalRestoreAt() * 100.0
+                                    ),
+                                    NamedTextColor.WHITE
+                            ))
+            );
             event.getPlayer().sendMessage(
                     Component.text("Essential route: ", NamedTextColor.GRAY)
                             .append(Component.text(

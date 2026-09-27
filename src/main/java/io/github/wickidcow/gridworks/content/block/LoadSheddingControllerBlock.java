@@ -14,7 +14,9 @@ import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
 import io.github.wickidcow.gridworks.api.power.LoadSheddingFailSafeMode;
 import io.github.wickidcow.gridworks.api.power.LoadSheddingOutputState;
 import io.github.wickidcow.gridworks.api.power.LoadSheddingPolicy;
+import io.github.wickidcow.gridworks.api.power.LoadSheddingRoutes;
 import io.github.wickidcow.gridworks.api.power.LoadSheddingStage;
+import io.github.wickidcow.gridworks.api.power.LoadSheddingThresholds;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -43,13 +45,22 @@ public final class LoadSheddingControllerBlock extends PhysicalControlNodeBlock
     private static final NamespacedKey OPTIONAL_ADDRESS_KEY = key("load_shed_optional_address");
     private static final NamespacedKey FAIL_SAFE_KEY = key("load_shed_fail_safe");
     private static final NamespacedKey LAST_STAGE_KEY = key("load_shed_last_stage");
+    private static final NamespacedKey OPTIONAL_SHED_AT_KEY =
+            key("load_shed_optional_shed_at");
+    private static final NamespacedKey OPTIONAL_RESTORE_AT_KEY =
+            key("load_shed_optional_restore_at");
+    private static final NamespacedKey NORMAL_SHED_AT_KEY =
+            key("load_shed_normal_shed_at");
+    private static final NamespacedKey NORMAL_RESTORE_AT_KEY =
+            key("load_shed_normal_restore_at");
 
     private UUID sourceId;
     private ControlAddress essentialAddress;
     private ControlAddress normalAddress;
     private ControlAddress optionalAddress;
     private LoadSheddingFailSafeMode failSafeMode;
-    private final LoadSheddingPolicy policy;
+    private LoadSheddingThresholds thresholds;
+    private LoadSheddingPolicy policy;
 
     private boolean powerAvailable;
     private Double loadRatio;
@@ -63,6 +74,14 @@ public final class LoadSheddingControllerBlock extends PhysicalControlNodeBlock
     private final AddressItem essentialAddressItem = new AddressItem(Tier.ESSENTIAL);
     private final AddressItem normalAddressItem = new AddressItem(Tier.NORMAL);
     private final AddressItem optionalAddressItem = new AddressItem(Tier.OPTIONAL);
+    private final ThresholdItem optionalShedItem =
+            new ThresholdItem(ThresholdKind.OPTIONAL_SHED);
+    private final ThresholdItem optionalRestoreItem =
+            new ThresholdItem(ThresholdKind.OPTIONAL_RESTORE);
+    private final ThresholdItem normalShedItem =
+            new ThresholdItem(ThresholdKind.NORMAL_SHED);
+    private final ThresholdItem normalRestoreItem =
+            new ThresholdItem(ThresholdKind.NORMAL_RESTORE);
 
     public LoadSheddingControllerBlock(
             @NotNull Block block,
@@ -75,7 +94,8 @@ public final class LoadSheddingControllerBlock extends PhysicalControlNodeBlock
         this.normalAddress = ControlAddress.defaultFor(getNodeId(), "normal");
         this.optionalAddress = ControlAddress.defaultFor(getNodeId(), "optional");
         this.failSafeMode = LoadSheddingFailSafeMode.ESSENTIAL_ONLY;
-        this.policy = LoadSheddingPolicy.defaults();
+        this.thresholds = LoadSheddingThresholds.defaults();
+        this.policy = thresholds.createPolicy(LoadSheddingStage.NORMAL);
     }
 
     public LoadSheddingControllerBlock(
@@ -102,13 +122,27 @@ public final class LoadSheddingControllerBlock extends PhysicalControlNodeBlock
         this.failSafeMode = LoadSheddingFailSafeMode.fromStored(
                 pdc.get(FAIL_SAFE_KEY, PersistentDataType.STRING)
         );
-        this.policy = LoadSheddingPolicy.defaults(
+        this.thresholds = LoadSheddingThresholds.fromStoredOrDefault(
+                pdc.get(OPTIONAL_SHED_AT_KEY, PersistentDataType.DOUBLE),
+                pdc.get(OPTIONAL_RESTORE_AT_KEY, PersistentDataType.DOUBLE),
+                pdc.get(NORMAL_SHED_AT_KEY, PersistentDataType.DOUBLE),
+                pdc.get(NORMAL_RESTORE_AT_KEY, PersistentDataType.DOUBLE)
+        );
+        this.policy = thresholds.createPolicy(
                 LoadSheddingStage.fromStored(
                         pdc.get(LAST_STAGE_KEY, PersistentDataType.STRING)
                 )
         );
 
-        repairDuplicateAddresses();
+        LoadSheddingRoutes routes = LoadSheddingRoutes.repaired(
+                getNodeId(),
+                essentialAddress,
+                normalAddress,
+                optionalAddress
+        );
+        this.essentialAddress = routes.essential();
+        this.normalAddress = routes.normal();
+        this.optionalAddress = routes.optional();
     }
 
     @Override
@@ -170,6 +204,26 @@ public final class LoadSheddingControllerBlock extends PhysicalControlNodeBlock
         );
         pdc.set(FAIL_SAFE_KEY, PersistentDataType.STRING, failSafeMode.name());
         pdc.set(LAST_STAGE_KEY, PersistentDataType.STRING, policy.stage().name());
+        pdc.set(
+                OPTIONAL_SHED_AT_KEY,
+                PersistentDataType.DOUBLE,
+                thresholds.optionalShedAt()
+        );
+        pdc.set(
+                OPTIONAL_RESTORE_AT_KEY,
+                PersistentDataType.DOUBLE,
+                thresholds.optionalRestoreAt()
+        );
+        pdc.set(
+                NORMAL_SHED_AT_KEY,
+                PersistentDataType.DOUBLE,
+                thresholds.normalShedAt()
+        );
+        pdc.set(
+                NORMAL_RESTORE_AT_KEY,
+                PersistentDataType.DOUBLE,
+                thresholds.normalRestoreAt()
+        );
     }
 
     @Override
@@ -177,7 +231,8 @@ public final class LoadSheddingControllerBlock extends PhysicalControlNodeBlock
         return Gui.builder()
                 .setStructure(
                         "s # x # f # # # #",
-                        "e # n # o # # # #"
+                        "e # n # o # # # #",
+                        "a b # c d # # # #"
                 )
                 .addIngredient('#', GuiItems.background())
                 .addIngredient('s', sourceItem)
@@ -186,6 +241,10 @@ public final class LoadSheddingControllerBlock extends PhysicalControlNodeBlock
                 .addIngredient('e', essentialAddressItem)
                 .addIngredient('n', normalAddressItem)
                 .addIngredient('o', optionalAddressItem)
+                .addIngredient('a', optionalShedItem)
+                .addIngredient('b', optionalRestoreItem)
+                .addIngredient('c', normalShedItem)
+                .addIngredient('d', normalRestoreItem)
                 .build();
     }
 
@@ -204,6 +263,10 @@ public final class LoadSheddingControllerBlock extends PhysicalControlNodeBlock
 
     public @NotNull LoadSheddingFailSafeMode getFailSafeMode() {
         return failSafeMode;
+    }
+
+    public @NotNull LoadSheddingThresholds getThresholds() {
+        return thresholds;
     }
 
     public UUID getSourceId() {
@@ -375,6 +438,24 @@ public final class LoadSheddingControllerBlock extends PhysicalControlNodeBlock
         statusItem.notifyWindows();
     }
 
+    private void changeThreshold(ThresholdKind kind, double delta) {
+        LoadSheddingStage previousStage = policy.stage();
+        LoadSheddingThresholds next = kind.adjust(thresholds, delta);
+        if (next.equals(thresholds)) {
+            return;
+        }
+
+        thresholds = next;
+        policy = thresholds.createPolicy(previousStage);
+
+        if (telemetryKnown && loadRatio != null && unpoweredConsumers != null) {
+            policy.update(loadRatio, unpoweredConsumers);
+        }
+
+        publishOutputs(false);
+        notifyItems();
+    }
+
     private void setAddress(Tier tier, ControlAddress next) {
         ControlAddress current = addressFor(tier);
         if (current.equals(next)) {
@@ -517,16 +598,6 @@ public final class LoadSheddingControllerBlock extends PhysicalControlNodeBlock
         };
     }
 
-    private void repairDuplicateAddresses() {
-        if (normalAddress.equals(essentialAddress)) {
-            normalAddress = ControlAddress.defaultFor(getNodeId(), "normal");
-        }
-        if (optionalAddress.equals(essentialAddress)
-                || optionalAddress.equals(normalAddress)) {
-            optionalAddress = ControlAddress.defaultFor(getNodeId(), "optional");
-        }
-    }
-
     private void notifyItems() {
         sourceItem.notifyWindows();
         statusItem.notifyWindows();
@@ -534,6 +605,10 @@ public final class LoadSheddingControllerBlock extends PhysicalControlNodeBlock
         essentialAddressItem.notifyWindows();
         normalAddressItem.notifyWindows();
         optionalAddressItem.notifyWindows();
+        optionalShedItem.notifyWindows();
+        optionalRestoreItem.notifyWindows();
+        normalShedItem.notifyWindows();
+        normalRestoreItem.notifyWindows();
     }
 
     private static UUID uuidFromStored(String raw) {
@@ -682,6 +757,49 @@ public final class LoadSheddingControllerBlock extends PhysicalControlNodeBlock
         }
     }
 
+    private final class ThresholdItem extends ControllerItem {
+        private final ThresholdKind kind;
+
+        private ThresholdItem(ThresholdKind kind) {
+            this.kind = kind;
+        }
+
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            return item(
+                    kind.material,
+                    kind.displayName + ": " + formatPercent(kind.value(thresholds))
+            ).lore(
+                    Component.text(
+                            "Left +5% / Right -5%",
+                            NamedTextColor.YELLOW
+                    ),
+                    Component.text(
+                            "Shift uses 25%",
+                            NamedTextColor.YELLOW
+                    ),
+                    Component.text(
+                            "Edits clamp to preserve hysteresis ordering",
+                            NamedTextColor.DARK_GRAY
+                    )
+            );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            double step = clickType.isShiftClick() ? 0.25 : 0.05;
+            if (clickType.isLeftClick()) {
+                changeThreshold(kind, step);
+            } else if (clickType.isRightClick()) {
+                changeThreshold(kind, -step);
+            }
+        }
+    }
+
     private final class AddressItem extends ControllerItem {
         private final Tier tier;
 
@@ -719,6 +837,92 @@ public final class LoadSheddingControllerBlock extends PhysicalControlNodeBlock
 
     private static String onOff(boolean value) {
         return value ? "ON" : "OFF";
+    }
+
+    private static String formatPercent(double ratio) {
+        return String.format(java.util.Locale.ROOT, "%.0f%%", ratio * 100.0);
+    }
+
+    private enum ThresholdKind {
+        OPTIONAL_SHED("Optional shed", Material.REDSTONE_TORCH) {
+            @Override
+            double value(LoadSheddingThresholds thresholds) {
+                return thresholds.optionalShedAt();
+            }
+
+            @Override
+            LoadSheddingThresholds adjust(
+                    LoadSheddingThresholds thresholds,
+                    double delta
+            ) {
+                return thresholds.withOptionalShedAt(
+                        thresholds.optionalShedAt() + delta
+                );
+            }
+        },
+        OPTIONAL_RESTORE("Optional restore", Material.LEVER) {
+            @Override
+            double value(LoadSheddingThresholds thresholds) {
+                return thresholds.optionalRestoreAt();
+            }
+
+            @Override
+            LoadSheddingThresholds adjust(
+                    LoadSheddingThresholds thresholds,
+                    double delta
+            ) {
+                return thresholds.withOptionalRestoreAt(
+                        thresholds.optionalRestoreAt() + delta
+                );
+            }
+        },
+        NORMAL_SHED("Normal shed", Material.REDSTONE_BLOCK) {
+            @Override
+            double value(LoadSheddingThresholds thresholds) {
+                return thresholds.normalShedAt();
+            }
+
+            @Override
+            LoadSheddingThresholds adjust(
+                    LoadSheddingThresholds thresholds,
+                    double delta
+            ) {
+                return thresholds.withNormalShedAt(
+                        thresholds.normalShedAt() + delta
+                );
+            }
+        },
+        NORMAL_RESTORE("Normal restore", Material.COMPARATOR) {
+            @Override
+            double value(LoadSheddingThresholds thresholds) {
+                return thresholds.normalRestoreAt();
+            }
+
+            @Override
+            LoadSheddingThresholds adjust(
+                    LoadSheddingThresholds thresholds,
+                    double delta
+            ) {
+                return thresholds.withNormalRestoreAt(
+                        thresholds.normalRestoreAt() + delta
+                );
+            }
+        };
+
+        private final String displayName;
+        private final Material material;
+
+        ThresholdKind(String displayName, Material material) {
+            this.displayName = displayName;
+            this.material = material;
+        }
+
+        abstract double value(LoadSheddingThresholds thresholds);
+
+        abstract LoadSheddingThresholds adjust(
+                LoadSheddingThresholds thresholds,
+                double delta
+        );
     }
 
     private enum Tier {

@@ -300,3 +300,22 @@ The controller publishes three addressed boolean outputs for Essential, Normal, 
 Missing telemetry is explicit policy rather than implicit behavior. Essential Only, Allow All, and Hold Last are available. The default Essential Only keeps priority-one loads on while disabling lower priorities when the monitoring path disappears.
 
 The last known hysteresis stage is persisted. Provider loss or source chunk unload does not reset it; when telemetry returns, hysteresis resumes from the prior stage. Manually choosing a different source resets the stage to Normal because it may represent a different power grid.
+
+
+## Configurable load-shedding thresholds
+
+`LoadSheddingThresholds` is the validated persistent configuration for the four hysteresis boundaries. Its invariants guarantee:
+
+`optionalRestore <= optionalShed <= normalShed`
+
+and
+
+`optionalRestore <= normalRestore <= normalShed`.
+
+Player edits clamp to those relationships rather than silently shifting another threshold. Persisted data is loaded as one atomic configuration; missing, non-finite, out-of-range, or internally inconsistent values fall back to the complete default set.
+
+Changing thresholds reconstructs `LoadSheddingPolicy` with the current persisted stage, then immediately reevaluates the most recent complete telemetry sample when one is known. This preserves hysteresis state while allowing the new settings to take effect without polling.
+
+## Load-shedding route repair
+
+`LoadSheddingRoutes` validates that Essential, Normal, and Optional addresses are distinct. During block load it preserves Essential first, then repairs conflicting lower-priority routes with deterministic node-derived fallback addresses. The fallback search handles the edge case where a persisted address already equals the first generated fallback.

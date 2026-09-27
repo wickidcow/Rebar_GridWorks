@@ -101,7 +101,7 @@ item:
       <arrow> Uses complete Power Grid Sensor snapshots with hysteresis
       <arrow> Drives Essential, Normal, and Optional addressed load groups
       <arrow> Optional loads shed first; normal loads shed under severe stress
-      <arrow> Configure explicit missing-telemetry fail-safe behavior
+      <arrow> Configure shed/restore hysteresis and missing-telemetry fail-safe behavior
 
   factory_monitor:
     name: "Factory Monitor"
