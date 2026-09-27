@@ -10,6 +10,7 @@ import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
 import java.util.Objects;
 import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.type.Switch;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventPriority;
@@ -85,11 +86,19 @@ public final class ControlRelayBlock extends PhysicalControlNodeBlock
     }
 
     private void applyOutputState() {
-        Switch current = getBlockDataAs(Switch.class);
-        if (current.isPowered() == powered) {
+        BlockData blockData = getBlock().getBlockData();
+        if (!(blockData instanceof Switch relaySwitch)) {
+            throw new IllegalStateException(
+                    "Control Relay block material no longer provides Switch block data: "
+                            + blockData.getMaterial()
+            );
+        }
+
+        if (relaySwitch.isPowered() == powered) {
             return;
         }
 
-        editBlockDataAs(Switch.class, data -> data.setPowered(powered));
+        relaySwitch.setPowered(powered);
+        getBlock().setBlockData(relaySwitch);
     }
 }
