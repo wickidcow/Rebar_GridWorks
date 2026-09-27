@@ -188,7 +188,7 @@ public final class AlarmConsoleBlock extends PhysicalControlNodeBlock implements
         summaryItem.notifyWindows();
     }
 
-    private static List<AlarmSlotItem> createSlots() {
+    private List<AlarmSlotItem> createSlots() {
         List<AlarmSlotItem> slots = new ArrayList<>(SLOT_COUNT);
         for (int i = 0; i < SLOT_COUNT; i++) {
             slots.add(new AlarmSlotItem(i));
