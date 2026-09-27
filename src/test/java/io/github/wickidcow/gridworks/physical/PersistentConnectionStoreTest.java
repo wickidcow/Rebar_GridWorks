@@ -2,8 +2,12 @@ package io.github.wickidcow.gridworks.physical;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.UUID;
@@ -51,6 +55,106 @@ class PersistentConnectionStoreTest {
         store.toggle(b, c);
 
         assertEquals(2, store.removeNode(b));
+        assertTrue(store.links().isEmpty());
+    }
+
+
+    @Test
+    void malformedPersistedEntryFailsLoudly() throws Exception {
+        Path file = tempDir.resolve("network.txt");
+        Files.writeString(
+                file,
+                "# GridWorks persistent Control Interface links\nnot-a-link\n",
+                StandardCharsets.UTF_8
+        );
+
+        IOException failure = assertThrows(
+                IOException.class,
+                () -> new PersistentConnectionStore(file)
+        );
+
+        assertTrue(failure.getMessage().contains("line 2"));
+    }
+
+    @Test
+    void malformedOrSelfLinkedUuidFailsLoudly() throws Exception {
+        Path invalidUuid = tempDir.resolve("invalid-uuid.txt");
+        Files.writeString(
+                invalidUuid,
+                "not-a-uuid,00000000-0000-0000-0000-000000000001\n",
+                StandardCharsets.UTF_8
+        );
+        assertThrows(
+                IOException.class,
+                () -> new PersistentConnectionStore(invalidUuid)
+        );
+
+        UUID id = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        Path selfLink = tempDir.resolve("self-link.txt");
+        Files.writeString(
+                selfLink,
+                id + "," + id + "\n",
+                StandardCharsets.UTF_8
+        );
+        assertThrows(
+                IOException.class,
+                () -> new PersistentConnectionStore(selfLink)
+        );
+    }
+
+    @Test
+    void duplicateAndReversedPersistedLinksCanonicalize() throws Exception {
+        UUID first = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID second = UUID.fromString("00000000-0000-0000-0000-000000000002");
+        Path file = tempDir.resolve("network.txt");
+        Files.writeString(
+                file,
+                first + "," + second + "\n"
+                        + second + "," + first + "\n",
+                StandardCharsets.UTF_8
+        );
+
+        PersistentConnectionStore store = new PersistentConnectionStore(file);
+
+        assertEquals(1, store.links().size());
+        assertTrue(store.contains(first, second));
+    }
+
+    @Test
+    void savedFileIsDeterministicAndLeavesNoTempFile() throws Exception {
+        UUID a = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID b = UUID.fromString("00000000-0000-0000-0000-000000000002");
+        UUID c = UUID.fromString("00000000-0000-0000-0000-000000000003");
+        Path file = tempDir.resolve("network.txt");
+
+        PersistentConnectionStore store = new PersistentConnectionStore(file);
+        store.toggle(c, b);
+        store.toggle(b, a);
+
+        assertEquals(
+                java.util.List.of(
+                        "# GridWorks persistent Control Interface links",
+                        a + "," + b,
+                        b + "," + c
+                ),
+                Files.readAllLines(file, StandardCharsets.UTF_8)
+        );
+        assertFalse(Files.exists(tempDir.resolve("network.txt.tmp")));
+    }
+
+    @Test
+    void failedDiskSaveRollsBackInMemoryMutation() throws Exception {
+        Path blockedParent = tempDir.resolve("blocked");
+        Path file = blockedParent.resolve("network.txt");
+
+        PersistentConnectionStore store = new PersistentConnectionStore(file);
+        Files.writeString(blockedParent, "not a directory", StandardCharsets.UTF_8);
+
+        UUID a = UUID.randomUUID();
+        UUID b = UUID.randomUUID();
+
+        assertThrows(IOException.class, () -> store.toggle(a, b));
+        assertFalse(store.contains(a, b));
         assertTrue(store.links().isEmpty());
     }
 
