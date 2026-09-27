@@ -282,3 +282,10 @@ CI also source-checks the actual `NamespacedKey` registrations, recipe declarati
 GridWorks now owns its partial-startup cleanup instead of relying solely on the server to invoke disable after an enable exception. If config loading, network persistence, content registration, recipe validation, or any later initialization step fails, GridWorks immediately rolls back registered recipes/services/listeners, closes every initialized sensor/device manager, cancels remaining plugin scheduler tasks, clears the live physical/control graphs, and releases the static plugin instance before rethrowing the original failure.
 
 Normal plugin disable uses the same idempotent cleanup path, so cleanup behavior does not drift between failed startup and ordinary shutdown.
+
+
+## Real-server CI smoke gate
+
+Successful `main` builds now boot a real Paper 26.2 test server through run-paper with released Rebar and the just-built GridWorks JAR before the rolling raw JAR is published. CI requires GridWorks to complete its 21-entry content/recipe validation and reach the Control Bus initialized state, then shuts the server down cleanly.
+
+This catches enable-time API/linkage problems, Rebar registration failures, bundled-language/recipe validation failures, and startup lifecycle regressions that unit tests alone cannot see. Pull requests continue to run compile/unit tests without publishing or replacing the development JAR.

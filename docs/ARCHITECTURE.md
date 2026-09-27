@@ -445,3 +445,10 @@ A JUnit source-consistency check additionally parses `GridWorksContent.java` Nam
 `GridWorks.onEnable` delegates to a single runtime initializer wrapped in an exception boundary. Any `RuntimeException` or `Error` triggers the same cleanup routine used by normal disable and is then rethrown so Bukkit still records the real enable failure.
 
 Cleanup is intentionally idempotent and step-isolated. One cleanup failure is logged but does not prevent later resources from being released. The sequence removes recipes and Bukkit services, closes initialized sensor/branch managers, cancels all remaining plugin-owned scheduler tasks (including per-device delayed work), unregisters listeners, closes the physical graph, clears the Control Bus, and finally nulls the static plugin instance.
+
+
+## Real-server smoke validation
+
+The `main` CI path runs unit tests first and then starts Paper 26.2 with released Rebar plus the automatically detected GridWorks project JAR using run-paper. The smoke gate waits for both the runtime content-integrity validation and Control Bus initialization messages.
+
+The server is stopped through its console input after readiness is proven. A premature process exit, enable failure, missing readiness marker, or unclean shutdown fails the workflow. The rolling raw development JAR is published only after this smoke gate succeeds.
