@@ -137,9 +137,17 @@ When the provider disappears, the target chunk unloads, or the target is no long
 
 ## Planned systems
 
-The load-shedding core is also prepared ahead of the native bridge. `LoadSheddingPolicy` uses hysteresis with three stages: Normal, Shed Optional, and Shed Normal + Optional. Default thresholds shed optional loads at 90% load and restore them at 80%; severe shedding begins at 100% load or whenever the provider reports any unpowered consumer, and normal loads recover only after load falls to 90% with no unpowered consumers. Essential loads are never disabled by the policy.
+The load-shedding core uses hysteresis with three stages: Normal, Shed Optional, and Shed Normal + Optional. Default thresholds shed optional loads at 90% load and restore them at 80%; severe shedding begins at 100% load or whenever the provider reports any unpowered consumer, and normal loads recover only after load falls to 90% with no unpowered consumers. Essential loads are never disabled by the policy.
 
-The next native-electricity step is the actual Rebar `PowerGridProvider` adapter once that API lands in a released dependency, followed by the Smart Breaker. The Power Grid Sensor, controller metrics, telemetry channels, and load-shedding policy are already provider-neutral.
+### Load Shedding Controller
+
+The **Load Shedding Controller** turns that policy into player-facing automation. It binds to one directly linked power telemetry source and waits for the sensor's `power/sample_revision` marker before evaluating, so it never makes a decision from a half-updated snapshot.
+
+It publishes three independently editable addressed outputs: **Essential**, **Normal**, and **Optional**. Optional loads are disabled first; severe grid stress disables both Normal and Optional while Essential remains enabled. Tier addresses must be distinct, and moving an address explicitly clears the old route before applying the current tier state to the new route.
+
+If telemetry disappears, the controller uses an explicit player-selected fail-safe mode: **Essential Only** (default), **Allow All**, or **Hold Last**. The last hysteresis stage is persisted so Hold Last and recovery behavior survive reloads.
+
+The next native-electricity step is the actual Rebar `PowerGridProvider` adapter once that API lands in a released dependency, followed by the Smart Breaker. Power sensing, addressed load groups, controller metrics, telemetry channels, and load shedding are now provider-neutral and already implemented.
 
 ## Requirements
 

@@ -93,6 +93,19 @@ class LoadSheddingPolicyTest {
     }
 
     @Test
+    void canRestorePersistedStage() {
+        LoadSheddingPolicy policy = LoadSheddingPolicy.defaults(
+                LoadSheddingStage.SHED_OPTIONAL
+        );
+
+        assertEquals(LoadSheddingStage.SHED_OPTIONAL, policy.stage());
+        assertEquals(
+                LoadSheddingStage.SHED_OPTIONAL,
+                policy.update(0.85, 0)
+        );
+    }
+
+    @Test
     void resetReturnsToNormal() {
         LoadSheddingPolicy policy = LoadSheddingPolicy.defaults();
         policy.update(1.0, 0);

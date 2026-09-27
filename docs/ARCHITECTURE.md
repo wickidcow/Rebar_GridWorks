@@ -287,3 +287,16 @@ Factory Controller uses this lifecycle signal for every metric type, not only po
 Power Grid Sensor increments a per-sensor revision only when its snapshot actually changes. It publishes all telemetry fields first and then publishes `power/sample_revision` last. The revision stays within the exactly representable integer range of IEEE-754 doubles and wraps back to 1 only after that extremely large boundary.
 
 Consumers that depend on multiple power fields should cache individual values and evaluate only when the revision marker arrives. Single-metric Factory Controller rules can continue reacting directly to their configured channel.
+
+
+## Load Shedding Controller
+
+Load Shedding Controller is a `ControlStateSource` that consumes `power/available`, `power/load_ratio`, `power/unpowered_consumers`, and `power/sample_revision` from one directly linked source.
+
+Load/unpowered values are cached as they arrive, but the policy is evaluated only when the sample-revision marker arrives. This prevents a mixed old/new snapshot from causing a transient shed/restore decision.
+
+The controller publishes three addressed boolean outputs for Essential, Normal, and Optional tiers. Their addresses are independent and enforced to be distinct. Re-addressing a tier first publishes OFF to the old address and then publishes the tier's current state to the new one.
+
+Missing telemetry is explicit policy rather than implicit behavior. Essential Only, Allow All, and Hold Last are available. The default Essential Only keeps priority-one loads on while disabling lower priorities when the monitoring path disappears.
+
+The last known hysteresis stage is persisted. Provider loss or source chunk unload does not reset it; when telemetry returns, hysteresis resumes from the prior stage. Manually choosing a different source resets the stage to Normal because it may represent a different power grid.

@@ -14,6 +14,7 @@ import io.github.wickidcow.gridworks.content.block.FactoryControllerBlock;
 import io.github.wickidcow.gridworks.content.block.FactoryMonitorBlock;
 import io.github.wickidcow.gridworks.content.block.FluidSensorBlock;
 import io.github.wickidcow.gridworks.content.block.InventorySensorBlock;
+import io.github.wickidcow.gridworks.content.block.LoadSheddingControllerBlock;
 import io.github.wickidcow.gridworks.content.block.PulseRelayBlock;
 import io.github.wickidcow.gridworks.content.block.PowerGridSensorBlock;
 import io.github.wickidcow.gridworks.content.block.RedstoneSensorBlock;
@@ -39,6 +40,7 @@ public final class GridWorksContent {
     public static NamespacedKey FLUID_SENSOR;
     public static NamespacedKey POWER_GRID_SENSOR;
     public static NamespacedKey FACTORY_CONTROLLER;
+    public static NamespacedKey LOAD_SHEDDING_CONTROLLER;
     public static NamespacedKey FACTORY_MONITOR;
     public static NamespacedKey GRIDWORKS_LINKER;
 
@@ -55,6 +57,7 @@ public final class GridWorksContent {
     public static ItemStack FLUID_SENSOR_ITEM;
     public static ItemStack POWER_GRID_SENSOR_ITEM;
     public static ItemStack FACTORY_CONTROLLER_ITEM;
+    public static ItemStack LOAD_SHEDDING_CONTROLLER_ITEM;
     public static ItemStack FACTORY_MONITOR_ITEM;
     public static ItemStack GRIDWORKS_LINKER_ITEM;
 
@@ -76,6 +79,7 @@ public final class GridWorksContent {
         FLUID_SENSOR = new NamespacedKey(plugin, "fluid_sensor");
         POWER_GRID_SENSOR = new NamespacedKey(plugin, "power_grid_sensor");
         FACTORY_CONTROLLER = new NamespacedKey(plugin, "factory_controller");
+        LOAD_SHEDDING_CONTROLLER = new NamespacedKey(plugin, "load_shedding_controller");
         FACTORY_MONITOR = new NamespacedKey(plugin, "factory_monitor");
         GRIDWORKS_LINKER = new NamespacedKey(plugin, "gridworks_linker");
 
@@ -92,6 +96,11 @@ public final class GridWorksContent {
         RebarBlock.register(FLUID_SENSOR, Material.LIGHT_BLUE_GLAZED_TERRACOTTA, FluidSensorBlock.class);
         RebarBlock.register(POWER_GRID_SENSOR, Material.LIGHTNING_ROD, PowerGridSensorBlock.class);
         RebarBlock.register(FACTORY_CONTROLLER, Material.CHISELED_COPPER, FactoryControllerBlock.class);
+        RebarBlock.register(
+                LOAD_SHEDDING_CONTROLLER,
+                Material.POLISHED_DEEPSLATE,
+                LoadSheddingControllerBlock.class
+        );
         RebarBlock.register(FACTORY_MONITOR, Material.TINTED_GLASS, FactoryMonitorBlock.class);
 
         CONTROL_INTERFACE_ITEM = ItemStackBuilder.rebar(Material.LODESTONE, CONTROL_INTERFACE).build();
@@ -107,6 +116,10 @@ public final class GridWorksContent {
         FLUID_SENSOR_ITEM = ItemStackBuilder.rebar(Material.LIGHT_BLUE_GLAZED_TERRACOTTA, FLUID_SENSOR).build();
         POWER_GRID_SENSOR_ITEM = ItemStackBuilder.rebar(Material.LIGHTNING_ROD, POWER_GRID_SENSOR).build();
         FACTORY_CONTROLLER_ITEM = ItemStackBuilder.rebar(Material.CHISELED_COPPER, FACTORY_CONTROLLER).build();
+        LOAD_SHEDDING_CONTROLLER_ITEM = ItemStackBuilder.rebar(
+                Material.POLISHED_DEEPSLATE,
+                LOAD_SHEDDING_CONTROLLER
+        ).build();
         FACTORY_MONITOR_ITEM = ItemStackBuilder.rebar(Material.TINTED_GLASS, FACTORY_MONITOR).build();
         GRIDWORKS_LINKER_ITEM = ItemStackBuilder.rebar(Material.RECOVERY_COMPASS, GRIDWORKS_LINKER).build();
 
@@ -123,6 +136,11 @@ public final class GridWorksContent {
         RebarItem.register(RebarItem.class, FLUID_SENSOR_ITEM, FLUID_SENSOR);
         RebarItem.register(RebarItem.class, POWER_GRID_SENSOR_ITEM, POWER_GRID_SENSOR);
         RebarItem.register(RebarItem.class, FACTORY_CONTROLLER_ITEM, FACTORY_CONTROLLER);
+        RebarItem.register(
+                RebarItem.class,
+                LOAD_SHEDDING_CONTROLLER_ITEM,
+                LOAD_SHEDDING_CONTROLLER
+        );
         RebarItem.register(RebarItem.class, FACTORY_MONITOR_ITEM, FACTORY_MONITOR);
         RebarItem.register(ControlLinker.class, GRIDWORKS_LINKER_ITEM);
 

@@ -19,6 +19,7 @@ import io.github.wickidcow.gridworks.content.block.FactoryControllerBlock;
 import io.github.wickidcow.gridworks.content.block.FactoryMonitorBlock;
 import io.github.wickidcow.gridworks.content.block.FluidSensorBlock;
 import io.github.wickidcow.gridworks.content.block.InventorySensorBlock;
+import io.github.wickidcow.gridworks.content.block.LoadSheddingControllerBlock;
 import io.github.wickidcow.gridworks.content.block.PhysicalControlNodeBlock;
 import io.github.wickidcow.gridworks.content.block.PulseRelayBlock;
 import io.github.wickidcow.gridworks.content.block.PowerGridSensorBlock;
@@ -314,6 +315,38 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
             event.getPlayer().sendMessage(
                     Component.text("Power grid: ", NamedTextColor.GRAY)
                             .append(Component.text(sensor.describeSnapshot(), NamedTextColor.WHITE))
+            );
+        } else if (controlNode instanceof LoadSheddingControllerBlock controller) {
+            event.getPlayer().sendMessage(
+                    Component.text("Load shedding: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    controller.isTelemetryKnown()
+                                            ? controller.getStage().name()
+                                            : "WAITING / "
+                                                    + controller.getFailSafeMode().displayName(),
+                                    NamedTextColor.AQUA
+                            ))
+            );
+            event.getPlayer().sendMessage(
+                    Component.text("Essential route: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    controller.getEssentialAddress().value(),
+                                    NamedTextColor.WHITE
+                            ))
+            );
+            event.getPlayer().sendMessage(
+                    Component.text("Normal route: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    controller.getNormalAddress().value(),
+                                    NamedTextColor.WHITE
+                            ))
+            );
+            event.getPlayer().sendMessage(
+                    Component.text("Optional route: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    controller.getOptionalAddress().value(),
+                                    NamedTextColor.WHITE
+                            ))
             );
         } else if (controlNode instanceof FactoryControllerBlock controller) {
             event.getPlayer().sendMessage(

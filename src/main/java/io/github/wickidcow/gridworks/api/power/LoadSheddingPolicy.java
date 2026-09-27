@@ -14,13 +14,29 @@ public final class LoadSheddingPolicy {
     private final double normalShedAt;
     private final double normalRestoreAt;
 
-    private LoadSheddingStage stage = LoadSheddingStage.NORMAL;
+    private LoadSheddingStage stage;
 
     public LoadSheddingPolicy(
             double optionalShedAt,
             double optionalRestoreAt,
             double normalShedAt,
             double normalRestoreAt
+    ) {
+        this(
+                optionalShedAt,
+                optionalRestoreAt,
+                normalShedAt,
+                normalRestoreAt,
+                LoadSheddingStage.NORMAL
+        );
+    }
+
+    public LoadSheddingPolicy(
+            double optionalShedAt,
+            double optionalRestoreAt,
+            double normalShedAt,
+            double normalRestoreAt,
+            LoadSheddingStage initialStage
     ) {
         requireFiniteNonNegative(optionalShedAt, "optionalShedAt");
         requireFiniteNonNegative(optionalRestoreAt, "optionalRestoreAt");
@@ -52,14 +68,20 @@ public final class LoadSheddingPolicy {
         this.optionalRestoreAt = optionalRestoreAt;
         this.normalShedAt = normalShedAt;
         this.normalRestoreAt = normalRestoreAt;
+        this.stage = Objects.requireNonNull(initialStage, "initialStage");
     }
 
     public static LoadSheddingPolicy defaults() {
+        return defaults(LoadSheddingStage.NORMAL);
+    }
+
+    public static LoadSheddingPolicy defaults(LoadSheddingStage initialStage) {
         return new LoadSheddingPolicy(
                 0.90,
                 0.80,
                 1.00,
-                0.90
+                0.90,
+                initialStage
         );
     }
 

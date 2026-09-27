@@ -1,5 +1,7 @@
 package io.github.wickidcow.gridworks.api.power;
 
+import java.util.Locale;
+
 public enum LoadSheddingStage {
     NORMAL,
     SHED_OPTIONAL,
@@ -15,5 +17,17 @@ public enum LoadSheddingStage {
 
     public boolean allowsOptionalLoads() {
         return this == NORMAL;
+    }
+
+    public static LoadSheddingStage fromStored(String stored) {
+        if (stored == null) {
+            return NORMAL;
+        }
+
+        try {
+            return valueOf(stored.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ignored) {
+            return NORMAL;
+        }
     }
 }

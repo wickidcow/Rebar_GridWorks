@@ -95,6 +95,14 @@ item:
       <arrow> AUTO-bind or explicitly choose directly linked sources
       <arrow> Right click to configure rules, presets, sources, and output routing
 
+  load_shedding_controller:
+    name: "Load Shedding Controller"
+    lore: |-
+      <arrow> Uses complete Power Grid Sensor snapshots with hysteresis
+      <arrow> Drives Essential, Normal, and Optional addressed load groups
+      <arrow> Optional loads shed first; normal loads shed under severe stress
+      <arrow> Configure explicit missing-telemetry fail-safe behavior
+
   factory_monitor:
     name: "Factory Monitor"
     lore: |-
