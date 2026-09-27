@@ -6,6 +6,7 @@ import io.github.pylonmc.rebar.item.builder.ItemStackBuilder;
 import io.github.pylonmc.rebar.util.gui.GuiItems;
 import io.github.wickidcow.gridworks.GridWorks;
 import io.github.wickidcow.gridworks.alarm.AlarmAcknowledgeRequest;
+import io.github.wickidcow.gridworks.alarm.AlarmEscalationPolicy;
 import io.github.wickidcow.gridworks.alarm.AlarmHistoryState;
 import io.github.wickidcow.gridworks.alarm.AlarmSeverity;
 import io.github.wickidcow.gridworks.api.control.BooleanInputConfigurable;
@@ -30,6 +31,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.scheduler.BukkitTask;
 import org.jetbrains.annotations.NotNull;
 import xyz.xenondevs.invui.Click;
 import xyz.xenondevs.invui.gui.Gui;
@@ -60,21 +62,36 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
     private static final NamespacedKey LAST_TRIGGERED_KEY = Objects.requireNonNull(
             NamespacedKey.fromString("gridworks:alarm_last_triggered_epoch_ms")
     );
+    private static final NamespacedKey ESCALATION_ENABLED_KEY = Objects.requireNonNull(
+            NamespacedKey.fromString("gridworks:alarm_escalation_enabled")
+    );
+    private static final NamespacedKey ESCALATION_DELAY_SECONDS_KEY = Objects.requireNonNull(
+            NamespacedKey.fromString("gridworks:alarm_escalation_delay_seconds")
+    );
     private static final NamespacedKey INPUT_MODE_KEY = Objects.requireNonNull(
             NamespacedKey.fromString("gridworks:alarm_input_mode")
     );
 
     private static final String DEFAULT_NAME = "Alarm Indicator";
     private static final int MAX_NAME_LENGTH = 32;
+    private static final long DEFAULT_ESCALATION_DELAY_SECONDS = 60L;
+    private static final long MIN_ESCALATION_DELAY_SECONDS = 5L;
+    private static final long MAX_ESCALATION_DELAY_SECONDS = 1800L;
 
     private final AlarmLatch alarmLatch;
     private final AlarmHistoryState alarmHistory;
     private volatile String alarmName;
     private volatile AlarmSeverity severity;
+    private volatile AlarmSeverity effectiveSeverity;
+    private volatile boolean escalationEnabled;
+    private volatile long escalationDelaySeconds;
     private volatile boolean soundEnabled;
     private volatile BooleanInputMode inputMode;
+    private BukkitTask escalationTask;
 
     private final NameItem nameItem = new NameItem();
+    private final EscalationItem escalationItem = new EscalationItem();
+    private final EscalationDelayItem escalationDelayItem = new EscalationDelayItem();
     private final SeverityItem severityItem = new SeverityItem();
     private final SoundItem soundItem = new SoundItem();
     private final AcknowledgeItem acknowledgeItem = new AcknowledgeItem();
@@ -85,6 +102,9 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
         super(block, context);
         this.alarmName = DEFAULT_NAME;
         this.severity = AlarmSeverity.WARNING;
+        this.effectiveSeverity = this.severity;
+        this.escalationEnabled = false;
+        this.escalationDelaySeconds = DEFAULT_ESCALATION_DELAY_SECONDS;
         this.soundEnabled = true;
         this.inputMode = BooleanInputMode.LEGACY;
         this.alarmLatch = new AlarmLatch(false, false);
@@ -101,9 +121,25 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
         Byte storedAcknowledged = pdc.get(ACKNOWLEDGED_KEY, PersistentDataType.BYTE);
         Long storedOccurrences = pdc.get(OCCURRENCE_COUNT_KEY, PersistentDataType.LONG);
         Long storedLastTriggered = pdc.get(LAST_TRIGGERED_KEY, PersistentDataType.LONG);
+        Byte storedEscalationEnabled = pdc.get(
+                ESCALATION_ENABLED_KEY,
+                PersistentDataType.BYTE
+        );
+        Long storedEscalationDelay = pdc.get(
+                ESCALATION_DELAY_SECONDS_KEY,
+                PersistentDataType.LONG
+        );
 
         this.alarmName = normalizeName(storedName);
         this.severity = AlarmSeverity.fromStored(storedSeverity);
+        this.effectiveSeverity = this.severity;
+        this.escalationEnabled = storedEscalationEnabled != null
+                && storedEscalationEnabled != 0;
+        this.escalationDelaySeconds = clampEscalationDelay(
+                storedEscalationDelay == null
+                        ? DEFAULT_ESCALATION_DELAY_SECONDS
+                        : storedEscalationDelay
+        );
         this.soundEnabled = storedSound == null || storedSound != 0;
         this.inputMode = BooleanInputMode.fromStored(
                 pdc.get(INPUT_MODE_KEY, PersistentDataType.STRING)
@@ -127,6 +163,7 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
     @Override
     protected void afterActivated() {
         alarmLatch.resetObservation();
+        refreshEscalation(false);
         applyVisualState();
     }
 
@@ -180,26 +217,40 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
                 PersistentDataType.LONG,
                 alarmHistory.lastTriggeredEpochMillis()
         );
+        pdc.set(
+                ESCALATION_ENABLED_KEY,
+                PersistentDataType.BYTE,
+                escalationEnabled ? (byte) 1 : (byte) 0
+        );
+        pdc.set(
+                ESCALATION_DELAY_SECONDS_KEY,
+                PersistentDataType.LONG,
+                escalationDelaySeconds
+        );
         pdc.set(INPUT_MODE_KEY, PersistentDataType.STRING, inputMode.name());
     }
 
     @Override
     protected void afterDeactivated() {
+        cancelEscalationTask();
         alarmLatch.resetObservation();
     }
 
     @Override
     protected void afterRemoved() {
+        cancelEscalationTask();
         alarmLatch.resetObservation();
     }
 
     @Override
     public @NotNull Gui createGui() {
         return Gui.builder()
-                .setStructure("n # v # s a t # x")
+                .setStructure("n e v d s a t # x")
                 .addIngredient('#', GuiItems.background())
                 .addIngredient('n', nameItem)
+                .addIngredient('e', escalationItem)
                 .addIngredient('v', severityItem)
+                .addIngredient('d', escalationDelayItem)
                 .addIngredient('s', soundItem)
                 .addIngredient('a', acknowledgeItem)
                 .addIngredient('t', testItem)
@@ -235,7 +286,19 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
     }
 
     public @NotNull AlarmSeverity getSeverity() {
+        return effectiveSeverity;
+    }
+
+    public @NotNull AlarmSeverity getConfiguredSeverity() {
         return severity;
+    }
+
+    public boolean isEscalationEnabled() {
+        return escalationEnabled;
+    }
+
+    public long getEscalationDelaySeconds() {
+        return escalationDelaySeconds;
     }
 
     public long getOccurrenceCount() {
@@ -268,6 +331,7 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
             alarmHistory.recordTrigger(System.currentTimeMillis());
         }
 
+        refreshEscalation(false);
         applyVisualState();
         acknowledgeItem.notifyWindows();
         statusItem.notifyWindows();
@@ -280,6 +344,7 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
 
     private void acknowledge() {
         alarmLatch.acknowledge();
+        refreshEscalation(false);
         applyVisualState();
         acknowledgeItem.notifyWindows();
         statusItem.notifyWindows();
@@ -297,7 +362,7 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
         bus.publish(
                 getNodeId(),
                 GridWorksChannels.ALARM_SEVERITY,
-                ControlValue.of(severity.name())
+                ControlValue.of(effectiveSeverity.name())
         );
         bus.publish(
                 getNodeId(),
@@ -410,14 +475,112 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
 
     private void changeSeverity(int direction) {
         severity = severity.cycle(direction);
+        refreshEscalation(false);
         severityItem.notifyWindows();
+        escalationItem.notifyWindows();
         statusItem.notifyWindows();
         publishAlarmState();
+    }
+
+    private void toggleEscalation() {
+        escalationEnabled = !escalationEnabled;
+        refreshEscalation(false);
+        escalationItem.notifyWindows();
+        escalationDelayItem.notifyWindows();
+        statusItem.notifyWindows();
+        publishAlarmState();
+    }
+
+    private void changeEscalationDelay(long deltaSeconds) {
+        escalationDelaySeconds = clampEscalationDelay(
+                escalationDelaySeconds + deltaSeconds
+        );
+        refreshEscalation(false);
+        escalationDelayItem.notifyWindows();
+        escalationItem.notifyWindows();
+        statusItem.notifyWindows();
+        publishAlarmState();
+    }
+
+    private void refreshEscalation(boolean publishIfChanged) {
+        cancelEscalationTask();
+
+        AlarmSeverity previous = effectiveSeverity;
+        long now = System.currentTimeMillis();
+        AlarmEscalationPolicy policy = escalationPolicy();
+
+        effectiveSeverity = policy.effectiveSeverity(
+                severity,
+                alarmLatch.isLatched(),
+                alarmLatch.isAcknowledged(),
+                alarmHistory.lastTriggeredEpochMillis(),
+                now
+        );
+
+        long remainingMillis = policy.remainingMillis(
+                severity,
+                alarmLatch.isLatched(),
+                alarmLatch.isAcknowledged(),
+                alarmHistory.lastTriggeredEpochMillis(),
+                now
+        );
+
+        if (remainingMillis > 0L) {
+            long delayTicks = Math.max(1L, Math.ceilDiv(remainingMillis, 50L));
+            GridWorks plugin = GridWorks.getInstance();
+            escalationTask = plugin.getServer().getScheduler().runTaskLater(
+                    plugin,
+                    () -> {
+                        escalationTask = null;
+                        runOnServerThreadIfActive(() -> {
+                            refreshEscalation(true);
+                            escalationItem.notifyWindows();
+                            severityItem.notifyWindows();
+                            statusItem.notifyWindows();
+                        });
+                    },
+                    delayTicks
+            );
+        }
+
+        if (publishIfChanged && previous != effectiveSeverity) {
+            publishAlarmState();
+        }
+    }
+
+    private AlarmEscalationPolicy escalationPolicy() {
+        return new AlarmEscalationPolicy(
+                escalationEnabled,
+                escalationDelaySeconds * 1000L
+        );
+    }
+
+    private void cancelEscalationTask() {
+        BukkitTask task = escalationTask;
+        escalationTask = null;
+        if (task != null) {
+            task.cancel();
+        }
+    }
+
+    private static long clampEscalationDelay(long seconds) {
+        return Math.clamp(
+                seconds,
+                MIN_ESCALATION_DELAY_SECONDS,
+                MAX_ESCALATION_DELAY_SECONDS
+        );
     }
 
     private void toggleSound() {
         soundEnabled = !soundEnabled;
         soundItem.notifyWindows();
+    }
+
+    private static String formatEscalationDelay(long seconds) {
+        if (seconds % 60L == 0L) {
+            return (seconds / 60L) + "m";
+        }
+        return seconds + "s";
     }
 
     private static String formatHistoryTime(long epochMillis) {
@@ -495,10 +658,12 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
                 case INFO -> Material.LIGHT_BLUE_DYE;
             };
 
-            return item(material, "Severity: " + severity.displayName())
-                    .lore(
+            ItemStackBuilder builder = item(
+                    material,
+                    "Severity: " + severity.displayName()
+            ).lore(
                             Component.text(
-                                    "Left/right click to cycle severity",
+                                    "Left/right click to cycle configured severity",
                                     NamedTextColor.YELLOW
                             ),
                             Component.text(
@@ -506,6 +671,14 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
                                     NamedTextColor.DARK_GRAY
                             )
                     );
+
+            if (effectiveSeverity != severity) {
+                builder.lore(Component.text(
+                        "Effective: " + effectiveSeverity.displayName() + " (escalated)",
+                        NamedTextColor.RED
+                ));
+            }
+            return builder;
         }
 
         @Override
@@ -518,6 +691,80 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
                 changeSeverity(1);
             } else if (clickType.isRightClick()) {
                 changeSeverity(-1);
+            }
+        }
+    }
+
+    private final class EscalationItem extends AlarmItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            Material material = escalationEnabled ? Material.BELL : Material.GRAY_DYE;
+            ItemStackBuilder builder = item(
+                    material,
+                    "Escalation: " + (escalationEnabled ? "ENABLED" : "DISABLED")
+            ).lore(
+                    Component.text(
+                            "Click to toggle one-level timed escalation",
+                            NamedTextColor.YELLOW
+                    ),
+                    Component.text(
+                            "Info -> Warning; Warning -> Critical",
+                            NamedTextColor.GRAY
+                    )
+            );
+
+            if (escalationEnabled && alarmLatch.isLatched() && !alarmLatch.isAcknowledged()) {
+                builder.lore(Component.text(
+                        effectiveSeverity != severity
+                                ? "Escalated now"
+                                : "Waiting for escalation delay",
+                        effectiveSeverity != severity
+                                ? NamedTextColor.RED
+                                : NamedTextColor.YELLOW
+                ));
+            }
+            return builder;
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            toggleEscalation();
+        }
+    }
+
+    private final class EscalationDelayItem extends AlarmItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            return item(
+                    Material.REPEATER,
+                    "Escalation delay: " + formatEscalationDelay(escalationDelaySeconds)
+            ).lore(
+                    Component.text(
+                            "Left +15s / Right -15s",
+                            NamedTextColor.YELLOW
+                    ),
+                    Component.text(
+                            "Shift uses 60s; range 5s to 30m",
+                            NamedTextColor.YELLOW
+                    )
+            );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            long step = clickType.isShiftClick() ? 60L : 15L;
+            if (clickType.isLeftClick()) {
+                changeEscalationDelay(step);
+            } else if (clickType.isRightClick()) {
+                changeEscalationDelay(-step);
             }
         }
     }
@@ -613,7 +860,22 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
                     alarmLatch.isLatched() ? Material.REDSTONE_TORCH : Material.GRAY_DYE,
                     "Condition: " + condition
             ).lore(
-                    Component.text("Severity: " + severity.displayName(), NamedTextColor.WHITE),
+                    Component.text(
+                            "Severity: " + effectiveSeverity.displayName()
+                                    + (effectiveSeverity != severity
+                                    ? " (configured " + severity.displayName() + ")"
+                                    : ""),
+                            effectiveSeverity == AlarmSeverity.CRITICAL
+                                    ? NamedTextColor.RED
+                                    : NamedTextColor.WHITE
+                    ),
+                    Component.text(
+                            "Escalation: "
+                                    + (escalationEnabled
+                                    ? formatEscalationDelay(escalationDelaySeconds)
+                                    : "disabled"),
+                            NamedTextColor.GRAY
+                    ),
                     Component.text("Latch: " + latch, NamedTextColor.WHITE),
                     Component.text(
                             "Occurrences: " + alarmHistory.occurrenceCount(),

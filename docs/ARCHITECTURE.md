@@ -192,3 +192,12 @@ History is also published as bounded telemetry and displayed by the Alarm Consol
 ## CI Git initialization
 
 The build job supplies `init.defaultBranch=main` through Git's environment-based configuration before `actions/checkout` runs. This suppresses the runner's default-branch migration hint at its source without adding an extra shell step or changing repository behavior.
+
+
+## Alarm escalation
+
+Alarm escalation is a derived one-step policy, not another persisted severity state. Alarm Indicators persist only the configured severity, escalation-enabled flag, escalation delay, and normal alarm history.
+
+While an alarm is latched and unacknowledged, an optional one-shot Bukkit task waits until the configured deadline. Info escalates to Warning and Warning escalates to Critical; Critical has no further escalation. Acknowledgement or latch clearance cancels the task.
+
+On chunk/server reload, `AlarmEscalationPolicy` compares the persisted last-trigger epoch with the current clock and either schedules only the remaining delay or applies escalation immediately when the deadline already passed. There is no repeating escalation ticker, and host-clock rollback cannot move the persisted last-trigger timestamp backward.

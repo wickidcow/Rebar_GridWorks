@@ -21,6 +21,7 @@ item:
       <arrow> Latches faults until they are acknowledged or safely cleared
       <arrow> Rings once on a real false-to-true transition
       <arrow> Name alarms, set Critical/Warning/Info severity, and acknowledge them
+      <arrow> Optional timed escalation raises unacknowledged alarms one level
       <arrow> Restart replay stays silent
 
   redstone_sensor:
