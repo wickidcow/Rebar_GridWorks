@@ -138,7 +138,9 @@ item:
       <arrow> Runs a four-stage event-driven factory sequence
       <arrow> Each stage has a unique trigger address and active output address
       <arrow> Rising-edge triggers advance only the currently active stage
-      <arrow> Start, stage and completion routes reject address collisions
+      <arrow> Optional stage timeout enters a persistent FAULT state
+      <arrow> Fault output uses its own collision-safe named address
+      <arrow> Timeout is OFF by default; only one delayed task exists while running
       <arrow> Sequence stage survives reload; replay never manufactures advances
 
   power_limiter:

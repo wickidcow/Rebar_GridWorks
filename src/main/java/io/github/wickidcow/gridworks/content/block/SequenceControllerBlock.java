@@ -29,6 +29,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.scheduler.BukkitTask;
 import org.jetbrains.annotations.NotNull;
 import xyz.xenondevs.invui.Click;
 import xyz.xenondevs.invui.gui.Gui;
@@ -51,6 +52,11 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
     private static final NamespacedKey STAGE_KEY = key("sequence_stage");
     private static final NamespacedKey START_ADDRESS_KEY = key("sequence_start_address");
     private static final NamespacedKey COMPLETE_ADDRESS_KEY = key("sequence_complete_address");
+    private static final NamespacedKey FAULT_ADDRESS_KEY = key("sequence_fault_address");
+    private static final NamespacedKey STAGE_TIMEOUT_TICKS_KEY = key("sequence_stage_timeout_ticks");
+
+    private static final long DEFAULT_STAGE_TIMEOUT_TICKS = 0L;
+    private static final long MAX_STAGE_TIMEOUT_TICKS = 72_000L;
 
     private static final NamespacedKey[] TRIGGER_ADDRESS_KEYS = {
             key("sequence_trigger_1"),
@@ -69,11 +75,16 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
     private final RisingEdgeTrigger startEdge = new RisingEdgeTrigger();
     private final RisingEdgeTrigger stageEdge = new RisingEdgeTrigger();
     private volatile SequenceRoutes routes;
+    private volatile ControlAddress faultAddress;
+    private volatile long stageTimeoutTicks;
+    private BukkitTask stageTimeoutTask;
 
     private final StatusItem statusItem = new StatusItem();
     private final StartItem startItem = new StartItem();
     private final AdvanceItem advanceItem = new AdvanceItem();
     private final AbortItem abortItem = new AbortItem();
+    private final TimeoutItem timeoutItem = new TimeoutItem();
+    private final FaultAddressItem faultAddressItem = new FaultAddressItem();
     private final SpecialAddressItem startAddressItem =
             new SpecialAddressItem(true);
     private final SpecialAddressItem completeAddressItem =
@@ -91,6 +102,8 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         super(block, context);
         this.sequence = new SequenceStateMachine();
         this.routes = SequenceRoutes.defaults(getNodeId());
+        this.faultAddress = defaultFaultAddress(getNodeId(), routes);
+        this.stageTimeoutTicks = DEFAULT_STAGE_TIMEOUT_TICKS;
     }
 
     public SequenceControllerBlock(
@@ -103,22 +116,35 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                 pdc.get(STAGE_KEY, PersistentDataType.INTEGER)
         );
         this.routes = loadRoutes(pdc, getNodeId());
+        this.faultAddress = loadFaultAddress(pdc, getNodeId(), routes);
+        Long storedTimeout = pdc.get(STAGE_TIMEOUT_TICKS_KEY, PersistentDataType.LONG);
+        this.stageTimeoutTicks = clampStageTimeout(
+                storedTimeout == null ? DEFAULT_STAGE_TIMEOUT_TICKS : storedTimeout
+        );
     }
 
     @Override
     protected void beforeActivated() {
         startEdge.reset();
         stageEdge.reset();
+        cancelStageTimeout();
+    }
+
+    @Override
+    protected void afterActivated() {
+        scheduleStageTimeout();
     }
 
     @Override
     protected void afterDeactivated() {
+        cancelStageTimeout();
         startEdge.reset();
         stageEdge.reset();
     }
 
     @Override
     protected void afterRemoved() {
+        cancelStageTimeout();
         startEdge.reset();
         stageEdge.reset();
     }
@@ -163,6 +189,16 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                 PersistentDataType.STRING,
                 currentRoutes.complete().value()
         );
+        pdc.set(
+                FAULT_ADDRESS_KEY,
+                PersistentDataType.STRING,
+                faultAddress.value()
+        );
+        pdc.set(
+                STAGE_TIMEOUT_TICKS_KEY,
+                PersistentDataType.LONG,
+                stageTimeoutTicks
+        );
 
         for (int stage = 1; stage <= SequenceStateMachine.STAGE_COUNT; stage++) {
             pdc.set(
@@ -183,6 +219,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         var bus = GridWorks.getInstance().getControlBus();
         boolean running = sequence.isRunning();
         boolean complete = sequence.isComplete();
+        boolean faulted = sequence.isFaulted();
         int currentStage = sequence.currentStage();
 
         bus.publish(
@@ -200,6 +237,16 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                 GridWorksChannels.SEQUENCE_COMPLETE,
                 ControlValue.of(complete)
         );
+        bus.publish(
+                getNodeId(),
+                GridWorksChannels.SEQUENCE_FAULT,
+                ControlValue.of(faulted)
+        );
+        bus.publish(
+                getNodeId(),
+                GridWorksChannels.SEQUENCE_TIMEOUT_TICKS,
+                ControlValue.of((double) stageTimeoutTicks)
+        );
 
         SequenceRoutes currentRoutes = routes;
         for (int stage = 1; stage <= SequenceStateMachine.STAGE_COUNT; stage++) {
@@ -214,6 +261,11 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                 currentRoutes.complete().channel(),
                 ControlValue.of(complete)
         );
+        bus.publish(
+                getNodeId(),
+                faultAddress.channel(),
+                ControlValue.of(faulted)
+        );
     }
 
     @Override
@@ -225,7 +277,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                         "2 p u # # # # # #",
                         "3 q v # # # # # #",
                         "4 r w # # # # # #",
-                        "i # # # # # # # #"
+                        "i # d # f # # # #"
                 )
                 .addIngredient('#', GuiItems.background())
                 .addIngredient('s', statusItem)
@@ -234,6 +286,8 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                 .addIngredient('x', abortItem)
                 .addIngredient('c', completeAddressItem)
                 .addIngredient('i', startAddressItem)
+                .addIngredient('d', timeoutItem)
+                .addIngredient('f', faultAddressItem)
                 .addIngredient('1', stageStatusItems[0])
                 .addIngredient('2', stageStatusItems[1])
                 .addIngredient('3', stageStatusItems[2])
@@ -266,6 +320,14 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         return routes;
     }
 
+    public @NotNull ControlAddress getFaultAddress() {
+        return faultAddress;
+    }
+
+    public long getStageTimeoutTicks() {
+        return stageTimeoutTicks;
+    }
+
     private void handleBooleanSignal(ControlChannel channel, boolean value) {
         SequenceRoutes currentRoutes = routes;
 
@@ -291,6 +353,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
     private void startSequence() {
         sequence.start();
         stageEdge.reset();
+        scheduleStageTimeout();
         publishCurrentState();
         notifyItems();
         requestStateReplay();
@@ -303,6 +366,11 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
 
         sequence.advance();
         stageEdge.reset();
+        if (sequence.isRunning()) {
+            scheduleStageTimeout();
+        } else {
+            cancelStageTimeout();
+        }
         publishCurrentState();
         notifyItems();
 
@@ -313,6 +381,19 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
 
     private void abortSequence() {
         sequence.abort();
+        cancelStageTimeout();
+        stageEdge.reset();
+        publishCurrentState();
+        notifyItems();
+    }
+
+    private void faultSequence(int expectedStage) {
+        if (!sequence.isRunning() || sequence.currentStage() != expectedStage) {
+            return;
+        }
+
+        sequence.fault();
+        cancelStageTimeout();
         stageEdge.reset();
         publishCurrentState();
         notifyItems();
@@ -323,6 +404,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
             return;
         }
 
+        ensureNotFaultAddress(next);
         try {
             routes = routes.withStart(next);
         } catch (IllegalArgumentException exception) {
@@ -342,6 +424,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
             return;
         }
 
+        ensureNotFaultAddress(next);
         SequenceRoutes previous = routes;
         SequenceRoutes changed;
         try {
@@ -364,6 +447,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
             return;
         }
 
+        ensureNotFaultAddress(next);
         try {
             routes = routes.withTrigger(stage, next);
         } catch (IllegalArgumentException exception) {
@@ -380,6 +464,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
             return;
         }
 
+        ensureNotFaultAddress(next);
         SequenceRoutes previous = routes;
         SequenceRoutes changed;
         try {
@@ -397,8 +482,86 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         notifyItems();
     }
 
+    private void setFaultAddress(ControlAddress next) {
+        if (!canEditRoutes()) {
+            return;
+        }
+        Objects.requireNonNull(next, "next");
+        if (faultAddress.equals(next)) {
+            return;
+        }
+        ensureNotRouteAddress(next);
+
+        ControlAddress previous = faultAddress;
+        clearAddress(previous);
+        faultAddress = next;
+        publishCurrentState();
+        notifyItems();
+    }
+
+    private void changeStageTimeout(long delta) {
+        long current = stageTimeoutTicks;
+        long next = Math.max(
+                0L,
+                Math.min(MAX_STAGE_TIMEOUT_TICKS, current + delta)
+        );
+        if (next == current) {
+            return;
+        }
+
+        stageTimeoutTicks = next;
+        if (sequence.isRunning()) {
+            scheduleStageTimeout();
+        }
+        publishCurrentState();
+        notifyItems();
+    }
+
     private boolean canEditRoutes() {
         return !sequence.isRunning();
+    }
+
+    private void ensureNotFaultAddress(ControlAddress address) {
+        if (faultAddress.equals(Objects.requireNonNull(address, "address"))) {
+            throw new IllegalArgumentException(
+                    "That address is already used by the sequence fault output."
+            );
+        }
+    }
+
+    private void ensureNotRouteAddress(ControlAddress address) {
+        Objects.requireNonNull(address, "address");
+        if (routes.isInputAddress(address) || routes.isOutputAddress(address)) {
+            throw new IllegalArgumentException(
+                    "That address is already used by this sequence."
+            );
+        }
+    }
+
+    private void scheduleStageTimeout() {
+        cancelStageTimeout();
+        long timeout = stageTimeoutTicks;
+        if (!sequence.isRunning() || timeout <= 0L) {
+            return;
+        }
+
+        int expectedStage = sequence.currentStage();
+        stageTimeoutTask = GridWorks.getInstance().getServer().getScheduler().runTaskLater(
+                GridWorks.getInstance(),
+                () -> {
+                    stageTimeoutTask = null;
+                    runOnServerThreadIfActive(() -> faultSequence(expectedStage));
+                },
+                timeout
+        );
+    }
+
+    private void cancelStageTimeout() {
+        BukkitTask task = stageTimeoutTask;
+        stageTimeoutTask = null;
+        if (task != null) {
+            task.cancel();
+        }
     }
 
     private void clearAddress(ControlAddress address) {
@@ -422,6 +585,8 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         abortItem.notifyWindows();
         startAddressItem.notifyWindows();
         completeAddressItem.notifyWindows();
+        timeoutItem.notifyWindows();
+        faultAddressItem.notifyWindows();
 
         for (int index = 0; index < SequenceStateMachine.STAGE_COUNT; index++) {
             stageStatusItems[index].notifyWindows();
@@ -562,6 +727,49 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         }
     }
 
+    private static ControlAddress loadFaultAddress(
+            PersistentDataContainer pdc,
+            UUID nodeId,
+            SequenceRoutes routes
+    ) {
+        ControlAddress fallback = defaultFaultAddress(nodeId, routes);
+        ControlAddress stored = ControlAddress.fromStoredOrDefault(
+                pdc.get(FAULT_ADDRESS_KEY, PersistentDataType.STRING),
+                fallback
+        );
+        return routes.isInputAddress(stored) || routes.isOutputAddress(stored)
+                ? fallback
+                : stored;
+    }
+
+    private static ControlAddress defaultFaultAddress(
+            UUID nodeId,
+            SequenceRoutes routes
+    ) {
+        for (int attempt = 1; attempt <= 100; attempt++) {
+            String prefix = attempt == 1 ? "seq_fault" : "seq_fault_" + attempt;
+            ControlAddress candidate = ControlAddress.defaultFor(nodeId, prefix);
+            if (!routes.isInputAddress(candidate) && !routes.isOutputAddress(candidate)) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException("Could not allocate a unique sequence fault address");
+    }
+
+    private static long clampStageTimeout(long ticks) {
+        return Math.max(0L, Math.min(MAX_STAGE_TIMEOUT_TICKS, ticks));
+    }
+
+    private static String formatStageTimeout(long ticks) {
+        if (ticks <= 0L) {
+            return "OFF";
+        }
+        if (ticks % 20L == 0L) {
+            return (ticks / 20L) + "s";
+        }
+        return String.format(java.util.Locale.ROOT, "%.2fs", ticks / 20.0);
+    }
+
     private static NamespacedKey key(String value) {
         return Objects.requireNonNull(
                 NamespacedKey.fromString("gridworks:" + value)
@@ -602,6 +810,8 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
             return item(
                     phase == SequenceStateMachine.Phase.COMPLETE
                             ? Material.LIME_CONCRETE
+                            : phase == SequenceStateMachine.Phase.FAULT
+                            ? Material.RED_CONCRETE
                             : phase == SequenceStateMachine.Phase.RUNNING
                             ? Material.ORANGE_CONCRETE
                             : Material.GRAY_CONCRETE,
@@ -612,13 +822,19 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                                     ? "Active stage: " + stage
                                     : phase == SequenceStateMachine.Phase.COMPLETE
                                     ? "All four stages completed"
+                                    : phase == SequenceStateMachine.Phase.FAULT
+                                    ? "Timed out at stage " + stage
                                     : "No active stage",
                             phase == SequenceStateMachine.Phase.COMPLETE
                                     ? NamedTextColor.GREEN
+                                    : phase == SequenceStateMachine.Phase.FAULT
+                                    ? NamedTextColor.RED
                                     : NamedTextColor.WHITE
                     ),
                     Component.text(
-                            "Stage changes are event-driven; no timer loop",
+                            stageTimeoutTicks <= 0L
+                                    ? "Stage timeout: OFF"
+                                    : "Stage timeout: " + formatStageTimeout(stageTimeoutTicks),
                             NamedTextColor.GRAY
                     )
             );
@@ -704,7 +920,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                                     NamedTextColor.YELLOW
                             ),
                             Component.text(
-                                    "All stage and completion outputs are cleared",
+                                    "All stage, completion, and fault outputs are cleared",
                                     NamedTextColor.GRAY
                             )
                     );
@@ -722,6 +938,88 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         }
     }
 
+    private final class TimeoutItem extends SequenceItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            return item(
+                    stageTimeoutTicks <= 0L ? Material.GRAY_DYE : Material.CLOCK,
+                    "Stage Timeout: " + formatStageTimeout(stageTimeoutTicks)
+            ).lore(
+                    Component.text("Left +5s / Right -5s", NamedTextColor.YELLOW),
+                    Component.text("Shift uses 60 seconds", NamedTextColor.YELLOW),
+                    Component.text(
+                            "OFF preserves legacy wait-forever behavior",
+                            NamedTextColor.GRAY
+                    ),
+                    Component.text(
+                            sequence.isRunning()
+                                    ? "Editing restarts the current stage deadline"
+                                    : "One delayed task is used only while RUNNING",
+                            NamedTextColor.DARK_GRAY
+                    )
+            );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            long step = clickType.isShiftClick() ? 1_200L : 100L;
+            if (clickType.isLeftClick()) {
+                changeStageTimeout(step);
+            } else if (clickType.isRightClick()) {
+                changeStageTimeout(-step);
+            }
+        }
+    }
+
+    private final class FaultAddressItem extends SequenceItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            return item(Material.REDSTONE_BLOCK, "Fault Output")
+                    .lore(
+                            Component.text(faultAddress.value(), NamedTextColor.AQUA),
+                            Component.text(
+                                    faultAddress.channel().toString(),
+                                    NamedTextColor.DARK_GRAY
+                            ),
+                            Component.text(
+                                    canEditRoutes()
+                                            ? "Click to edit"
+                                            : "Abort the sequence before editing routes",
+                                    canEditRoutes()
+                                            ? NamedTextColor.YELLOW
+                                            : NamedTextColor.RED
+                            )
+                    );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            if (!canEditRoutes()) {
+                return;
+            }
+
+            ControlAddress current = faultAddress;
+            player.closeInventory();
+            GridWorks.getInstance().getServer().getScheduler().runTask(
+                    GridWorks.getInstance(),
+                    () -> openAddressWindow(
+                            player,
+                            "Sequence Fault Output",
+                            current,
+                            SequenceControllerBlock.this::setFaultAddress
+                    )
+            );
+        }
+    }
+
     private final class StageStatusItem extends SequenceItem {
         private final int stage;
 
@@ -735,12 +1033,19 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
             int current = sequence.currentStage();
             boolean active = phase == SequenceStateMachine.Phase.RUNNING
                     && current == stage;
+            boolean faulted = phase == SequenceStateMachine.Phase.FAULT
+                    && current == stage;
             boolean passed = phase == SequenceStateMachine.Phase.COMPLETE
-                    || (phase == SequenceStateMachine.Phase.RUNNING
+                    || ((phase == SequenceStateMachine.Phase.RUNNING
+                    || phase == SequenceStateMachine.Phase.FAULT)
                     && current > stage);
 
-            String state = active ? "ACTIVE" : passed ? "PASSED" : "WAITING";
-            Material material = active
+            String state = faulted
+                    ? "FAULT"
+                    : active ? "ACTIVE" : passed ? "PASSED" : "WAITING";
+            Material material = faulted
+                    ? Material.RED_CONCRETE
+                    : active
                     ? Material.LIME_CONCRETE
                     : passed ? Material.LIGHT_GRAY_CONCRETE : Material.GRAY_CONCRETE;
 

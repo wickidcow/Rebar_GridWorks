@@ -361,15 +361,17 @@ The implementation is bounded by the largest integer exactly representable by Co
 
 ## Part 4 Sequence Controller
 
-`SequenceStateMachine` is a pure persisted state machine with IDLE, RUNNING, and COMPLETE phases. RUNNING contains exactly one active stage from 1 through 4. Start/restart selects Stage 1, advance moves through stages in order, the fourth advance enters COMPLETE, and abort returns to IDLE.
+`SequenceStateMachine` is a pure persisted state machine with IDLE, RUNNING, COMPLETE, and FAULT phases. RUNNING and FAULT retain exactly one stage from 1 through 4. Start/restart selects Stage 1, advance moves through stages in order, the fourth advance enters COMPLETE, timeout faults preserve the stage that failed, and abort returns to IDLE.
 
-`SequenceRoutes` owns ten unique addresses: start input, completion output, four stage triggers, and four stage outputs. Construction and edits reject any collision across the entire set. Persisted routes are loaded atomically; invalid or colliding stored data falls back to the deterministic node-derived route set instead of allowing an output-to-input feedback loop.
+`SequenceRoutes` owns the ten normal routes: start input, completion output, four stage triggers, and four stage outputs. Construction and edits reject collisions across that set. Sequence Controller owns an additional configurable fault output and validates it against every route before accepting an edit or restoring persisted data. Corrupt/legacy route data falls back to deterministic node-derived addresses instead of allowing output-to-input feedback.
 
 Only the current stage trigger is accepted while RUNNING. Start has its own independent rising-edge detector. Entering a stage resets the stage edge detector and requests normal component state replay. The first current trigger value after start/advance/reload therefore establishes a baseline rather than advancing; only a later false-to-true transition advances the sequence.
 
-State publication is complete and idempotent: sequence running/stage/complete telemetry is published, all four stage output addresses are explicitly written true/false, and the completion output is written from the COMPLETE phase. Restart and abort therefore clear abandoned outputs without requiring a separate cleanup scan.
+State publication is complete and idempotent: running/stage/complete/fault telemetry plus configured timeout ticks are published, all four stage outputs are explicitly written true/false, and completion/fault outputs are derived from the persisted phase. Restart and abort therefore clear abandoned outputs without a scan.
 
-Route edits are disallowed while RUNNING. When an output or completion address is edited while IDLE/COMPLETE, the previous address is explicitly cleared before the new route publishes current state. Start-address edits reset their edge baseline and request replay. The controller itself has no ticker, delayed task, world scan, or chunk-loading behavior.
+Stage timeout is disabled by default. When enabled, exactly one Bukkit delayed task exists while RUNNING. Starting or advancing schedules the active stage's deadline; advancing, aborting, faulting, unloading, or removing cancels the prior task. A timeout verifies that the expected stage is still active before transitioning to FAULT, so a stale delayed callback cannot fault a later stage. Editing the timeout while RUNNING deliberately restarts that stage's deadline. Reloading a RUNNING controller reconstructs a fresh full deadline after component replay; server-offline time is not counted as a production fault.
+
+Route edits are disallowed while RUNNING. When an output, completion, or fault address is edited while IDLE/COMPLETE/FAULT, the previous output is explicitly cleared before current state is published to the new route. Start-address edits reset their edge baseline and request replay. The controller has no repeating ticker, world scan, or chunk-loading behavior.
 
 
 ## Unified sensor availability semantics

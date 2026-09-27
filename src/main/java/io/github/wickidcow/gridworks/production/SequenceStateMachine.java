@@ -19,10 +19,10 @@ public final class SequenceStateMachine {
         if (phase == null) {
             throw new NullPointerException("phase");
         }
-        if (phase == Phase.RUNNING) {
+        if (phase == Phase.RUNNING || phase == Phase.FAULT) {
             if (currentStage < 1 || currentStage > STAGE_COUNT) {
                 throw new IllegalArgumentException(
-                        "running sequence stage must be between 1 and " + STAGE_COUNT
+                        "running/fault sequence stage must be between 1 and " + STAGE_COUNT
                 );
             }
         } else if (currentStage != 0) {
@@ -39,7 +39,9 @@ public final class SequenceStateMachine {
         Phase phase = Phase.fromStored(storedPhase);
         int stage = storedStage == null ? 0 : storedStage;
 
-        if (phase == Phase.RUNNING && stage >= 1 && stage <= STAGE_COUNT) {
+        if ((phase == Phase.RUNNING || phase == Phase.FAULT)
+                && stage >= 1
+                && stage <= STAGE_COUNT) {
             return new SequenceStateMachine(phase, stage);
         }
         if (phase == Phase.COMPLETE) {
@@ -75,6 +77,16 @@ public final class SequenceStateMachine {
         return transition(previousPhase, previousStage);
     }
 
+    public synchronized Transition fault() {
+        Phase previousPhase = phase;
+        int previousStage = currentStage;
+
+        if (phase == Phase.RUNNING) {
+            phase = Phase.FAULT;
+        }
+        return transition(previousPhase, previousStage);
+    }
+
     public synchronized Transition abort() {
         Phase previousPhase = phase;
         int previousStage = currentStage;
@@ -100,6 +112,10 @@ public final class SequenceStateMachine {
         return phase == Phase.COMPLETE;
     }
 
+    public synchronized boolean isFaulted() {
+        return phase == Phase.FAULT;
+    }
+
     private Transition transition(Phase previousPhase, int previousStage) {
         return new Transition(
                 previousPhase,
@@ -113,7 +129,8 @@ public final class SequenceStateMachine {
     public enum Phase {
         IDLE,
         RUNNING,
-        COMPLETE;
+        COMPLETE,
+        FAULT;
 
         public static Phase fromStored(String stored) {
             if (stored == null) {

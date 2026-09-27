@@ -46,6 +46,25 @@ class SequenceStateMachineTest {
     }
 
     @Test
+    void faultPreservesTheStageAndBlocksFurtherAdvance() {
+        SequenceStateMachine sequence = new SequenceStateMachine();
+        sequence.start();
+        sequence.advance();
+
+        SequenceStateMachine.Transition faulted = sequence.fault();
+
+        assertEquals(SequenceStateMachine.Phase.FAULT, faulted.phase());
+        assertEquals(2, faulted.currentStage());
+        assertTrue(sequence.isFaulted());
+        assertFalse(sequence.advance().changed());
+
+        SequenceStateMachine.Transition restarted = sequence.start();
+        assertEquals(SequenceStateMachine.Phase.RUNNING, restarted.phase());
+        assertEquals(1, restarted.currentStage());
+        assertFalse(sequence.isFaulted());
+    }
+
+    @Test
     void abortClearsRunningOrCompleteState() {
         SequenceStateMachine sequence = new SequenceStateMachine();
         sequence.start();
@@ -78,6 +97,18 @@ class SequenceStateMachineTest {
                 SequenceStateMachine.fromStored("complete", 99).phase()
         );
         assertEquals(
+                SequenceStateMachine.Phase.FAULT,
+                SequenceStateMachine.fromStored("fault", 4).phase()
+        );
+        assertEquals(
+                4,
+                SequenceStateMachine.fromStored("fault", 4).currentStage()
+        );
+        assertEquals(
+                SequenceStateMachine.Phase.IDLE,
+                SequenceStateMachine.fromStored("fault", 0).phase()
+        );
+        assertEquals(
                 SequenceStateMachine.Phase.IDLE,
                 SequenceStateMachine.fromStored("garbage", 2).phase()
         );
@@ -92,6 +123,10 @@ class SequenceStateMachineTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new SequenceStateMachine(SequenceStateMachine.Phase.IDLE, 1)
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new SequenceStateMachine(SequenceStateMachine.Phase.FAULT, 0)
         );
     }
 }

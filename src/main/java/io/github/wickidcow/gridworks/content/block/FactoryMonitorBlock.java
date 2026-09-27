@@ -68,6 +68,8 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
             new SignalDefinition(GridWorksChannels.SEQUENCE_RUNNING, "Sequence Running", Material.ORANGE_DYE),
             new SignalDefinition(GridWorksChannels.SEQUENCE_STAGE, "Sequence Stage", Material.COPPER_BULB),
             new SignalDefinition(GridWorksChannels.SEQUENCE_COMPLETE, "Sequence Complete", Material.LIME_CONCRETE),
+            new SignalDefinition(GridWorksChannels.SEQUENCE_FAULT, "Sequence Fault", Material.RED_CONCRETE),
+            new SignalDefinition(GridWorksChannels.SEQUENCE_TIMEOUT_TICKS, "Sequence Timeout", Material.CLOCK),
 
             new SignalDefinition(GridWorksChannels.MACHINE_AVAILABLE, "Machine Available", Material.YELLOW_GLAZED_TERRACOTTA),
             new SignalDefinition(GridWorksChannels.MACHINE_KIND, "Machine Kind", Material.NAME_TAG),
@@ -144,7 +146,7 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
         return Gui.builder()
                 .setStructure(
                         "r s 0 1 2 3 4 n x",
-                        "a i o t f C L # #",
+                        "a i o t f C L A B",
                         "v p y m k z Y Z D",
                         "w u g h j b N e #",
                         "l c d E F G H I J",
@@ -167,6 +169,8 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
                 .addIngredient('f', item(GridWorksChannels.INVENTORY_OCCUPIED_RATIO))
                 .addIngredient('C', item(GridWorksChannels.MACHINE_OBSERVED_CYCLES))
                 .addIngredient('L', item(GridWorksChannels.MACHINE_LAST_CYCLE_EPOCH_MS))
+                .addIngredient('A', item(GridWorksChannels.SEQUENCE_FAULT))
+                .addIngredient('B', item(GridWorksChannels.SEQUENCE_TIMEOUT_TICKS))
                 .addIngredient('v', item(GridWorksChannels.FLUID_AVAILABLE))
                 .addIngredient('p', item(GridWorksChannels.FLUID_PRESENT))
                 .addIngredient('y', item(GridWorksChannels.FLUID_TYPE))

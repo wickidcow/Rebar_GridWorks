@@ -82,6 +82,12 @@ public final class GridWorksChannels {
     public static final ControlChannel SEQUENCE_COMPLETE =
             ControlChannel.of("gridworks", "sequence/complete");
 
+    public static final ControlChannel SEQUENCE_FAULT =
+            ControlChannel.of("gridworks", "sequence/fault");
+
+    public static final ControlChannel SEQUENCE_TIMEOUT_TICKS =
+            ControlChannel.of("gridworks", "sequence/timeout_ticks");
+
     /**
      * Backward-compatible default boolean command circuit.
      */
