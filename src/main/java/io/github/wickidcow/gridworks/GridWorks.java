@@ -4,6 +4,7 @@ import io.github.pylonmc.rebar.addon.RebarAddon;
 import io.github.wickidcow.gridworks.api.control.ControlBus;
 import io.github.wickidcow.gridworks.control.GraphControlBus;
 import io.github.wickidcow.gridworks.content.GridWorksContent;
+import io.github.wickidcow.gridworks.inventory.InventorySensorManager;
 import io.github.wickidcow.gridworks.physical.PersistentConnectionStore;
 import io.github.wickidcow.gridworks.physical.PhysicalControlNetwork;
 import java.io.IOException;
@@ -20,6 +21,7 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
 
     private GraphControlBus controlBus;
     private PhysicalControlNetwork physicalControlNetwork;
+    private InventorySensorManager inventorySensorManager;
 
     @Override
     public void onLoad() {
@@ -55,6 +57,12 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
             throw new IllegalStateException("Could not load GridWorks control-network data", exception);
         }
 
+        long inventorySampleInterval = Math.max(
+                1L,
+                getConfig().getLong("sensors.inventory.sample-interval-ticks", 10L)
+        );
+        inventorySensorManager = new InventorySensorManager(this, inventorySampleInterval);
+
         GridWorksContent.register(this);
 
         Bukkit.getServicesManager().register(ControlBus.class, controlBus, this, ServicePriority.Normal);
@@ -64,6 +72,11 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
     @Override
     public void onDisable() {
         Bukkit.getServicesManager().unregisterAll(this);
+
+        if (inventorySensorManager != null) {
+            inventorySensorManager.close();
+            inventorySensorManager = null;
+        }
 
         if (physicalControlNetwork != null) {
             physicalControlNetwork.close();
@@ -98,6 +111,13 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
             throw new IllegalStateException("GridWorks is not enabled");
         }
         return physicalControlNetwork;
+    }
+
+    public @NotNull InventorySensorManager getInventorySensorManager() {
+        if (inventorySensorManager == null) {
+            throw new IllegalStateException("GridWorks is not enabled");
+        }
+        return inventorySensorManager;
     }
 
     @Override

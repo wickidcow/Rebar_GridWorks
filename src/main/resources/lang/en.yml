@@ -28,6 +28,13 @@ item:
       <arrow> Its lever state is controlled by GridWorks, not manual clicks
       <arrow> Link it to a sensor or future controller with a Linker
 
+  inventory_sensor:
+    name: "Inventory Sensor"
+    lore: |-
+      <arrow> Watches the adjacent inventory in the direction it faces
+      <arrow> Supports Rebar logistics/virtual inventories and vanilla containers
+      <arrow> Publishes only when the measured inventory snapshot changes
+
   gridworks_linker:
     name: "GridWorks Linker"
     lore: |-

@@ -3,3 +3,10 @@ control-bus:
   # This prevents a malformed or unexpectedly huge control network from doing
   # unbounded work in one dispatch.
   max-propagation-nodes: 4096
+
+sensors:
+  inventory:
+    # Inventory mutations do not have one universal Bukkit event. GridWorks
+    # therefore uses one shared sampler for loaded Inventory Sensors only.
+    # 10 ticks = 0.5 seconds at 20 TPS.
+    sample-interval-ticks: 10
