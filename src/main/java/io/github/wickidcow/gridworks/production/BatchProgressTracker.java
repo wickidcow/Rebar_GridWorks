@@ -54,6 +54,18 @@ public final class BatchProgressTracker {
         lastSourceCounts.remove(Objects.requireNonNull(source, "source"));
     }
 
+    /**
+     * Updates one source baseline without adding to batch progress.
+     *
+     * <p>This is used while a batch fault is latched so machines may continue
+     * reporting without their fault-period work being backfilled after reset.</p>
+     */
+    public synchronized void rebaseline(UUID source, long sourceCount) {
+        Objects.requireNonNull(source, "source");
+        validateSourceCount(sourceCount);
+        lastSourceCounts.put(source, sourceCount);
+    }
+
     public synchronized void resetProgress() {
         progress = 0L;
     }

@@ -65,6 +65,7 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
             new SignalDefinition(GridWorksChannels.BATCH_PROGRESS, "Batch Progress", Material.CRAFTER),
             new SignalDefinition(GridWorksChannels.BATCH_TARGET, "Batch Target", Material.TARGET),
             new SignalDefinition(GridWorksChannels.BATCH_COMPLETE, "Batch Complete", Material.LIME_DYE),
+            new SignalDefinition(GridWorksChannels.BATCH_FAULT, "Batch Fault", Material.RED_CONCRETE),
             new SignalDefinition(GridWorksChannels.SEQUENCE_RUNNING, "Sequence Running", Material.ORANGE_DYE),
             new SignalDefinition(GridWorksChannels.SEQUENCE_STAGE, "Sequence Stage", Material.COPPER_BULB),
             new SignalDefinition(GridWorksChannels.SEQUENCE_COMPLETE, "Sequence Complete", Material.LIME_CONCRETE),
@@ -148,7 +149,7 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
                         "r s 0 1 2 3 4 n x",
                         "a i o t f C L A B",
                         "v p y m k z Y Z D",
-                        "w u g h j b N e #",
+                        "w u g h j b N e K",
                         "l c d E F G H I J",
                         "P Q R S T U V W X"
                 )
@@ -188,6 +189,7 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
                 .addIngredient('b', item(GridWorksChannels.BATCH_PROGRESS))
                 .addIngredient('N', item(GridWorksChannels.BATCH_TARGET))
                 .addIngredient('e', item(GridWorksChannels.BATCH_COMPLETE))
+                .addIngredient('K', item(GridWorksChannels.BATCH_FAULT))
                 .addIngredient('l', item(GridWorksChannels.ALARM_OCCURRENCES))
                 .addIngredient('c', item(GridWorksChannels.ALARM_LAST_TRIGGERED_EPOCH_MS))
                 .addIngredient('d', addressedSignalItem)

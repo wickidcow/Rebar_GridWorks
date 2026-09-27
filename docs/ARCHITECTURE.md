@@ -348,15 +348,19 @@ Machine Sensor exposes this state through a small GUI. Resetting the observed-cy
 
 ## Part 4 Batch Controller
 
-`BatchProgressTracker` converts cumulative Machine Sensor cycle counters into persisted batch progress without polling. It maintains only runtime last-seen counts per source. A source's first value is a baseline; only positive deltas add to progress. Counter decreases re-baseline rather than subtracting progress.
+`BatchProgressTracker` converts cumulative Machine Sensor cycle counters into persisted batch progress without polling. It maintains only runtime last-seen counts per source. A source's first value is a baseline; only positive deltas add to progress. Counter decreases re-baseline rather than subtracting progress. Its explicit `rebaseline` operation can advance source history without changing progress.
 
 Batch Controller accepts cycle telemetry only when the signal's source UUID is a currently loaded **direct peer**. Peer-unavailable callbacks forget that source baseline. When the source reconnects, its current cumulative count becomes a fresh baseline, preventing work performed while disconnected from being backfilled into the batch.
 
-Batch progress and target are persistent. Source baselines are deliberately runtime-only: after controller reload, the first value from every source is baseline state. Resetting a batch clears progress while preserving live baselines, so new cycles begin counting immediately and already-observed historical totals do not.
+Batch progress, target, watchdog configuration, fault state, and fault route are persistent. Source baselines are deliberately runtime-only: after controller reload, the first value from every source is baseline state. Resetting a batch clears progress and a latched fault while preserving live baselines, so new cycles begin counting immediately and already-observed historical totals do not.
 
-The target-complete state is derived from `progress >= target`; it is not separately persisted. The controller publishes batch progress, target, and completion telemetry plus its boolean command output. Output routing reuses `ControlOutputMode`, `ControlCommandChannel`, and `ControlAddress`; a route change clears the prior channel before replaying current completion state to the new route.
+The completion state is derived from `progress >= target` and suppressed while a fault is latched. Completion routing reuses `ControlOutputMode`, `ControlCommandChannel`, and `ControlAddress`. Fault has a separate addressed output that is validated against the saved completion address; route edits explicitly clear the prior output before publishing the new state.
 
-The implementation is bounded by the largest integer exactly representable by Control Bus numeric transport. It has no scheduler, no world scan, and no chunk-loading behavior.
+The optional no-progress watchdog is disabled by default. When enabled on an incomplete, non-faulted batch, exactly one Bukkit delayed task captures the current progress. Every positive cycle delta replaces that task with a fresh deadline. A callback faults only if progress still equals the captured value, so stale callbacks cannot fault a batch that has advanced. Completion, fault, unload, or removal cancels the task. Reload reconstructs a fresh deadline rather than treating server-offline time as a stall.
+
+A watchdog fault is intentionally latched. While faulted, source telemetry calls `rebaseline` instead of `observe`, keeping live cumulative source totals current without counting fault-period production. When the operator chooses **Start New Batch**, progress and fault reset together while those current baselines remain, preventing hidden backfill.
+
+The implementation remains bounded by the largest integer exactly representable by Control Bus numeric transport. Outside the optional one-shot watchdog it has no scheduler, and it performs no world scan or chunk loading.
 
 
 ## Part 4 Sequence Controller

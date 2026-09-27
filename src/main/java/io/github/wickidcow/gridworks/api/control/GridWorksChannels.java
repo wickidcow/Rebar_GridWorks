@@ -73,6 +73,12 @@ public final class GridWorksChannels {
     public static final ControlChannel BATCH_COMPLETE =
             ControlChannel.of("gridworks", "batch/complete");
 
+    public static final ControlChannel BATCH_FAULT =
+            ControlChannel.of("gridworks", "batch/fault");
+
+    public static final ControlChannel BATCH_WATCHDOG_TICKS =
+            ControlChannel.of("gridworks", "batch/watchdog_ticks");
+
     public static final ControlChannel SEQUENCE_RUNNING =
             ControlChannel.of("gridworks", "sequence/running");
 

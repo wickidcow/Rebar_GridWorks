@@ -63,6 +63,19 @@ class BatchProgressTrackerTest {
     }
 
     @Test
+    void rebaselineAdvancesSourceHistoryWithoutAddingProgress() {
+        BatchProgressTracker tracker = new BatchProgressTracker(10L, 3L);
+        UUID source = UUID.randomUUID();
+
+        tracker.observe(source, 10L);
+        tracker.rebaseline(source, 25L);
+
+        assertEquals(3L, tracker.progress());
+        assertEquals(1L, tracker.observe(source, 26L).appliedDelta());
+        assertEquals(4L, tracker.progress());
+    }
+
+    @Test
     void resettingBatchKeepsLiveSourceBaselines() {
         BatchProgressTracker tracker = new BatchProgressTracker(4L, 0L);
         UUID source = UUID.randomUUID();
@@ -113,6 +126,10 @@ class BatchProgressTrackerTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> tracker.observe(UUID.randomUUID(), -1L)
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> tracker.rebaseline(UUID.randomUUID(), -1L)
         );
     }
 }

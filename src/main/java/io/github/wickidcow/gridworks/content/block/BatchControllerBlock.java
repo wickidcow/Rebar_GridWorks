@@ -18,6 +18,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -28,6 +29,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.scheduler.BukkitTask;
 import org.jetbrains.annotations.NotNull;
 import xyz.xenondevs.invui.Click;
 import xyz.xenondevs.invui.gui.Gui;
@@ -49,6 +51,12 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
     private static final NamespacedKey OUTPUT_MODE_KEY = key("batch_controller_output_mode");
     private static final NamespacedKey OUTPUT_CIRCUIT_KEY = key("batch_controller_output_circuit");
     private static final NamespacedKey OUTPUT_ADDRESS_KEY = key("batch_controller_output_address");
+    private static final NamespacedKey FAULT_KEY = key("batch_controller_fault");
+    private static final NamespacedKey FAULT_ADDRESS_KEY = key("batch_controller_fault_address");
+    private static final NamespacedKey WATCHDOG_TICKS_KEY = key("batch_controller_watchdog_ticks");
+
+    private static final long DEFAULT_WATCHDOG_TICKS = 0L;
+    private static final long MAX_WATCHDOG_TICKS = 72_000L;
 
     private final BatchProgressTracker tracker;
     private final Set<UUID> activePeers = ConcurrentHashMap.newKeySet();
@@ -56,6 +64,10 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
     private ControlOutputMode outputMode;
     private ControlCommandChannel outputCircuit;
     private ControlAddress outputAddress;
+    private ControlAddress faultAddress;
+    private boolean faulted;
+    private long watchdogTicks;
+    private BukkitTask watchdogTask;
 
     private final ProgressItem progressItem = new ProgressItem();
     private final TargetItem targetItem = new TargetItem();
@@ -65,6 +77,8 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
     private final OutputCircuitItem outputCircuitItem = new OutputCircuitItem();
     private final OutputAddressItem outputAddressItem = new OutputAddressItem();
     private final OutputStateItem outputStateItem = new OutputStateItem();
+    private final WatchdogItem watchdogItem = new WatchdogItem();
+    private final FaultAddressItem faultAddressItem = new FaultAddressItem();
 
     public BatchControllerBlock(@NotNull Block block, @NotNull BlockCreateContext context) {
         super(block, context);
@@ -72,6 +86,9 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
         outputMode = ControlOutputMode.CIRCUIT;
         outputCircuit = ControlCommandChannel.DEFAULT;
         outputAddress = ControlAddress.defaultFor(getNodeId(), "batch");
+        faultAddress = defaultFaultAddress(getNodeId(), outputAddress);
+        faulted = false;
+        watchdogTicks = DEFAULT_WATCHDOG_TICKS;
     }
 
     public BatchControllerBlock(@NotNull Block block, @NotNull PersistentDataContainer pdc) {
@@ -94,6 +111,34 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
                 pdc.get(OUTPUT_ADDRESS_KEY, PersistentDataType.STRING),
                 ControlAddress.defaultFor(getNodeId(), "batch")
         );
+
+        Byte storedFault = pdc.get(FAULT_KEY, PersistentDataType.BYTE);
+        faulted = storedFault != null && storedFault != 0;
+        faultAddress = loadFaultAddress(pdc, getNodeId(), outputAddress);
+        Long storedWatchdog = pdc.get(WATCHDOG_TICKS_KEY, PersistentDataType.LONG);
+        watchdogTicks = clampWatchdogTicks(
+                storedWatchdog == null ? DEFAULT_WATCHDOG_TICKS : storedWatchdog
+        );
+    }
+
+    @Override
+    protected void beforeActivated() {
+        cancelWatchdog();
+    }
+
+    @Override
+    protected void afterActivated() {
+        scheduleWatchdog();
+    }
+
+    @Override
+    protected void afterDeactivated() {
+        cancelWatchdog();
+    }
+
+    @Override
+    protected void afterRemoved() {
+        cancelWatchdog();
     }
 
     @Override
@@ -137,11 +182,15 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
         pdc.set(OUTPUT_MODE_KEY, PersistentDataType.STRING, outputMode.name());
         pdc.set(OUTPUT_CIRCUIT_KEY, PersistentDataType.STRING, outputCircuit.name());
         pdc.set(OUTPUT_ADDRESS_KEY, PersistentDataType.STRING, outputAddress.value());
+        pdc.set(FAULT_KEY, PersistentDataType.BYTE, faulted ? (byte) 1 : (byte) 0);
+        pdc.set(FAULT_ADDRESS_KEY, PersistentDataType.STRING, faultAddress.value());
+        pdc.set(WATCHDOG_TICKS_KEY, PersistentDataType.LONG, watchdogTicks);
     }
 
     @Override
     public void publishCurrentState() {
         var bus = GridWorks.getInstance().getControlBus();
+        boolean complete = tracker.isComplete() && !faulted;
         bus.publish(
                 getNodeId(),
                 GridWorksChannels.BATCH_PROGRESS,
@@ -155,12 +204,27 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
         bus.publish(
                 getNodeId(),
                 GridWorksChannels.BATCH_COMPLETE,
-                ControlValue.of(tracker.isComplete())
+                ControlValue.of(complete)
+        );
+        bus.publish(
+                getNodeId(),
+                GridWorksChannels.BATCH_FAULT,
+                ControlValue.of(faulted)
+        );
+        bus.publish(
+                getNodeId(),
+                GridWorksChannels.BATCH_WATCHDOG_TICKS,
+                ControlValue.of((double) watchdogTicks)
         );
         bus.publish(
                 getNodeId(),
                 currentOutputChannel(),
-                ControlValue.of(tracker.isComplete())
+                ControlValue.of(complete)
+        );
+        bus.publish(
+                getNodeId(),
+                faultAddress.channel(),
+                ControlValue.of(faulted)
         );
     }
 
@@ -169,7 +233,8 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
         return Gui.builder()
                 .setStructure(
                         "p # t # s # r # o",
-                        "# # m # c # a # #"
+                        "# # m # c # a # #",
+                        "w # f # # # # # #"
                 )
                 .addIngredient('#', GuiItems.background())
                 .addIngredient('p', progressItem)
@@ -180,6 +245,8 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
                 .addIngredient('m', outputModeItem)
                 .addIngredient('c', outputCircuitItem)
                 .addIngredient('a', outputAddressItem)
+                .addIngredient('w', watchdogItem)
+                .addIngredient('f', faultAddressItem)
                 .build();
     }
 
@@ -192,7 +259,19 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
     }
 
     public boolean isBatchComplete() {
-        return tracker.isComplete();
+        return tracker.isComplete() && !faulted;
+    }
+
+    public boolean isBatchFaulted() {
+        return faulted;
+    }
+
+    public long getWatchdogTicks() {
+        return watchdogTicks;
+    }
+
+    public @NotNull ControlAddress getFaultAddress() {
+        return faultAddress;
     }
 
     public int getTrackedSourceCount() {
@@ -220,6 +299,15 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
             return;
         }
 
+        if (faulted) {
+            int previousSources = tracker.trackedSourceCount();
+            tracker.rebaseline(source, sourceCount);
+            if (tracker.trackedSourceCount() != previousSources) {
+                sourcesItem.notifyWindows();
+            }
+            return;
+        }
+
         int previousSources = tracker.trackedSourceCount();
         BatchProgressTracker.Observation observation = tracker.observe(source, sourceCount);
         if (tracker.trackedSourceCount() != previousSources) {
@@ -230,14 +318,22 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
             return;
         }
 
+        if (tracker.isComplete()) {
+            cancelWatchdog();
+        } else {
+            scheduleWatchdog();
+        }
         publishCurrentState();
         notifyStateItems();
     }
 
     private void resetBatch() {
         tracker.resetProgress();
+        faulted = false;
+        scheduleWatchdog();
         publishCurrentState();
         notifyStateItems();
+        notifyFaultItems();
     }
 
     private void changeTarget(int direction, boolean largeStep) {
@@ -258,6 +354,13 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
         }
 
         tracker.setTarget(next);
+        if (!faulted) {
+            if (tracker.isComplete()) {
+                cancelWatchdog();
+            } else {
+                scheduleWatchdog();
+            }
+        }
         publishCurrentState();
         notifyStateItems();
     }
@@ -288,6 +391,11 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
 
     private void setOutputAddress(ControlAddress next) {
         Objects.requireNonNull(next, "next");
+        if (faultAddress.equals(next)) {
+            throw new IllegalArgumentException(
+                    "That address is already used by the batch fault output."
+            );
+        }
         if (outputAddress.equals(next)) {
             return;
         }
@@ -301,6 +409,84 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
             publishCurrentState();
         }
         notifyOutputItems();
+    }
+
+    private void setFaultAddress(ControlAddress next) {
+        Objects.requireNonNull(next, "next");
+        if (outputAddress.equals(next)) {
+            throw new IllegalArgumentException(
+                    "That address is already used by the batch completion output."
+            );
+        }
+        if (faultAddress.equals(next)) {
+            return;
+        }
+
+        clearOutputChannel(faultAddress.channel());
+        faultAddress = next;
+        publishCurrentState();
+        notifyFaultItems();
+    }
+
+    private void changeWatchdog(long delta) {
+        long current = watchdogTicks;
+        long next = Math.max(
+                0L,
+                Math.min(MAX_WATCHDOG_TICKS, current + delta)
+        );
+        if (next == current) {
+            return;
+        }
+
+        watchdogTicks = next;
+        if (!faulted && !tracker.isComplete()) {
+            scheduleWatchdog();
+        } else {
+            cancelWatchdog();
+        }
+        publishCurrentState();
+        notifyFaultItems();
+    }
+
+    private void scheduleWatchdog() {
+        cancelWatchdog();
+        if (watchdogTicks <= 0L || faulted || tracker.isComplete()) {
+            return;
+        }
+
+        long expectedProgress = tracker.progress();
+        watchdogTask = GridWorks.getInstance().getServer().getScheduler().runTaskLater(
+                GridWorks.getInstance(),
+                () -> {
+                    watchdogTask = null;
+                    runOnServerThreadIfActive(
+                            () -> faultIfStillStalled(expectedProgress)
+                    );
+                },
+                watchdogTicks
+        );
+    }
+
+    private void faultIfStillStalled(long expectedProgress) {
+        if (faulted
+                || tracker.isComplete()
+                || tracker.progress() != expectedProgress) {
+            return;
+        }
+
+        faulted = true;
+        cancelWatchdog();
+        publishCurrentState();
+        notifyStateItems();
+        notifyFaultItems();
+    }
+
+    private void cancelWatchdog() {
+        BukkitTask task = watchdogTask;
+        watchdogTask = null;
+        if (task != null) {
+            task.cancel();
+        }
     }
 
     private ControlChannel currentOutputChannel() {
@@ -331,7 +517,19 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
         outputStateItem.notifyWindows();
     }
 
-    private void openOutputAddressWindow(Player player) {
+    private void notifyFaultItems() {
+        watchdogItem.notifyWindows();
+        faultAddressItem.notifyWindows();
+        progressItem.notifyWindows();
+        outputStateItem.notifyWindows();
+    }
+
+    private void openAddressWindow(
+            Player player,
+            String title,
+            ControlAddress current,
+            Consumer<ControlAddress> setter
+    ) {
         final boolean[] firstRename = {true};
 
         Gui upperGui = Gui.builder()
@@ -340,7 +538,7 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
                 .addIngredient(
                         'a',
                         ItemStackBuilder.of(Material.NAME_TAG)
-                                .name(Component.text(outputAddress.value(), NamedTextColor.GOLD))
+                                .name(Component.text(current.value(), NamedTextColor.GOLD))
                 )
                 .build();
 
@@ -355,11 +553,11 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
                 .addIngredient(
                         'i',
                         ItemStackBuilder.of(Material.PAPER)
-                                .name(Component.text("Set Batch Output Address", NamedTextColor.GOLD))
+                                .name(Component.text(title, NamedTextColor.GOLD))
                                 .lore(
-                                        Component.text("Example: smelter_batch", NamedTextColor.GRAY),
+                                        Component.text("Spaces normalize to underscores.", NamedTextColor.GRAY),
                                         Component.text(
-                                                "Matching addressed actuators follow batch completion.",
+                                                "Completion and fault addresses must be distinct.",
                                                 NamedTextColor.GRAY
                                         )
                                 )
@@ -371,7 +569,7 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
                     .setViewer(player)
                     .setUpperGui(upperGui)
                     .setLowerGui(lowerGui)
-                    .setTitle(Component.text("Batch Output Address"))
+                    .setTitle(Component.text(title))
                     .addRenameHandler(raw -> {
                         if (firstRename[0]) {
                             firstRename[0] = false;
@@ -379,10 +577,10 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
                         }
 
                         try {
-                            setOutputAddress(ControlAddress.fromUserInput(raw));
-                        } catch (IllegalArgumentException ignored) {
+                            setter.accept(ControlAddress.fromUserInput(raw));
+                        } catch (IllegalArgumentException exception) {
                             player.sendMessage(Component.text(
-                                    "Address must contain letters or numbers.",
+                                    exception.getMessage(),
                                     NamedTextColor.RED
                             ));
                         }
@@ -392,14 +590,55 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
         } catch (RuntimeException exception) {
             GridWorks.getInstance().getLogger().log(
                     Level.SEVERE,
-                    "Could not open Batch Controller output address window",
+                    "Could not open Batch Controller address window",
                     exception
             );
             player.sendMessage(Component.text(
-                    "GridWorks could not open the output address window.",
+                    "GridWorks could not open the address window.",
                     NamedTextColor.RED
             ));
         }
+    }
+
+    private static ControlAddress loadFaultAddress(
+            PersistentDataContainer pdc,
+            UUID nodeId,
+            ControlAddress outputAddress
+    ) {
+        ControlAddress fallback = defaultFaultAddress(nodeId, outputAddress);
+        ControlAddress stored = ControlAddress.fromStoredOrDefault(
+                pdc.get(FAULT_ADDRESS_KEY, PersistentDataType.STRING),
+                fallback
+        );
+        return stored.equals(outputAddress) ? fallback : stored;
+    }
+
+    private static ControlAddress defaultFaultAddress(
+            UUID nodeId,
+            ControlAddress outputAddress
+    ) {
+        for (int attempt = 1; attempt <= 100; attempt++) {
+            String prefix = attempt == 1 ? "batch_fault" : "batch_fault_" + attempt;
+            ControlAddress candidate = ControlAddress.defaultFor(nodeId, prefix);
+            if (!candidate.equals(outputAddress)) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException("Could not allocate a unique batch fault address");
+    }
+
+    private static long clampWatchdogTicks(long ticks) {
+        return Math.max(0L, Math.min(MAX_WATCHDOG_TICKS, ticks));
+    }
+
+    private static String formatWatchdog(long ticks) {
+        if (ticks <= 0L) {
+            return "OFF";
+        }
+        if (ticks % 20L == 0L) {
+            return (ticks / 20L) + "s";
+        }
+        return String.format(java.util.Locale.ROOT, "%.2fs", ticks / 20.0);
     }
 
     private static long exactCycleCount(double value) {
@@ -442,9 +681,11 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
     private final class ProgressItem extends BatchItem {
         @Override
         public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
-            boolean complete = tracker.isComplete();
+            boolean complete = tracker.isComplete() && !faulted;
             return item(
-                    complete ? Material.LIME_CONCRETE : Material.CRAFTER,
+                    faulted
+                            ? Material.RED_CONCRETE
+                            : complete ? Material.LIME_CONCRETE : Material.CRAFTER,
                     "Batch Progress"
             ).lore(
                     Component.text(
@@ -452,10 +693,14 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
                             complete ? NamedTextColor.GREEN : NamedTextColor.WHITE
                     ),
                     Component.text(
-                            complete
+                            faulted
+                                    ? "FAULT: no progress watchdog expired"
+                                    : complete
                                     ? "Target reached"
                                     : tracker.remaining() + " cycle(s) remaining",
-                            complete ? NamedTextColor.GREEN : NamedTextColor.AQUA
+                            faulted
+                                    ? NamedTextColor.RED
+                                    : complete ? NamedTextColor.GREEN : NamedTextColor.AQUA
                     ),
                     Component.text(
                             "Only new cycle deltas while directly linked count",
@@ -546,6 +791,10 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
                             Component.text(
                                     "Live source baselines are preserved",
                                     NamedTextColor.GRAY
+                            ),
+                            Component.text(
+                                    "Also clears a latched batch fault",
+                                    NamedTextColor.DARK_GRAY
                             )
                     );
         }
@@ -655,7 +904,94 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
             player.closeInventory();
             GridWorks.getInstance().getServer().getScheduler().runTask(
                     GridWorks.getInstance(),
-                    () -> openOutputAddressWindow(player)
+                    () -> openAddressWindow(
+                            player,
+                            "Batch Completion Output",
+                            outputAddress,
+                            BatchControllerBlock.this::setOutputAddress
+                    )
+            );
+        }
+    }
+
+    private final class WatchdogItem extends BatchItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            return item(
+                    watchdogTicks <= 0L ? Material.GRAY_DYE : Material.CLOCK,
+                    "No-Progress Watchdog: " + formatWatchdog(watchdogTicks)
+            ).lore(
+                    Component.text("Left +5s / Right -5s", NamedTextColor.YELLOW),
+                    Component.text("Shift uses 60 seconds", NamedTextColor.YELLOW),
+                    Component.text(
+                            "OFF preserves wait-forever behavior",
+                            NamedTextColor.GRAY
+                    ),
+                    Component.text(
+                            faulted
+                                    ? "FAULT latched until Start New Batch"
+                                    : "Deadline resets whenever batch progress increases",
+                            faulted ? NamedTextColor.RED : NamedTextColor.DARK_GRAY
+                    )
+            );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            long step = clickType.isShiftClick() ? 1_200L : 100L;
+            if (clickType.isLeftClick()) {
+                changeWatchdog(step);
+            } else if (clickType.isRightClick()) {
+                changeWatchdog(-step);
+            }
+        }
+    }
+
+    private final class FaultAddressItem extends BatchItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            return item(
+                    faulted ? Material.REDSTONE_BLOCK : Material.NAME_TAG,
+                    "Fault Output: " + faultAddress.value()
+            ).lore(
+                    Component.text(
+                            faultAddress.channel().toString(),
+                            NamedTextColor.AQUA
+                    ),
+                    Component.text(
+                            faulted ? "Output: ON (latched)" : "Output: OFF",
+                            faulted ? NamedTextColor.RED : NamedTextColor.GRAY
+                    ),
+                    Component.text(
+                            "Click to edit addressed fault output",
+                            NamedTextColor.YELLOW
+                    )
+            );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            if (!clickType.isLeftClick() && !clickType.isRightClick()) {
+                return;
+            }
+
+            player.closeInventory();
+            GridWorks.getInstance().getServer().getScheduler().runTask(
+                    GridWorks.getInstance(),
+                    () -> openAddressWindow(
+                            player,
+                            "Batch Fault Output",
+                            faultAddress,
+                            BatchControllerBlock.this::setFaultAddress
+                    )
             );
         }
     }
@@ -663,7 +999,7 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
     private final class OutputStateItem extends BatchItem {
         @Override
         public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
-            boolean complete = tracker.isComplete();
+            boolean complete = tracker.isComplete() && !faulted;
             return item(
                     complete ? Material.LIME_DYE : Material.RED_DYE,
                     complete ? "Output: ON" : "Output: OFF"
@@ -673,8 +1009,12 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
                             NamedTextColor.AQUA
                     ),
                     Component.text(
-                            complete ? "Batch target reached" : "Batch still running",
-                            complete ? NamedTextColor.GREEN : NamedTextColor.GRAY
+                            faulted
+                                    ? "Batch fault latched; reset required"
+                                    : complete ? "Batch target reached" : "Batch still running",
+                            faulted
+                                    ? NamedTextColor.RED
+                                    : complete ? NamedTextColor.GREEN : NamedTextColor.GRAY
                     )
             );
         }

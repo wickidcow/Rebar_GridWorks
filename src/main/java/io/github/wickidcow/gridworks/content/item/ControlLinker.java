@@ -486,10 +486,14 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
                                     controller.getBatchProgress()
                                             + "/"
                                             + controller.getBatchTarget()
-                                            + (controller.isBatchComplete()
+                                            + (controller.isBatchFaulted()
+                                            ? " FAULT"
+                                            : controller.isBatchComplete()
                                             ? " COMPLETE"
                                             : " RUNNING"),
-                                    controller.isBatchComplete()
+                                    controller.isBatchFaulted()
+                                            ? NamedTextColor.RED
+                                            : controller.isBatchComplete()
                                             ? NamedTextColor.GREEN
                                             : NamedTextColor.WHITE
                             ))
@@ -502,12 +506,30 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
                             ))
             );
             event.getPlayer().sendMessage(
+                    Component.text("No-progress watchdog: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    controller.getWatchdogTicks() <= 0L
+                                            ? "OFF"
+                                            : controller.getWatchdogTicks() + " ticks",
+                                    NamedTextColor.WHITE
+                            ))
+            );
+            event.getPlayer().sendMessage(
                     Component.text("Batch output: ", NamedTextColor.GRAY)
                             .append(Component.text(
                                     controller.getOutputMode().displayName()
                                             + " / "
                                             + controller.getOutputChannel(),
                                     NamedTextColor.AQUA
+                            ))
+            );
+            event.getPlayer().sendMessage(
+                    Component.text("Batch fault output: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    controller.getFaultAddress().channel().toString(),
+                                    controller.isBatchFaulted()
+                                            ? NamedTextColor.RED
+                                            : NamedTextColor.AQUA
                             ))
             );
         } else if (controlNode instanceof LoadSheddingControllerBlock controller) {
