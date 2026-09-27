@@ -4,6 +4,7 @@ import io.github.pylonmc.rebar.addon.RebarAddon;
 import io.github.wickidcow.gridworks.api.control.ControlBus;
 import io.github.wickidcow.gridworks.control.GraphControlBus;
 import io.github.wickidcow.gridworks.content.GridWorksContent;
+import io.github.wickidcow.gridworks.fluid.FluidSensorManager;
 import io.github.wickidcow.gridworks.inventory.InventorySensorManager;
 import io.github.wickidcow.gridworks.physical.PersistentConnectionStore;
 import io.github.wickidcow.gridworks.physical.PhysicalControlNetwork;
@@ -22,6 +23,7 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
     private GraphControlBus controlBus;
     private PhysicalControlNetwork physicalControlNetwork;
     private InventorySensorManager inventorySensorManager;
+    private FluidSensorManager fluidSensorManager;
 
     @Override
     public void onLoad() {
@@ -63,6 +65,12 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
         );
         inventorySensorManager = new InventorySensorManager(this, inventorySampleInterval);
 
+        long fluidSampleInterval = Math.max(
+                1L,
+                getConfig().getLong("sensors.fluid.sample-interval-ticks", 10L)
+        );
+        fluidSensorManager = new FluidSensorManager(this, fluidSampleInterval);
+
         GridWorksContent.register(this);
 
         Bukkit.getServicesManager().register(ControlBus.class, controlBus, this, ServicePriority.Normal);
@@ -72,6 +80,11 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
     @Override
     public void onDisable() {
         Bukkit.getServicesManager().unregisterAll(this);
+
+        if (fluidSensorManager != null) {
+            fluidSensorManager.close();
+            fluidSensorManager = null;
+        }
 
         if (inventorySensorManager != null) {
             inventorySensorManager.close();
@@ -118,6 +131,13 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
             throw new IllegalStateException("GridWorks is not enabled");
         }
         return inventorySensorManager;
+    }
+
+    public @NotNull FluidSensorManager getFluidSensorManager() {
+        if (fluidSensorManager == null) {
+            throw new IllegalStateException("GridWorks is not enabled");
+        }
+        return fluidSensorManager;
     }
 
     @Override

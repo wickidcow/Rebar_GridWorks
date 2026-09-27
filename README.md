@@ -4,52 +4,46 @@
 
 GridWorks is a Rebar addon focused on making factories smarter rather than simply making machines faster. Its long-term goal is to connect sensors, controllers, power systems, cargo, fluids, machines, and redstone through a common automation layer.
 
-> GridWorks is in early development. The Control Bus, persistent physical network, and first complete sensor-to-actuator automation path are implemented.
+> GridWorks is in early development. The Control Bus, persistent physical network, redstone I/O, and first inventory/fluid sensors are implemented.
 
-## Current foundation
+## Current systems
 
-The Control Bus provides:
+The Control Bus provides namespaced typed signals, cycle-safe graph propagation, a configurable safety cap, receiver isolation, and a Bukkit service API for other addons.
 
-- namespaced signal channels such as `gridworks:power/load`;
-- built-in boolean, number, and text signal values;
-- an addon-extensible `ControlValue` API;
-- graph-based node registration and connections;
-- cycle-safe, duplicate-free signal propagation;
-- a configurable propagation safety cap;
-- isolated receiver failures so one broken endpoint does not stop the rest of a network;
-- a Bukkit `ServicesManager` registration so other addons can discover the `ControlBus` API.
+The physical layer provides persistent node UUIDs, atomic link persistence, a GridWorks Linker, chunk-safe live topology, peer-availability callbacks, and reconnection without world scans or forced chunk loads.
 
-The physical layer provides:
-
-- persistent UUID identity for every physical GridWorks control node;
-- a Rebar **Control Interface** block;
-- a **GridWorks Linker** for creating/removing links and inspecting networks;
-- persistent link storage with atomic file replacement;
-- chunk-safe activation/deactivation that never loads a chunk just to reconnect a network;
-- automatic reconnection when both endpoints become loaded again;
-- state-source replay after link/load so actuators immediately receive current sensor state;
-- shared lifecycle code for future sensors, controllers, and actuators.
-
-## First automation path
-
-The event-driven **Redstone Sensor** publishes:
-
-- `gridworks:redstone/strength` — numeric signal from 0 through 15;
-- `gridworks:redstone/powered` — boolean signal.
-
-The **Status Light** consumes `gridworks:redstone/powered` and the generic `gridworks:control/enabled` boolean channel. This gives GridWorks its first end-to-end automation path:
+### Redstone automation
 
 ```text
-redstone -> Redstone Sensor -> Control Bus -> Status Light
+                     +--> Status Light
+Redstone Sensor -----|
+                     +--> Control Relay --> vanilla redstone
 ```
 
-No per-tick sensor polling is used. Stateful sensors replay their current state when physical topology changes, so an actuator that loads later does not have to wait for the next redstone transition.
+The Redstone Sensor is event-driven and publishes analog strength plus boolean powered state. The Status Light displays the boolean state, while the Control Relay produces real vanilla redstone output.
+
+### Inventory sensing
+
+The Inventory Sensor faces an adjacent inventory and publishes availability, total item count, occupied slots, total slots, and occupied-slot ratio. It understands Rebar virtual/logistic inventories before falling back to ordinary Bukkit container inventories.
+
+There is no universal inventory-change event across every supported inventory type, so all loaded Inventory Sensors share one configurable sampler and publish only when their snapshot changes.
+
+### Fluid sensing
+
+The Fluid Tank Sensor faces an adjacent block implementing Rebar's released `FluidTankRebarBlock` API and publishes:
+
+- `gridworks:fluid/available`
+- `gridworks:fluid/present`
+- `gridworks:fluid/type`
+- `gridworks:fluid/amount`
+- `gridworks:fluid/capacity`
+- `gridworks:fluid/fill_ratio`
+
+It samples loaded sensor targets only and never loads another chunk. The first implementation intentionally targets Rebar fluid tanks rather than using reflection to inspect arbitrary internal multi-fluid buffers that Rebar does not publicly enumerate.
 
 ## Planned systems
 
-The next gameplay milestones are a Redstone Relay, Inventory Sensor, and Fluid Sensor, followed by a survival-friendly Factory Controller. Smart power meters, breakers, branch limits, priority/load shedding, and factory-wide monitoring will follow the Rebar electricity API as it stabilizes.
-
-See [Architecture](docs/ARCHITECTURE.md) for the design rules and API boundaries.
+The next major milestone is configurable logic: threshold/comparison rules and a survival-friendly Factory Controller. After that, GridWorks can connect inventory/fluid/redstone measurements to relays and eventually to smart electricity controls as Rebar's electricity API stabilizes.
 
 ## Requirements
 

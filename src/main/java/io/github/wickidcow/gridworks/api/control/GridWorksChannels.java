@@ -22,6 +22,24 @@ public final class GridWorksChannels {
     public static final ControlChannel INVENTORY_OCCUPIED_RATIO =
             ControlChannel.of("gridworks", "inventory/occupied_ratio");
 
+    public static final ControlChannel FLUID_AVAILABLE =
+            ControlChannel.of("gridworks", "fluid/available");
+
+    public static final ControlChannel FLUID_PRESENT =
+            ControlChannel.of("gridworks", "fluid/present");
+
+    public static final ControlChannel FLUID_TYPE =
+            ControlChannel.of("gridworks", "fluid/type");
+
+    public static final ControlChannel FLUID_AMOUNT =
+            ControlChannel.of("gridworks", "fluid/amount");
+
+    public static final ControlChannel FLUID_CAPACITY =
+            ControlChannel.of("gridworks", "fluid/capacity");
+
+    public static final ControlChannel FLUID_FILL_RATIO =
+            ControlChannel.of("gridworks", "fluid/fill_ratio");
+
     private GridWorksChannels() {
         throw new AssertionError("Utility class");
     }

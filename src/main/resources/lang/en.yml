@@ -35,6 +35,13 @@ item:
       <arrow> Supports Rebar logistics/virtual inventories and vanilla containers
       <arrow> Publishes only when the measured inventory snapshot changes
 
+  fluid_sensor:
+    name: "Fluid Tank Sensor"
+    lore: |-
+      <arrow> Watches the adjacent Rebar fluid tank it faces
+      <arrow> Publishes fluid type, amount, capacity, and fill ratio
+      <arrow> Never loads another chunk just to sample a tank
+
   gridworks_linker:
     name: "GridWorks Linker"
     lore: |-

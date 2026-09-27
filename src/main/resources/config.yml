@@ -10,3 +10,11 @@ sensors:
     # therefore uses one shared sampler for loaded Inventory Sensors only.
     # 10 ticks = 0.5 seconds at 20 TPS.
     sample-interval-ticks: 10
+
+
+  fluid:
+    # Rebar's released fluid tank API exposes state cleanly, but does not emit
+    # one universal change event for every tank implementation. GridWorks uses
+    # one shared sampler for loaded Fluid Sensors only.
+    # 10 ticks = 0.5 seconds at 20 TPS.
+    sample-interval-ticks: 10
