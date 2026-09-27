@@ -40,6 +40,487 @@ jobs:
       - name: Build and test
         run: ./gradlew clean build --stacktrace --no-daemon
 
+      - name: Verify packaged GridWorks JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          JAR="$(find build/libs -maxdepth 1 -type f -name 'Rebar_GridWorks-*.jar' | sort | head -n 1)"
+          if [[ -z "$JAR" || ! -f "$JAR" ]]; then
+            echo "GridWorks JAR was not produced."
+            exit 1
+          fi
+
+          ENTRIES="$(jar tf "$JAR")"
+          for REQUIRED in             "plugin.yml"             "config.yml"             "lang/en.yml"             "META-INF/LICENSE-GridWorks"             "io/github/wickidcow/gridworks/GridWorks.class"             "io/github/wickidcow/gridworks/content/GridWorksContentCatalog.class"; do
+            if ! grep -Fxq "$REQUIRED" <<<"$ENTRIES"; then
+              echo "Packaged GridWorks JAR is missing $REQUIRED"
+              exit 1
+            fi
+          done
+
+          for FORBIDDEN_PREFIX in             "io/github/pylonmc/rebar/"             "io/papermc/paper/"             "org/bukkit/"             "xyz/xenondevs/invui/"; do
+            if grep -Fq "$FORBIDDEN_PREFIX" <<<"$ENTRIES"; then
+              echo "GridWorks JAR unexpectedly bundles classes under $FORBIDDEN_PREFIX"
+              exit 1
+            fi
+          done
+
+          PLUGIN_YML="$(unzip -p "$JAR" plugin.yml)"
+          grep -Eq '^name:[[:space:]]*GridWorks      - name: Smoke test Paper + Rebar + GridWorks
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf run
+          mkdir -p run
+          printf 'eula=true\n' > run/eula.txt
+
+          INPUT_PIPE="$RUNNER_TEMP/gridworks-smoke-input"
+          LOG_FILE="$RUNNER_TEMP/gridworks-smoke.log"
+          rm -f "$INPUT_PIPE" "$LOG_FILE"
+          mkfifo "$INPUT_PIPE"
+
+          ./gradlew runServer --stacktrace --no-daemon < "$INPUT_PIPE" > "$LOG_FILE" 2>&1 &
+          SERVER_PID=$!
+
+          exec 3>"$INPUT_PIPE"
+
+          READY=0
+          for _ in $(seq 1 120); do
+            if grep -Fq "Validated 21 GridWorks content entries and survival recipes." "$LOG_FILE" \
+              && grep -Fq "GridWorks control bus initialized" "$LOG_FILE" \
+              && grep -Fq "Done (" "$LOG_FILE"; then
+              READY=1
+              break
+            fi
+
+            if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+              break
+            fi
+
+            sleep 1
+          done
+
+          if [[ "$READY" -ne 1 ]]; then
+            echo "GridWorks did not reach the expected ready state."
+            cat "$LOG_FILE"
+            echo "stop" >&3 || true
+            exec 3>&-
+            wait "$SERVER_PID" || true
+            exit 1
+          fi
+
+          if grep -Eq "Error occurred while enabling GridWorks|GridWorks failed to enable|Could not load plugin.*GridWorks" "$LOG_FILE"; then
+            echo "GridWorks startup emitted a fatal plugin error."
+            cat "$LOG_FILE"
+            echo "stop" >&3 || true
+            exec 3>&-
+            wait "$SERVER_PID" || true
+            exit 1
+          fi
+
+          echo "gridworks doctor" >&3
+
+          DOCTOR_READY=0
+          DOCTOR_FAILED=0
+          for _ in $(seq 1 15); do
+            if grep -Fq "GridWorks Doctor result: PASS" "$LOG_FILE"; then
+              DOCTOR_READY=1
+              break
+            fi
+            if grep -Fq "GridWorks Doctor result: FAIL" "$LOG_FILE"; then
+              DOCTOR_FAILED=1
+              break
+            fi
+            sleep 1
+          done
+
+          if [[ "$DOCTOR_READY" -ne 1 || "$DOCTOR_FAILED" -eq 1 ]]; then
+            echo "The live GridWorks doctor did not report PASS."
+            cat "$LOG_FILE"
+            echo "stop" >&3 || true
+            exec 3>&-
+            wait "$SERVER_PID" || true
+            exit 1
+          fi
+
+          echo "stop" >&3
+          exec 3>&-
+
+          STOPPED=0
+          for _ in $(seq 1 30); do
+            if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+              STOPPED=1
+              break
+            fi
+            sleep 1
+          done
+
+          if [[ "$STOPPED" -ne 1 ]]; then
+            echo "Paper/Gradle did not stop within 30 seconds."
+            cat "$LOG_FILE"
+            kill "$SERVER_PID" 2>/dev/null || true
+            sleep 2
+            kill -9 "$SERVER_PID" 2>/dev/null || true
+            wait "$SERVER_PID" || true
+            exit 1
+          fi
+
+          if ! wait "$SERVER_PID"; then
+            echo "Paper/Gradle exited unsuccessfully after the smoke test."
+            cat "$LOG_FILE"
+            exit 1
+          fi
+
+          if grep -Eiq "GridWorks cleanup failed|Error occurred while disabling GridWorks|(ERROR|SEVERE).*GridWorks" "$LOG_FILE"; then
+            echo "GridWorks emitted an error during startup, doctor, or shutdown."
+            cat "$LOG_FILE"
+            exit 1
+          fi
+
+          echo "GridWorks Paper smoke test passed."
+          grep -F "Validated 21 GridWorks content entries and survival recipes." "$LOG_FILE"
+          grep -F "GridWorks control bus initialized" "$LOG_FILE"
+          grep -F "Done (" "$LOG_FILE"
+          grep -F "GridWorks Doctor result: PASS" "$LOG_FILE"
+
+      - name: Record smoke-tested raw JAR digest
+        id: tested-jar
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR="$(find build/libs -maxdepth 1 -type f -name 'Rebar_GridWorks-*.jar' | sort | head -n 1)"
+          if [[ -z "$JAR" || ! -f "$JAR" ]]; then
+            echo "Smoke-tested GridWorks JAR was not found."
+            exit 1
+          fi
+          SHA256="$(sha256sum "$JAR" | awk '{print $1}')"
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+          echo "Smoke-tested JAR SHA-256: $SHA256"
+
+  publish-development-jar:
+    name: Publish raw development JAR
+    if: >
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout tested commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build raw JAR from tested commit
+        run: ./gradlew clean jar --stacktrace --no-daemon
+
+      - name: Verify raw JAR matches smoke-tested bytes
+        env:
+          TESTED_SHA256: ${{ needs.build.outputs.tested-jar-sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR="$(find build/libs -maxdepth 1 -type f -name 'Rebar_GridWorks-*.jar' | sort | head -n 1)"
+          if [[ -z "$JAR" || ! -f "$JAR" ]]; then
+            echo "Rebuilt GridWorks JAR was not found."
+            exit 1
+          fi
+          if [[ -z "$TESTED_SHA256" ]]; then
+            echo "Smoke-tested JAR digest was not propagated from the build job."
+            exit 1
+          fi
+          REBUILT_SHA256="$(sha256sum "$JAR" | awk '{print $1}')"
+          if [[ "$REBUILT_SHA256" != "$TESTED_SHA256" ]]; then
+            echo "Rebuilt JAR does not match the smoke-tested JAR."
+            echo "Smoke-tested: $TESTED_SHA256"
+            echo "Rebuilt:      $REBUILT_SHA256"
+            exit 1
+          fi
+          echo "Raw JAR byte match verified: $REBUILT_SHA256"
+
+      - name: Publish rolling development JAR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          JAR="$(find build/libs -maxdepth 1 -type f -name 'Rebar_GridWorks-*.jar' | sort | head -n 1)"
+          if [[ -z "$JAR" || ! -f "$JAR" ]]; then
+            echo "GridWorks JAR was not produced."
+            exit 1
+          fi
+
+          if gh release view dev-build --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh api --method PATCH               "/repos/$GITHUB_REPOSITORY/git/refs/tags/dev-build"               -f sha="$GITHUB_SHA"               -F force=true >/dev/null
+
+            RELEASE_ID="$(gh api "/repos/$GITHUB_REPOSITORY/releases/tags/dev-build" --jq '.id')"
+            gh api --method PATCH "/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID"               -f target_commitish="$GITHUB_SHA"               -f body="Rolling raw JAR from the latest successful smoke-tested main build. Tested commit: $GITHUB_SHA. Development snapshot; not a stable release." >/dev/null
+
+            gh release upload dev-build "$JAR"               --repo "$GITHUB_REPOSITORY"               --clobber
+          else
+            gh release create dev-build "$JAR"               --repo "$GITHUB_REPOSITORY"               --target "$GITHUB_SHA"               --title "GridWorks Development Build"               --notes "Rolling raw JAR from the latest successful smoke-tested main build. Tested commit: $GITHUB_SHA. Development snapshot; not a stable release."               --prerelease
+          fi
+
+          EXPECTED_DIGEST="sha256:$(sha256sum "$JAR" | awk '{print $1}')"
+          ASSET_NAME="$(basename "$JAR")"
+          RELEASE_JSON="$(gh api "/repos/$GITHUB_REPOSITORY/releases/tags/dev-build")"
+          PUBLISHED_DIGEST="$(printf '%s' "$RELEASE_JSON" | jq -r --arg name "$ASSET_NAME" '.assets[] | select(.name == $name) | .digest')"
+
+          if [[ "$PUBLISHED_DIGEST" != "$EXPECTED_DIGEST" ]]; then
+            echo "Published GitHub asset digest does not match the verified raw JAR."
+            echo "Expected:  $EXPECTED_DIGEST"
+            echo "Published: $PUBLISHED_DIGEST"
+            exit 1
+          fi
+
+          echo "Published raw JAR digest verified: $PUBLISHED_DIGEST"
+ <<<"$PLUGIN_YML"
+          grep -Eq '^main:[[:space:]]*io\.github\.wickidcow\.gridworks\.GridWorks      - name: Smoke test Paper + Rebar + GridWorks
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf run
+          mkdir -p run
+          printf 'eula=true\n' > run/eula.txt
+
+          INPUT_PIPE="$RUNNER_TEMP/gridworks-smoke-input"
+          LOG_FILE="$RUNNER_TEMP/gridworks-smoke.log"
+          rm -f "$INPUT_PIPE" "$LOG_FILE"
+          mkfifo "$INPUT_PIPE"
+
+          ./gradlew runServer --stacktrace --no-daemon < "$INPUT_PIPE" > "$LOG_FILE" 2>&1 &
+          SERVER_PID=$!
+
+          exec 3>"$INPUT_PIPE"
+
+          READY=0
+          for _ in $(seq 1 120); do
+            if grep -Fq "Validated 21 GridWorks content entries and survival recipes." "$LOG_FILE" \
+              && grep -Fq "GridWorks control bus initialized" "$LOG_FILE" \
+              && grep -Fq "Done (" "$LOG_FILE"; then
+              READY=1
+              break
+            fi
+
+            if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+              break
+            fi
+
+            sleep 1
+          done
+
+          if [[ "$READY" -ne 1 ]]; then
+            echo "GridWorks did not reach the expected ready state."
+            cat "$LOG_FILE"
+            echo "stop" >&3 || true
+            exec 3>&-
+            wait "$SERVER_PID" || true
+            exit 1
+          fi
+
+          if grep -Eq "Error occurred while enabling GridWorks|GridWorks failed to enable|Could not load plugin.*GridWorks" "$LOG_FILE"; then
+            echo "GridWorks startup emitted a fatal plugin error."
+            cat "$LOG_FILE"
+            echo "stop" >&3 || true
+            exec 3>&-
+            wait "$SERVER_PID" || true
+            exit 1
+          fi
+
+          echo "gridworks doctor" >&3
+
+          DOCTOR_READY=0
+          DOCTOR_FAILED=0
+          for _ in $(seq 1 15); do
+            if grep -Fq "GridWorks Doctor result: PASS" "$LOG_FILE"; then
+              DOCTOR_READY=1
+              break
+            fi
+            if grep -Fq "GridWorks Doctor result: FAIL" "$LOG_FILE"; then
+              DOCTOR_FAILED=1
+              break
+            fi
+            sleep 1
+          done
+
+          if [[ "$DOCTOR_READY" -ne 1 || "$DOCTOR_FAILED" -eq 1 ]]; then
+            echo "The live GridWorks doctor did not report PASS."
+            cat "$LOG_FILE"
+            echo "stop" >&3 || true
+            exec 3>&-
+            wait "$SERVER_PID" || true
+            exit 1
+          fi
+
+          echo "stop" >&3
+          exec 3>&-
+
+          STOPPED=0
+          for _ in $(seq 1 30); do
+            if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+              STOPPED=1
+              break
+            fi
+            sleep 1
+          done
+
+          if [[ "$STOPPED" -ne 1 ]]; then
+            echo "Paper/Gradle did not stop within 30 seconds."
+            cat "$LOG_FILE"
+            kill "$SERVER_PID" 2>/dev/null || true
+            sleep 2
+            kill -9 "$SERVER_PID" 2>/dev/null || true
+            wait "$SERVER_PID" || true
+            exit 1
+          fi
+
+          if ! wait "$SERVER_PID"; then
+            echo "Paper/Gradle exited unsuccessfully after the smoke test."
+            cat "$LOG_FILE"
+            exit 1
+          fi
+
+          if grep -Eiq "GridWorks cleanup failed|Error occurred while disabling GridWorks|(ERROR|SEVERE).*GridWorks" "$LOG_FILE"; then
+            echo "GridWorks emitted an error during startup, doctor, or shutdown."
+            cat "$LOG_FILE"
+            exit 1
+          fi
+
+          echo "GridWorks Paper smoke test passed."
+          grep -F "Validated 21 GridWorks content entries and survival recipes." "$LOG_FILE"
+          grep -F "GridWorks control bus initialized" "$LOG_FILE"
+          grep -F "Done (" "$LOG_FILE"
+          grep -F "GridWorks Doctor result: PASS" "$LOG_FILE"
+
+      - name: Record smoke-tested raw JAR digest
+        id: tested-jar
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR="$(find build/libs -maxdepth 1 -type f -name 'Rebar_GridWorks-*.jar' | sort | head -n 1)"
+          if [[ -z "$JAR" || ! -f "$JAR" ]]; then
+            echo "Smoke-tested GridWorks JAR was not found."
+            exit 1
+          fi
+          SHA256="$(sha256sum "$JAR" | awk '{print $1}')"
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+          echo "Smoke-tested JAR SHA-256: $SHA256"
+
+  publish-development-jar:
+    name: Publish raw development JAR
+    if: >
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout tested commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build raw JAR from tested commit
+        run: ./gradlew clean jar --stacktrace --no-daemon
+
+      - name: Verify raw JAR matches smoke-tested bytes
+        env:
+          TESTED_SHA256: ${{ needs.build.outputs.tested-jar-sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR="$(find build/libs -maxdepth 1 -type f -name 'Rebar_GridWorks-*.jar' | sort | head -n 1)"
+          if [[ -z "$JAR" || ! -f "$JAR" ]]; then
+            echo "Rebuilt GridWorks JAR was not found."
+            exit 1
+          fi
+          if [[ -z "$TESTED_SHA256" ]]; then
+            echo "Smoke-tested JAR digest was not propagated from the build job."
+            exit 1
+          fi
+          REBUILT_SHA256="$(sha256sum "$JAR" | awk '{print $1}')"
+          if [[ "$REBUILT_SHA256" != "$TESTED_SHA256" ]]; then
+            echo "Rebuilt JAR does not match the smoke-tested JAR."
+            echo "Smoke-tested: $TESTED_SHA256"
+            echo "Rebuilt:      $REBUILT_SHA256"
+            exit 1
+          fi
+          echo "Raw JAR byte match verified: $REBUILT_SHA256"
+
+      - name: Publish rolling development JAR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          JAR="$(find build/libs -maxdepth 1 -type f -name 'Rebar_GridWorks-*.jar' | sort | head -n 1)"
+          if [[ -z "$JAR" || ! -f "$JAR" ]]; then
+            echo "GridWorks JAR was not produced."
+            exit 1
+          fi
+
+          if gh release view dev-build --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh api --method PATCH               "/repos/$GITHUB_REPOSITORY/git/refs/tags/dev-build"               -f sha="$GITHUB_SHA"               -F force=true >/dev/null
+
+            RELEASE_ID="$(gh api "/repos/$GITHUB_REPOSITORY/releases/tags/dev-build" --jq '.id')"
+            gh api --method PATCH "/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID"               -f target_commitish="$GITHUB_SHA"               -f body="Rolling raw JAR from the latest successful smoke-tested main build. Tested commit: $GITHUB_SHA. Development snapshot; not a stable release." >/dev/null
+
+            gh release upload dev-build "$JAR"               --repo "$GITHUB_REPOSITORY"               --clobber
+          else
+            gh release create dev-build "$JAR"               --repo "$GITHUB_REPOSITORY"               --target "$GITHUB_SHA"               --title "GridWorks Development Build"               --notes "Rolling raw JAR from the latest successful smoke-tested main build. Tested commit: $GITHUB_SHA. Development snapshot; not a stable release."               --prerelease
+          fi
+
+          EXPECTED_DIGEST="sha256:$(sha256sum "$JAR" | awk '{print $1}')"
+          ASSET_NAME="$(basename "$JAR")"
+          RELEASE_JSON="$(gh api "/repos/$GITHUB_REPOSITORY/releases/tags/dev-build")"
+          PUBLISHED_DIGEST="$(printf '%s' "$RELEASE_JSON" | jq -r --arg name "$ASSET_NAME" '.assets[] | select(.name == $name) | .digest')"
+
+          if [[ "$PUBLISHED_DIGEST" != "$EXPECTED_DIGEST" ]]; then
+            echo "Published GitHub asset digest does not match the verified raw JAR."
+            echo "Expected:  $EXPECTED_DIGEST"
+            echo "Published: $PUBLISHED_DIGEST"
+            exit 1
+          fi
+
+          echo "Published raw JAR digest verified: $PUBLISHED_DIGEST"
+ <<<"$PLUGIN_YML"
+          grep -Fq 'Rebar' <<<"$PLUGIN_YML"
+          grep -Fq 'gridworks:' <<<"$PLUGIN_YML"
+          grep -Fq 'gridworks.admin' <<<"$PLUGIN_YML"
+
+          echo "Packaged GridWorks JAR contents verified."
+
       - name: Smoke test Paper + Rebar + GridWorks
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         shell: bash

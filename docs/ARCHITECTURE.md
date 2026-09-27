@@ -501,3 +501,10 @@ The guard also checks that the pinned Rebar artifact is release-shaped, targets 
 Archive tasks disable source-file timestamps and use reproducible entry ordering. The smoke job exports the SHA-256 of its post-smoke GridWorks JAR. The write-capable publication job rebuilds from the exact event SHA and must reproduce that digest before modifying the rolling release.
 
 After upload, GitHub's own release-asset digest is read back and compared with the verified local SHA-256. This closes the gap between “same tested source” and “same tested binary” without changing the user-facing raw-JAR delivery.
+
+
+## Packaged artifact integrity gate
+
+After Gradle's normal build, CI inspects the actual GridWorks JAR before launching Paper. Required runtime resources/classes and generated plugin metadata are checked directly from the archive, including command/permission/dependency metadata.
+
+The distributed JAR embeds the project GPLv3 license under `META-INF/LICENSE-GridWorks`. The same gate rejects package entries from Rebar, Paper/Bukkit, and InvUI namespaces so provided dependencies cannot be accidentally shaded into the addon.

@@ -55,6 +55,10 @@ tasks.withType<org.gradle.api.tasks.bundling.AbstractArchiveTask>().configureEac
 
 tasks.jar {
     archiveBaseName.set("Rebar_GridWorks")
+    from("LICENSE") {
+        into("META-INF")
+        rename { "LICENSE-GridWorks" }
+    }
 }
 
 bukkit {
