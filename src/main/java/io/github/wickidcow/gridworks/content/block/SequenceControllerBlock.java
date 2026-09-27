@@ -106,7 +106,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
     }
 
     @Override
-    protected void afterActivated() {
+    protected void beforeActivated() {
         startEdge.reset();
         stageEdge.reset();
     }

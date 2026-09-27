@@ -110,6 +110,12 @@ Stateful nodes implement the public `ControlStateSource` contract. On node activ
 
 This is not a polling loop. It only runs on topology changes and prevents multi-hop receivers from waiting indefinitely for an otherwise unchanged sensor value.
 
+### Activation/replay ordering
+
+Physical control blocks now have explicit pre- and post-activation lifecycle hooks. `beforeActivated()` runs after Rebar block initialization but before the node joins the live graph, while `afterActivated()` runs only after activation and component state replay finish.
+
+Replay-sensitive devices reset transient input baselines in the pre-activation hook. This is critical for Pulse Relay, Delay Relay, Alarm Indicator, and Sequence Controller: replay establishes their first observed state, and the post-activation hook must not erase that baseline. Otherwise the first real post-restart transition could be missed or a delayed transition scheduled from replay could be invalidated.
+
 ## Factory Monitor
 
 The Factory Monitor subscribes only to a bounded set of built-in GridWorks channels and keeps one latest signal per source/channel pair. A dedicated source selector switches between an Overview (newest source for each channel) and one observed source, so identical metrics from multiple machines no longer overwrite each other. Addressed commands retain only the latest command per source, keeping the dynamic address namespace bounded.

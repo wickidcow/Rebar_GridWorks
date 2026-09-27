@@ -65,10 +65,26 @@ public abstract class PhysicalControlNodeBlock extends RebarBlock
     @Override
     public void postInitialise() {
         super.postInitialise();
+        beforeActivated();
         GridWorks.getInstance().getPhysicalControlNetwork().activate(this);
         afterActivated();
     }
 
+    /**
+     * Runs immediately before this node enters the live physical network.
+     *
+     * <p>Use this hook for transient fail-safe state and input-edge baselines
+     * that must be prepared before activation can replay component state.</p>
+     */
+    protected void beforeActivated() {
+    }
+
+    /**
+     * Runs after activation and component-wide state replay have completed.
+     *
+     * <p>Do not clear replay-derived input state here. This hook is intended
+     * for work that requires the node to already be live in the topology.</p>
+     */
     protected void afterActivated() {
     }
 

@@ -77,9 +77,13 @@ public final class PulseRelayBlock extends PhysicalControlNodeBlock
     }
 
     @Override
-    protected void afterActivated() {
+    protected void beforeActivated() {
         powered = false;
         edgeTrigger.reset();
+    }
+
+    @Override
+    protected void afterActivated() {
         applyOutputState();
     }
 

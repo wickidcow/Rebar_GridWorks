@@ -161,8 +161,12 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
     }
 
     @Override
-    protected void afterActivated() {
+    protected void beforeActivated() {
         alarmLatch.resetObservation();
+    }
+
+    @Override
+    protected void afterActivated() {
         refreshEscalation(false);
         applyVisualState();
     }

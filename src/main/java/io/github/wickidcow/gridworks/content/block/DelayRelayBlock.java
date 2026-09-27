@@ -82,9 +82,13 @@ public final class DelayRelayBlock extends PhysicalControlNodeBlock
     }
 
     @Override
-    protected void afterActivated() {
+    protected void beforeActivated() {
         powered = false;
         transition.reset(false);
+    }
+
+    @Override
+    protected void afterActivated() {
         applyOutputState();
     }
 
