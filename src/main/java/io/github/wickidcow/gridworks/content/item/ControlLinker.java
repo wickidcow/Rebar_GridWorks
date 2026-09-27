@@ -141,10 +141,21 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
 
         if (controlNode instanceof AlarmIndicatorBlock alarm) {
             event.getPlayer().sendMessage(
-                    Component.text("Alarm: ", NamedTextColor.GRAY)
+                    Component.text("Alarm condition: ", NamedTextColor.GRAY)
                             .append(Component.text(
-                                    alarm.isActive() ? "ACTIVE" : "CLEAR",
-                                    alarm.isActive() ? NamedTextColor.RED : NamedTextColor.GREEN
+                                    alarm.isConditionActive() ? "ACTIVE" : "CLEAR",
+                                    alarm.isConditionActive() ? NamedTextColor.RED : NamedTextColor.GREEN
+                            ))
+            );
+            event.getPlayer().sendMessage(
+                    Component.text("Alarm latch: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    !alarm.isLatched()
+                                            ? "CLEAR"
+                                            : (alarm.isAcknowledged() ? "ACKNOWLEDGED" : "UNACKNOWLEDGED"),
+                                    !alarm.isLatched()
+                                            ? NamedTextColor.GREEN
+                                            : (alarm.isAcknowledged() ? NamedTextColor.YELLOW : NamedTextColor.RED)
                             ))
             );
             event.getPlayer().sendMessage(

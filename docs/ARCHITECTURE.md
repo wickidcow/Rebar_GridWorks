@@ -134,3 +134,10 @@ The output starts fail-safe OFF after load; current component state replay then 
 Alarm Indicator separates level state from event notification. The lamp follows the current boolean input, while `RisingEdgeTrigger` controls the audible bell. The first replayed value is only a baseline, so restart/reconnect state restoration is silent even when the alarm condition is already active.
 
 Its lamp is protected from ordinary redstone changes in the same listener used by Status Light; the Control Bus remains the authoritative state.
+
+
+## Alarm acknowledgement
+
+`AlarmLatch` is a pure state machine independent of Bukkit. It tracks current fault condition, latched state, and operator acknowledgement.
+
+An unacknowledged fault remains latched after its source condition clears. Acknowledging an already-cleared fault clears the latch immediately. Acknowledging an active fault marks it acknowledged while preserving the visible alarm; it auto-clears when the condition later becomes false. Persisted latch/acknowledgement survives chunk unload and restart, while the live input observation is re-established through normal Control Bus state replay.

@@ -10,9 +10,9 @@ item:
   alarm_indicator:
     name: "Alarm Indicator"
     lore: |-
-      <arrow> Lights while a Control Bus alarm condition is active
+      <arrow> Latches faults until they are acknowledged or safely cleared
       <arrow> Rings once on a real false-to-true transition
-      <arrow> Restart and topology replay update the light silently
+      <arrow> Acknowledge alarms from the GUI; restart replay stays silent
 
   redstone_sensor:
     name: "Redstone Sensor"

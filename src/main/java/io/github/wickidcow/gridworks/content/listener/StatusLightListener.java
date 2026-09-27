@@ -16,7 +16,7 @@ public final class StatusLightListener implements Listener {
         if (rebarBlock instanceof StatusLightBlock statusLight) {
             event.setNewCurrent(statusLight.isLit() ? 15 : 0);
         } else if (rebarBlock instanceof AlarmIndicatorBlock alarmIndicator) {
-            event.setNewCurrent(alarmIndicator.isActive() ? 15 : 0);
+            event.setNewCurrent(alarmIndicator.isLatched() ? 15 : 0);
         }
     }
 }
