@@ -168,7 +168,7 @@ All four hysteresis thresholds are configurable in the controller GUI: optional 
 
 Saved tier routes are also repaired through a deterministic collision-safe route set. Even if legacy/corrupt PDC contains duplicate addresses—or one duplicate happens to equal the first generated fallback—the controller generates a distinct replacement before it can publish conflicting Essential/Normal/Optional states.
 
-The next native-electricity step is the actual Rebar `PowerGridProvider` adapter once that API lands in a released dependency, followed by the Smart Breaker. Power sensing, addressed load groups, controller metrics, telemetry channels, and load shedding are now provider-neutral and already implemented.
+The remaining native-electricity step is the actual Rebar adapter once its electricity API lands in a released dependency. Power sensing, addressed load groups, controller metrics, load shedding, Smart Breaker, and Power Limiter are already implemented behind provider-neutral contracts.
 
 ## Requirements
 
@@ -254,3 +254,10 @@ Recipes are registered under the `gridworks` crafting-book group and are explici
 Smart Breaker, Power Limiter, Fluid Valve, and Cargo Isolator now use one immutable `ControlInputRoute` model for Circuit vs Address routing. The model owns safe parsing of persisted mode/circuit/address values, active-channel selection, circuit cycling, address replacement, and whether a configuration edit actually changes the active input route.
 
 Each physical actuator still owns its domain-specific fail-safe action, but it only applies that action when `RouteChange.activeRouteChanged()` is true. Editing an inactive saved address therefore no longer causes unnecessary physical switching, while toggling route mode or changing the active circuit/address always triggers the correct safe state before replay.
+
+
+## Part 3 implementation boundary
+
+The current 0.3.x development line now includes the provider-neutral electrical branch-control API, Smart Breaker, Power Limiter, released-API Fluid Valve, released-API Cargo Isolator, unified actuator input routing, and survival crafting recipes for the full current GridWorks set.
+
+The intentionally unresolved piece is the **native Rebar electricity adapter**. Rebar 0.43.0-26.2 still does not ship the electricity package being developed upstream, so GridWorks will not compile against those unreleased classes. When that API is released, the adapter can implement the existing `PowerGridProvider` and `PowerBranchProvider` contracts without redesigning sensors, controllers, breakers, limiters, or load shedding.

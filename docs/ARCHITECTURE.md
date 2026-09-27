@@ -346,7 +346,7 @@ Machine Sensor's numeric progress/process-time/ticks-remaining channels are now 
 
 The 0.2.x development line completes the provider-neutral automation layer: persistent Control Bus topology, sensor state replay, inventory/fluid/machine/redstone/power telemetry, multi-condition Factory Controller logic, addressed routing, relays/timers, alarm operations, power-provider services, Power Grid Sensor, and hysteresis-based load shedding.
 
-The remaining native-electricity work is intentionally separated from Part 2 because released Rebar 0.43.0-26.2 does not expose the upstream electricity package. A future Part 3 can add the Rebar-specific `PowerGridProvider` and Smart Breaker without changing the stable GridWorks control, telemetry, or rule contracts established here.
+Part 2 deliberately stopped at provider-neutral power telemetry because released Rebar 0.43.0-26.2 does not expose the upstream electricity package. Part 3 has since added provider-neutral branch control, Smart Breaker, and Power Limiter without changing those stable control, telemetry, or rule contracts.
 
 
 ## Part 3 branch-control boundary
@@ -424,3 +424,10 @@ Part 3 actuators no longer duplicate Circuit/Address routing state machines. `Co
 This distinction matters for physical devices. Changing an address while a device is listening to a circuit is persisted without opening/closing hardware unnecessarily. Changing the active circuit, changing an address while Address mode is active, or toggling mode reports `activeRouteChanged=true`; the owning actuator then applies its own fail-safe state before requesting component state replay.
 
 Persistent parsing continues to use the existing conservative fallbacks: invalid/missing mode -> Circuit, invalid/missing circuit -> Default, invalid/missing address -> the node-derived fallback.
+
+
+## Part 3 completion boundary
+
+Part 3's GridWorks-owned architecture is now in place: branch switching/limiting contracts, event-driven provider lifecycle, safe Circuit/Address routing, cargo isolation, fluid isolation, and survival recipe registration all compile against released Rebar APIs.
+
+The remaining dependency-specific work is a native Rebar electricity adapter. It must wait for a released Rebar version exposing the electricity graph/edge API. Until then, third-party electricity addons may integrate through the public Bukkit service contracts without requiring GridWorks core changes.
