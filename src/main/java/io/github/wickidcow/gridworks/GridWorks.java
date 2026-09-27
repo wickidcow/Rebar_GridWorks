@@ -8,6 +8,8 @@ import io.github.wickidcow.gridworks.fluid.FluidSensorManager;
 import io.github.wickidcow.gridworks.inventory.InventorySensorManager;
 import io.github.wickidcow.gridworks.physical.PersistentConnectionStore;
 import io.github.wickidcow.gridworks.physical.PhysicalControlNetwork;
+import io.github.wickidcow.gridworks.power.PowerGridBridge;
+import io.github.wickidcow.gridworks.power.UnavailablePowerGridBridge;
 import java.io.IOException;
 import java.util.Locale;
 import java.util.logging.Level;
@@ -24,6 +26,7 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
     private PhysicalControlNetwork physicalControlNetwork;
     private InventorySensorManager inventorySensorManager;
     private FluidSensorManager fluidSensorManager;
+    private PowerGridBridge powerGridBridge;
 
     @Override
     public void onLoad() {
@@ -71,6 +74,13 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
         );
         fluidSensorManager = new FluidSensorManager(this, fluidSampleInterval);
 
+        // Rebar 0.43.0-26.2 does not yet ship its electricity API. Keep the
+        // upstream-sensitive boundary explicit so a future adapter can replace
+        // this without changing sensors/controllers or the Control Bus core.
+        powerGridBridge = new UnavailablePowerGridBridge(
+                "Rebar electricity API is not present in the released dependency"
+        );
+
         GridWorksContent.register(this);
 
         Bukkit.getServicesManager().register(ControlBus.class, controlBus, this, ServicePriority.Normal);
@@ -90,6 +100,8 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
             inventorySensorManager.close();
             inventorySensorManager = null;
         }
+
+        powerGridBridge = null;
 
         if (physicalControlNetwork != null) {
             physicalControlNetwork.close();
@@ -131,6 +143,13 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
             throw new IllegalStateException("GridWorks is not enabled");
         }
         return inventorySensorManager;
+    }
+
+    public @NotNull PowerGridBridge getPowerGridBridge() {
+        if (powerGridBridge == null) {
+            throw new IllegalStateException("GridWorks is not enabled");
+        }
+        return powerGridBridge;
     }
 
     public @NotNull FluidSensorManager getFluidSensorManager() {

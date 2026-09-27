@@ -65,7 +65,11 @@ GridWorks publishes its `ControlBus` through Bukkit's `ServicesManager`, allowin
 
 ## Electricity
 
-Electricity integration is intentionally not compiled into the current build. Rebar's electricity implementation is still evolving upstream. When its addon-facing contract stabilizes, GridWorks will add a bridge for grid measurements, smart breakers, branch limits, load shedding, and power-aware factory rules without changing the control-bus core.
+Electricity integration remains isolated behind `PowerGridBridge`. The public/provider-neutral `PowerGridSnapshot` contains only GridWorks measurements: node/producer/consumer counts, powered consumers, production capacity, and demand, with derived load/reserve/powered ratios.
+
+The released Rebar dependency does not contain the electricity package currently present on the upstream `seggan/feature/elektrikity` branch, so the production build installs `UnavailablePowerGridBridge`. No reflection is used to bind unreleased internals and no dead Power Sensor is registered.
+
+When electricity reaches a released Rebar artifact, a Rebar-specific bridge can translate `ElectricNetwork` / producer / consumer state into `PowerGridSnapshot`. Controllers, Control Bus channels, and future player-facing power devices do not need to depend directly on upstream electricity classes.
 
 
 ## Controller rules

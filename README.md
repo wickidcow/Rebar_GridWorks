@@ -4,7 +4,7 @@
 
 GridWorks is a Rebar addon focused on making factories smarter rather than simply making machines faster. Its long-term goal is to connect sensors, controllers, power systems, cargo, fluids, machines, and redstone through a common automation layer.
 
-> GridWorks is in early development. The Control Bus, persistent physical network, redstone I/O, sensors, controllers, presets, and Factory Monitor are implemented.
+> GridWorks is in early development. The Control Bus, persistent physical network, redstone I/O, sensors, controllers, addressed routing, alarms, presets, and Factory Monitor are implemented.
 
 ## Current systems
 
@@ -115,9 +115,15 @@ Stateful devices implement `ControlStateSource`. When loaded topology expands, G
 
 Control Bus callbacks deliberately run on the publisher's thread. Physical GridWorks nodes therefore marshal all Bukkit world mutations and InvUI refreshes onto the primary server thread and verify the node is still active before delayed work executes. This lets third-party addons publish asynchronously without making GridWorks actuators touch unloaded chunks or Bukkit state off-thread.
 
+## Power-grid bridge status
+
+GridWorks now has a provider-neutral `PowerGridSnapshot` model and an explicit `PowerGridBridge` boundary for future electricity integration. The released Rebar dependency (`0.43.0-26.2`) does **not** contain the electricity API currently being developed on Rebar's `seggan/feature/elektrikity` branch, so GridWorks deliberately ships with an unavailable bridge rather than compiling against unreleased classes.
+
+The neutral snapshot already defines the measurements GridWorks needs: node/producer/consumer counts, powered/unpowered consumers, production capacity, demand, load ratio, reserve watts, and powered-consumer ratio. When upstream electricity lands in a released Rebar build, only the bridge adapter needs to know Rebar's node/network classes.
+
 ## Planned systems
 
-The next work is power-grid integration behind the existing adapter boundary as Rebar's electricity API stabilizes, plus broader addressed actuators where that remains useful.
+The next work is the actual Rebar electricity adapter once that API lands in a released dependency, then player-facing Power Grid Sensor / smart breaker / load-shedding controls on top of this stable bridge.
 
 ## Requirements
 
