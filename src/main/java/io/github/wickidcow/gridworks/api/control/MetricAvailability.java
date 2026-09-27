@@ -31,6 +31,11 @@ public final class MetricAvailability {
             return Optional.of(GridWorksChannels.MACHINE_AVAILABLE);
         }
 
+        if (GridWorksChannels.BATCH_RATE_PER_MINUTE.equals(metric)
+                || GridWorksChannels.BATCH_ETA_SECONDS.equals(metric)) {
+            return Optional.of(GridWorksChannels.BATCH_RATE_AVAILABLE);
+        }
+
         if (GridWorksChannels.POWER_NODE_COUNT.equals(metric)
                 || GridWorksChannels.POWER_PRODUCER_COUNT.equals(metric)
                 || GridWorksChannels.POWER_CONSUMER_COUNT.equals(metric)

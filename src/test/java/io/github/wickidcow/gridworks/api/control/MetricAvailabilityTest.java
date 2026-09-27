@@ -21,7 +21,7 @@ class MetricAvailabilityTest {
     }
 
     @Test
-    void mapsFluidMachineAndPowerMetricsToTheirAvailabilityChannels() {
+    void mapsFluidMachineBatchAndPowerMetricsToTheirAvailabilityChannels() {
         assertEquals(
                 GridWorksChannels.FLUID_AVAILABLE,
                 MetricAvailability.channelFor(GridWorksChannels.FLUID_FILL_RATIO)
@@ -30,6 +30,16 @@ class MetricAvailabilityTest {
         assertEquals(
                 GridWorksChannels.MACHINE_AVAILABLE,
                 MetricAvailability.channelFor(GridWorksChannels.MACHINE_PROGRESS)
+                        .orElseThrow()
+        );
+        assertEquals(
+                GridWorksChannels.BATCH_RATE_AVAILABLE,
+                MetricAvailability.channelFor(GridWorksChannels.BATCH_RATE_PER_MINUTE)
+                        .orElseThrow()
+        );
+        assertEquals(
+                GridWorksChannels.BATCH_RATE_AVAILABLE,
+                MetricAvailability.channelFor(GridWorksChannels.BATCH_ETA_SECONDS)
                         .orElseThrow()
         );
         assertEquals(

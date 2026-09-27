@@ -402,7 +402,7 @@ Inventory, fluid, machine, and power telemetry now share one controller rule: an
 
 Built-in Inventory, Fluid, and Machine Sensors publish the availability transition and stop there when unavailable. They no longer follow `available=false` with synthetic zero measurement packets that could immediately re-establish a false numeric reading.
 
-Machine Sensor's numeric progress/process-time/ticks-remaining channels are now first-class Factory Controller metrics. They are appended to the metric registry, preserving all existing persisted channel-based controller configurations.
+Machine Sensor's numeric progress/process-time/ticks-remaining channels are first-class Factory Controller metrics. Batch Controller's rate/minute and ETA-seconds telemetry are appended as additional numeric metrics and both map to `batch/rate_available`. When that availability becomes false, only the affected condition's cached observation/result is invalidated and it returns to WAITING until fresh pace telemetry arrives. Appending the metrics preserves existing persisted channel-based controller configurations.
 
 ## Part 2 completion boundary
 

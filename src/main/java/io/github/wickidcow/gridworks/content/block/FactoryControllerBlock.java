@@ -214,6 +214,24 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
                     1.0,
                     5.0,
                     Double.MAX_VALUE
+            ),
+            new Metric(
+                    "Batch Rate / Minute",
+                    GridWorksChannels.BATCH_RATE_PER_MINUTE,
+                    Material.MINECART,
+                    60.0,
+                    5.0,
+                    30.0,
+                    Double.MAX_VALUE
+            ),
+            new Metric(
+                    "Batch ETA Seconds",
+                    GridWorksChannels.BATCH_ETA_SECONDS,
+                    Material.COMPASS,
+                    60.0,
+                    5.0,
+                    30.0,
+                    Double.MAX_VALUE
             )
     );
 
