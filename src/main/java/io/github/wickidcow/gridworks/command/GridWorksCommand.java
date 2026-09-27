@@ -131,6 +131,7 @@ public final class GridWorksCommand implements CommandExecutor, TabCompleter {
                         ? "static instance matches enabled plugin"
                         : "static instance does not match enabled plugin"
         );
+        line(sender, "Settings", plugin.getSettings().describe());
         line(
                 sender,
                 "Control Bus",

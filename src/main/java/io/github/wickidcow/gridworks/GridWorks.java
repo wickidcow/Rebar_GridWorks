@@ -3,6 +3,7 @@ package io.github.wickidcow.gridworks;
 import io.github.pylonmc.rebar.addon.RebarAddon;
 import io.github.wickidcow.gridworks.api.control.ControlBus;
 import io.github.wickidcow.gridworks.command.GridWorksCommand;
+import io.github.wickidcow.gridworks.config.GridWorksSettings;
 import io.github.wickidcow.gridworks.control.GraphControlBus;
 import io.github.wickidcow.gridworks.content.GridWorksContent;
 import io.github.wickidcow.gridworks.content.GridWorksRecipes;
@@ -31,6 +32,7 @@ import org.jetbrains.annotations.NotNull;
 public final class GridWorks extends JavaPlugin implements RebarAddon {
     private static GridWorks instance;
 
+    private GridWorksSettings settings;
     private GraphControlBus controlBus;
     private PhysicalControlNetwork physicalControlNetwork;
     private InventorySensorManager inventorySensorManager;
@@ -65,12 +67,9 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
         registerWithRebar();
 
         saveDefaultConfig();
-        int maxPropagationNodes = Math.max(
-                1,
-                getConfig().getInt("control-bus.max-propagation-nodes", 4096)
-        );
+        settings = GridWorksSettings.load(this);
 
-        controlBus = new GraphControlBus(maxPropagationNodes);
+        controlBus = new GraphControlBus(settings.maxPropagationNodes());
 
         try {
             PersistentConnectionStore connectionStore = new PersistentConnectionStore(
@@ -89,25 +88,19 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
             throw new IllegalStateException("Could not load GridWorks control-network data", exception);
         }
 
-        long inventorySampleInterval = Math.max(
-                1L,
-                getConfig().getLong("sensors.inventory.sample-interval-ticks", 10L)
+        inventorySensorManager = new InventorySensorManager(
+                this,
+                settings.inventorySampleIntervalTicks()
         );
-        inventorySensorManager = new InventorySensorManager(this, inventorySampleInterval);
 
-        long fluidSampleInterval = Math.max(
-                1L,
-                getConfig().getLong("sensors.fluid.sample-interval-ticks", 10L)
+        fluidSensorManager = new FluidSensorManager(
+                this,
+                settings.fluidSampleIntervalTicks()
         );
-        fluidSensorManager = new FluidSensorManager(this, fluidSampleInterval);
 
-        long machineSampleInterval = Math.max(
-                1L,
-                getConfig().getLong("sensors.machine.sample-interval-ticks", 20L)
-        );
         machineSensorManager = new MachineSensorManager(
                 this,
-                machineSampleInterval
+                settings.machineSampleIntervalTicks()
         );
 
         // Resolve power data through Bukkit services. Released Rebar does not
@@ -118,13 +111,9 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
                 "No PowerGridProvider is registered"
         );
 
-        long powerSampleInterval = Math.max(
-                1L,
-                getConfig().getLong("sensors.power.sample-interval-ticks", 20L)
-        );
         powerGridSensorManager = new PowerGridSensorManager(
                 this,
-                powerSampleInterval
+                settings.powerSampleIntervalTicks()
         );
 
         powerBranchBridge = new ServicePowerBranchBridge(
@@ -146,7 +135,7 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
 
         getLogger().info(
                 "GridWorks control bus initialized (max propagation: "
-                        + maxPropagationNodes
+                        + settings.maxPropagationNodes()
                         + " nodes)."
         );
     }
@@ -239,6 +228,7 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
             }
         });
 
+        settings = null;
         instance = null;
     }
 
@@ -260,6 +250,13 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
             throw new IllegalStateException("GridWorks is not loaded");
         }
         return current;
+    }
+
+    public @NotNull GridWorksSettings getSettings() {
+        if (settings == null) {
+            throw new IllegalStateException("GridWorks is not enabled");
+        }
+        return settings;
     }
 
     public @NotNull ControlBus getControlBus() {

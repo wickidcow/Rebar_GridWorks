@@ -480,3 +480,10 @@ Provider availability, loaded node/sensor/device counts, and pending task totals
 Repository write permission is not exposed to the job that compiles or executes project code. The build/smoke job has `contents: read`; only the dependent main-branch publication job receives `contents: write`, after the tested job succeeds.
 
 The publication job checks out the workflow event SHA explicitly and rebuilds only the raw JAR from that already-tested source revision. Same-ref workflow concurrency cancels superseded runs, preventing stale successful runs from racing a newer commit and rolling the development release backward.
+
+
+## Validated runtime settings
+
+Runtime numeric settings are parsed once during enable into immutable `GridWorksSettings`. Missing keys use backward-compatible defaults, while explicitly present values must be positive integral numbers representable by the target Java type.
+
+No arbitrary upper gameplay cap is imposed beyond the destination type's range. This avoids silently rewriting administrator intent while still rejecting values that cannot be represented or that would produce invalid zero/negative scheduling and propagation behavior. Runtime code consumes the immutable settings snapshot rather than repeatedly querying mutable YAML.

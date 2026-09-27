@@ -320,3 +320,10 @@ CI requires the explicit `GridWorks Doctor result: PASS` marker before it accept
 The compile/test/smoke job now runs with **read-only repository contents permission**, including pull requests. Raw release publication is isolated in a second job with `contents: write`, and that job only runs for successful `main` pushes or manual runs after the full build + Paper smoke gate has passed.
 
 Workflow concurrency also cancels superseded runs for the same ref. An older build can no longer finish late and move the rolling `dev-build` tag/assets backward over a newer tested commit.
+
+
+## Configuration validation
+
+GridWorks now loads its runtime numeric settings through one validated `GridWorksSettings` snapshot. Existing configs that predate a key remain compatible because a missing value uses the documented default. If an administrator explicitly supplies a non-numeric, fractional, zero, negative, or out-of-range integer value, startup fails with the exact config path instead of silently clamping the mistake.
+
+The validated snapshot drives the Control Bus propagation cap, all four shared sensor sampling intervals, and Cargo Isolator transfer rate. `/gridworks doctor` prints the active snapshot so the live values are visible without rereading YAML.

@@ -214,12 +214,9 @@ public final class CargoIsolatorBlock extends PhysicalControlNodeBlock
     }
 
     private int configuredTransferRate() {
-        return Math.max(
-                1,
-                GridWorks.getInstance()
-                        .getConfig()
-                        .getInt("cargo.isolator.transfer-rate", 1)
-        );
+        return GridWorks.getInstance()
+                .getSettings()
+                .cargoIsolatorTransferRate();
     }
 
     private void toggleRouteMode() {
