@@ -17,12 +17,16 @@ public final class AlarmTelemetryState {
     private Boolean conditionActive;
     private Boolean latched;
     private Boolean acknowledged;
+    private long occurrenceCount;
+    private long lastTriggeredEpochMillis;
 
     private long nameSequence = -1;
     private long severitySequence = -1;
     private long conditionSequence = -1;
     private long latchedSequence = -1;
     private long acknowledgedSequence = -1;
+    private long occurrenceSequence = -1;
+    private long lastTriggeredSequence = -1;
 
     public AlarmTelemetryState(UUID source) {
         this.source = Objects.requireNonNull(source, "source");
@@ -53,6 +57,26 @@ public final class AlarmTelemetryState {
             }
             severity = AlarmSeverity.fromStored(textValue.value());
             severitySequence = signal.sequence();
+            return true;
+        }
+
+        if (GridWorksChannels.ALARM_OCCURRENCES.equals(signal.channel())
+                && signal.value() instanceof ControlValue.NumberValue numberValue) {
+            if (signal.sequence() < occurrenceSequence) {
+                return false;
+            }
+            occurrenceCount = safeWholeNumber(numberValue.value());
+            occurrenceSequence = signal.sequence();
+            return true;
+        }
+
+        if (GridWorksChannels.ALARM_LAST_TRIGGERED_EPOCH_MS.equals(signal.channel())
+                && signal.value() instanceof ControlValue.NumberValue numberValue) {
+            if (signal.sequence() < lastTriggeredSequence) {
+                return false;
+            }
+            lastTriggeredEpochMillis = safeWholeNumber(numberValue.value());
+            lastTriggeredSequence = signal.sequence();
             return true;
         }
 
@@ -94,8 +118,11 @@ public final class AlarmTelemetryState {
         long latest = Math.max(
                 Math.max(nameSequence, severitySequence),
                 Math.max(
-                        conditionSequence,
-                        Math.max(latchedSequence, acknowledgedSequence)
+                        Math.max(conditionSequence, latchedSequence),
+                        Math.max(
+                                acknowledgedSequence,
+                                Math.max(occurrenceSequence, lastTriggeredSequence)
+                        )
                 )
         );
 
@@ -106,8 +133,17 @@ public final class AlarmTelemetryState {
                 conditionActive,
                 latched,
                 acknowledged,
+                occurrenceCount,
+                lastTriggeredEpochMillis,
                 latest
         );
+    }
+
+    private static long safeWholeNumber(double value) {
+        if (!Double.isFinite(value) || value <= 0.0) {
+            return 0L;
+        }
+        return (long) Math.min(value, Long.MAX_VALUE);
     }
 
     private static String normalizeName(String raw) {
@@ -134,6 +170,8 @@ public final class AlarmTelemetryState {
             Boolean conditionActive,
             Boolean latched,
             Boolean acknowledged,
+            long occurrenceCount,
+            long lastTriggeredEpochMillis,
             long latestSequence
     ) {
         public boolean isLatched() {

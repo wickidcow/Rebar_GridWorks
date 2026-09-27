@@ -63,6 +63,8 @@ class AlarmSeverityAndFilterTest {
                 condition,
                 latched,
                 acknowledged,
+                0L,
+                0L,
                 1
         );
     }

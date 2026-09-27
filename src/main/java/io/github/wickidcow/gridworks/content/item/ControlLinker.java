@@ -219,6 +219,15 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
                             ))
             );
             event.getPlayer().sendMessage(
+                    Component.text("Alarm history: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    alarm.getOccurrenceCount()
+                                            + " occurrence(s), last "
+                                            + formatHistoryTime(alarm.getLastTriggeredEpochMillis()),
+                                    NamedTextColor.WHITE
+                            ))
+            );
+            event.getPlayer().sendMessage(
                     Component.text("Alarm sound: ", NamedTextColor.GRAY)
                             .append(Component.text(
                                     alarm.isSoundEnabled() ? "ON" : "MUTED",
@@ -304,6 +313,13 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
                                 ))
                 )
         );
+    }
+
+    private static String formatHistoryTime(long epochMillis) {
+        if (epochMillis <= 0L) {
+            return "never";
+        }
+        return java.time.Instant.ofEpochMilli(epochMillis).toString();
     }
 
     private static Component onOff(boolean enabled) {

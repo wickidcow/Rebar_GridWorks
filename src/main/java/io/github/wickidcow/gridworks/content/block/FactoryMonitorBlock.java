@@ -53,7 +53,9 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
             new SignalDefinition(GridWorksChannels.ALARM_SEVERITY, "Alarm Severity", Material.YELLOW_DYE),
             new SignalDefinition(GridWorksChannels.ALARM_CONDITION_ACTIVE, "Alarm Condition", Material.REDSTONE_TORCH),
             new SignalDefinition(GridWorksChannels.ALARM_LATCHED, "Alarm Latched", Material.BELL),
-            new SignalDefinition(GridWorksChannels.ALARM_ACKNOWLEDGED, "Alarm Acknowledged", Material.LIME_DYE)
+            new SignalDefinition(GridWorksChannels.ALARM_ACKNOWLEDGED, "Alarm Acknowledged", Material.LIME_DYE),
+            new SignalDefinition(GridWorksChannels.ALARM_OCCURRENCES, "Alarm Occurrences", Material.PAPER),
+            new SignalDefinition(GridWorksChannels.ALARM_LAST_TRIGGERED_EPOCH_MS, "Alarm Last Triggered", Material.CLOCK)
     );
 
     private final Map<ControlChannel, ControlSignal> latestSignals = new ConcurrentHashMap<>();
@@ -91,7 +93,8 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
                         "r s 0 1 2 3 4 # #",
                         "a i o t f # # # #",
                         "v p y m k z # # #",
-                        "w u g h j # # # #"
+                        "w u g h j # # # #",
+                        "l c # # # # # # #"
                 )
                 .addIngredient('#', GuiItems.background())
                 .addIngredient('r', item(GridWorksChannels.REDSTONE_POWERED))
@@ -117,6 +120,8 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
                 .addIngredient('g', item(GridWorksChannels.ALARM_CONDITION_ACTIVE))
                 .addIngredient('h', item(GridWorksChannels.ALARM_LATCHED))
                 .addIngredient('j', item(GridWorksChannels.ALARM_ACKNOWLEDGED))
+                .addIngredient('l', item(GridWorksChannels.ALARM_OCCURRENCES))
+                .addIngredient('c', item(GridWorksChannels.ALARM_LAST_TRIGGERED_EPOCH_MS))
                 .build();
     }
 

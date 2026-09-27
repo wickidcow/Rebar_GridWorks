@@ -6,6 +6,7 @@ import io.github.pylonmc.rebar.item.builder.ItemStackBuilder;
 import io.github.pylonmc.rebar.util.gui.GuiItems;
 import io.github.wickidcow.gridworks.GridWorks;
 import io.github.wickidcow.gridworks.alarm.AlarmAcknowledgeRequest;
+import io.github.wickidcow.gridworks.alarm.AlarmHistoryState;
 import io.github.wickidcow.gridworks.alarm.AlarmSeverity;
 import io.github.wickidcow.gridworks.api.control.BooleanInputConfigurable;
 import io.github.wickidcow.gridworks.api.control.BooleanInputMode;
@@ -53,6 +54,12 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
     private static final NamespacedKey ACKNOWLEDGED_KEY = Objects.requireNonNull(
             NamespacedKey.fromString("gridworks:alarm_acknowledged")
     );
+    private static final NamespacedKey OCCURRENCE_COUNT_KEY = Objects.requireNonNull(
+            NamespacedKey.fromString("gridworks:alarm_occurrence_count")
+    );
+    private static final NamespacedKey LAST_TRIGGERED_KEY = Objects.requireNonNull(
+            NamespacedKey.fromString("gridworks:alarm_last_triggered_epoch_ms")
+    );
     private static final NamespacedKey INPUT_MODE_KEY = Objects.requireNonNull(
             NamespacedKey.fromString("gridworks:alarm_input_mode")
     );
@@ -61,6 +68,7 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
     private static final int MAX_NAME_LENGTH = 32;
 
     private final AlarmLatch alarmLatch;
+    private final AlarmHistoryState alarmHistory;
     private volatile String alarmName;
     private volatile AlarmSeverity severity;
     private volatile boolean soundEnabled;
@@ -80,6 +88,7 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
         this.soundEnabled = true;
         this.inputMode = BooleanInputMode.LEGACY;
         this.alarmLatch = new AlarmLatch(false, false);
+        this.alarmHistory = new AlarmHistoryState(0L, 0L);
     }
 
     public AlarmIndicatorBlock(@NotNull Block block, @NotNull PersistentDataContainer pdc) {
@@ -90,6 +99,8 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
         Byte storedSound = pdc.get(SOUND_ENABLED_KEY, PersistentDataType.BYTE);
         Byte storedLatched = pdc.get(LATCHED_KEY, PersistentDataType.BYTE);
         Byte storedAcknowledged = pdc.get(ACKNOWLEDGED_KEY, PersistentDataType.BYTE);
+        Long storedOccurrences = pdc.get(OCCURRENCE_COUNT_KEY, PersistentDataType.LONG);
+        Long storedLastTriggered = pdc.get(LAST_TRIGGERED_KEY, PersistentDataType.LONG);
 
         this.alarmName = normalizeName(storedName);
         this.severity = AlarmSeverity.fromStored(storedSeverity);
@@ -100,6 +111,10 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
         this.alarmLatch = new AlarmLatch(
                 storedLatched != null && storedLatched != 0,
                 storedAcknowledged != null && storedAcknowledged != 0
+        );
+        this.alarmHistory = new AlarmHistoryState(
+                storedOccurrences == null ? 0L : storedOccurrences,
+                storedLastTriggered == null ? 0L : storedLastTriggered
         );
     }
 
@@ -154,6 +169,16 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
                 ACKNOWLEDGED_KEY,
                 PersistentDataType.BYTE,
                 alarmLatch.isAcknowledged() ? (byte) 1 : (byte) 0
+        );
+        pdc.set(
+                OCCURRENCE_COUNT_KEY,
+                PersistentDataType.LONG,
+                alarmHistory.occurrenceCount()
+        );
+        pdc.set(
+                LAST_TRIGGERED_KEY,
+                PersistentDataType.LONG,
+                alarmHistory.lastTriggeredEpochMillis()
         );
         pdc.set(INPUT_MODE_KEY, PersistentDataType.STRING, inputMode.name());
     }
@@ -213,6 +238,14 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
         return severity;
     }
 
+    public long getOccurrenceCount() {
+        return alarmHistory.occurrenceCount();
+    }
+
+    public long getLastTriggeredEpochMillis() {
+        return alarmHistory.lastTriggeredEpochMillis();
+    }
+
     public boolean isConditionActive() {
         return alarmLatch.isConditionActive();
     }
@@ -231,6 +264,10 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
 
     private void acceptInput(boolean input) {
         boolean ring = alarmLatch.observe(input);
+        if (ring) {
+            alarmHistory.recordTrigger(System.currentTimeMillis());
+        }
+
         applyVisualState();
         acknowledgeItem.notifyWindows();
         statusItem.notifyWindows();
@@ -276,6 +313,16 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
                 getNodeId(),
                 GridWorksChannels.ALARM_ACKNOWLEDGED,
                 ControlValue.of(alarmLatch.isAcknowledged())
+        );
+        bus.publish(
+                getNodeId(),
+                GridWorksChannels.ALARM_OCCURRENCES,
+                ControlValue.of((double) alarmHistory.occurrenceCount())
+        );
+        bus.publish(
+                getNodeId(),
+                GridWorksChannels.ALARM_LAST_TRIGGERED_EPOCH_MS,
+                ControlValue.of((double) alarmHistory.lastTriggeredEpochMillis())
         );
     }
 
@@ -371,6 +418,13 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
     private void toggleSound() {
         soundEnabled = !soundEnabled;
         soundItem.notifyWindows();
+    }
+
+    private static String formatHistoryTime(long epochMillis) {
+        if (epochMillis <= 0L) {
+            return "never";
+        }
+        return java.time.Instant.ofEpochMilli(epochMillis).toString();
     }
 
     private void playAlarmSound() {
@@ -561,6 +615,16 @@ public final class AlarmIndicatorBlock extends PhysicalControlNodeBlock
             ).lore(
                     Component.text("Severity: " + severity.displayName(), NamedTextColor.WHITE),
                     Component.text("Latch: " + latch, NamedTextColor.WHITE),
+                    Component.text(
+                            "Occurrences: " + alarmHistory.occurrenceCount(),
+                            NamedTextColor.GRAY
+                    ),
+                    Component.text(
+                            "Last trigger: " + formatHistoryTime(
+                                    alarmHistory.lastTriggeredEpochMillis()
+                            ),
+                            NamedTextColor.GRAY
+                    ),
                     Component.text(
                             "Unacknowledged faults stay latched after clearing",
                             NamedTextColor.GRAY

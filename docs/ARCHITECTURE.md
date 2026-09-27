@@ -179,3 +179,16 @@ Alarm severity is explicit telemetry with three levels: Critical, Warning, and I
 The Alarm Console applies filtering to its already-bounded in-memory source snapshots; filtering never changes bus subscriptions and never causes additional sensor reads. Available filters are All, Warning+, Critical only, Latched only, and Unacknowledged only.
 
 Sorting remains operational rather than cosmetic: latched alarms appear before clear alarms, unacknowledged before acknowledged, then higher severity before lower severity, followed by active-condition state and stable name/source ordering.
+
+
+## Lightweight alarm history
+
+Alarm history is intentionally aggregate rather than an event database. Each Alarm Indicator persists two values in its Rebar block data: occurrence count and last-triggered epoch milliseconds.
+
+The occurrence counter advances only when `AlarmLatch.observe` reports a real false-to-true transition. Initial state replay, chunk reload, and server restart therefore cannot manufacture incidents. The counter saturates at `Long.MAX_VALUE` rather than overflowing, and the last-triggered timestamp never moves backward if the host clock is adjusted.
+
+History is also published as bounded telemetry and displayed by the Alarm Console, Factory Monitor, and Linker inspection. No history polling task or global storage file is introduced.
+
+## CI Git initialization
+
+The build job supplies `init.defaultBranch=main` through Git's environment-based configuration before `actions/checkout` runs. This suppresses the runner's default-branch migration hint at its source without adding an extra shell step or changing repository behavior.

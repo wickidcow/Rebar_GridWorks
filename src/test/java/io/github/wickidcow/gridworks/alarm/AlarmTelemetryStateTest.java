@@ -47,6 +47,18 @@ class AlarmTelemetryStateTest {
                 ControlValue.of(false),
                 5
         ));
+        state.apply(new ControlSignal(
+                source,
+                GridWorksChannels.ALARM_OCCURRENCES,
+                ControlValue.of(7.0),
+                6
+        ));
+        state.apply(new ControlSignal(
+                source,
+                GridWorksChannels.ALARM_LAST_TRIGGERED_EPOCH_MS,
+                ControlValue.of(1_700_000_000_000.0),
+                7
+        ));
 
         AlarmTelemetryState.Snapshot snapshot = state.snapshot();
         assertEquals("Low Diesel", snapshot.name());
@@ -54,7 +66,9 @@ class AlarmTelemetryStateTest {
         assertTrue(snapshot.isConditionActive());
         assertTrue(snapshot.isLatched());
         assertFalse(snapshot.isAcknowledged());
-        assertEquals(5, snapshot.latestSequence());
+        assertEquals(7L, snapshot.occurrenceCount());
+        assertEquals(1_700_000_000_000L, snapshot.lastTriggeredEpochMillis());
+        assertEquals(7, snapshot.latestSequence());
     }
 
     @Test

@@ -33,7 +33,9 @@ The **Delay Relay** has independently configurable ON and OFF delays from instan
 
 The **Alarm Indicator** is the first non-redstone action device and now uses industrial-style acknowledgement. A new false-to-true fault latches the indicator and optionally rings a local bell once. If the condition clears before an operator acknowledges it, the lamp stays latched so the event is not lost. If the alarm is acknowledged while the condition is still active, it remains visibly acknowledged and clears automatically when the fault later disappears. Replayed state after restart/topology recovery is silent.
 
-Alarm Indicators can be given player-defined names and a persisted **Critical / Warning / Info** severity. Existing placed alarms with no stored severity load as **Warning**. They publish bounded telemetry on `gridworks:alarm/name`, `gridworks:alarm/severity`, `gridworks:alarm/condition_active`, `gridworks:alarm/latched`, and `gridworks:alarm/acknowledged`. They implement `ControlStateSource`, so a Factory Monitor or Alarm Console joining later receives current state without polling alarm blocks.
+Alarm Indicators can be given player-defined names and a persisted **Critical / Warning / Info** severity. Existing placed alarms with no stored severity load as **Warning**. Each indicator also keeps a lightweight persisted history summary: total real alarm occurrences and the timestamp of the most recent real false-to-true trigger. Startup/replay does not increment history.
+
+They publish bounded telemetry on `gridworks:alarm/name`, `gridworks:alarm/severity`, `gridworks:alarm/condition_active`, `gridworks:alarm/latched`, `gridworks:alarm/acknowledged`, `gridworks:alarm/occurrences`, and `gridworks:alarm/last_triggered_epoch_ms`. They implement `ControlStateSource`, so a Factory Monitor or Alarm Console joining later receives current state and history without polling alarm blocks.
 
 ### Alarm Console
 
@@ -110,7 +112,7 @@ Control Bus callbacks deliberately run on the publisher's thread. Physical GridW
 
 ## Planned systems
 
-The next work is alarm history/escalation, richer command addressing, and power-grid controls as Rebar's electricity API stabilizes. After that, GridWorks can connect inventory/fluid/redstone measurements to relays and eventually to smart electricity controls as Rebar's electricity API stabilizes.
+The next work is alarm escalation, richer command addressing, and power-grid controls as Rebar's electricity API stabilizes. After that, GridWorks can connect inventory/fluid/redstone measurements to relays and eventually to smart electricity controls as Rebar's electricity API stabilizes.
 
 ## Requirements
 

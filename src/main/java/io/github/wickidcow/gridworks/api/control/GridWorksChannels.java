@@ -73,6 +73,12 @@ public final class GridWorksChannels {
     public static final ControlChannel ALARM_ACKNOWLEDGED =
             ControlChannel.of("gridworks", "alarm/acknowledged");
 
+    public static final ControlChannel ALARM_OCCURRENCES =
+            ControlChannel.of("gridworks", "alarm/occurrences");
+
+    public static final ControlChannel ALARM_LAST_TRIGGERED_EPOCH_MS =
+            ControlChannel.of("gridworks", "alarm/last_triggered_epoch_ms");
+
     /**
      * Text command. Value is either a target node UUID or "*" for every alarm
      * in the current Control Bus component.

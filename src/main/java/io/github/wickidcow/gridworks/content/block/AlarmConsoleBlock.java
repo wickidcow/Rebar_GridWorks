@@ -68,7 +68,9 @@ public final class AlarmConsoleBlock extends PhysicalControlNodeBlock implements
                 || GridWorksChannels.ALARM_SEVERITY.equals(channel)
                 || GridWorksChannels.ALARM_CONDITION_ACTIVE.equals(channel)
                 || GridWorksChannels.ALARM_LATCHED.equals(channel)
-                || GridWorksChannels.ALARM_ACKNOWLEDGED.equals(channel);
+                || GridWorksChannels.ALARM_ACKNOWLEDGED.equals(channel)
+                || GridWorksChannels.ALARM_OCCURRENCES.equals(channel)
+                || GridWorksChannels.ALARM_LAST_TRIGGERED_EPOCH_MS.equals(channel);
     }
 
     @Override
@@ -234,6 +236,13 @@ public final class AlarmConsoleBlock extends PhysicalControlNodeBlock implements
         return List.copyOf(slots);
     }
 
+    private static String formatHistoryTime(long epochMillis) {
+        if (epochMillis <= 0L) {
+            return "never";
+        }
+        return java.time.Instant.ofEpochMilli(epochMillis).toString();
+    }
+
     private static String shortId(UUID id) {
         return id.toString().substring(0, 8).toUpperCase();
     }
@@ -285,6 +294,16 @@ public final class AlarmConsoleBlock extends PhysicalControlNodeBlock implements
                             ),
                             Component.text(
                                     "Acknowledged: " + state(alarm.acknowledged()),
+                                    NamedTextColor.GRAY
+                            ),
+                            Component.text(
+                                    "Occurrences: " + alarm.occurrenceCount(),
+                                    NamedTextColor.GRAY
+                            ),
+                            Component.text(
+                                    "Last: " + formatHistoryTime(
+                                            alarm.lastTriggeredEpochMillis()
+                                    ),
                                     NamedTextColor.GRAY
                             ),
                             Component.text(
