@@ -442,6 +442,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                         sequence.currentStage(),
                         SequenceFaultReason.INTERLOCK
                 );
+                return;
             }
             publishCurrentState();
             notifyItems();

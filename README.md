@@ -4,7 +4,7 @@
 
 GridWorks is a Rebar addon focused on making factories smarter rather than simply making machines faster. Its long-term goal is to connect sensors, controllers, power systems, cargo, fluids, machines, and redstone through a common automation layer.
 
-> **Part 4 production control is now underway on the 0.3.x development line.** The automation foundation and provider-neutral Part 3 branch-control layer are complete; Machine Sensor cycle telemetry and the Batch Controller add event-driven production targets without new polling loops. The native Rebar electricity adapter remains upstream-blocked until its electricity API ships in a released dependency.
+> **Part 4 production control is now underway on the 0.3.x development line.** The automation foundation and provider-neutral Part 3 branch-control layer are complete; Machine Sensor cycle telemetry, Batch Controller targets/watchdogs/pace, and the four-stage Sequence Controller now provide event-driven production control without new polling loops. The native Rebar electricity adapter remains upstream-blocked until its electricity API ships in a released dependency.
 
 ## Current systems
 

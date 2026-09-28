@@ -394,9 +394,9 @@ Stage timeout is disabled by default. When enabled, exactly one Bukkit delayed t
 Route edits are disallowed while RUNNING. When an output, completion, or fault-output address is edited while IDLE/COMPLETE/FAULT, the previous output is explicitly cleared before current state is published to the new route. Start-address and abort/reset-input edits reset their edge baselines and request replay. Fault-interlock edits request replay immediately so the newly selected level is applied. The controller has no repeating ticker, world scan, or chunk-loading behavior.
 
 
-## Unified sensor availability semantics
+## Unified metric availability semantics
 
-Inventory, fluid, machine, and power telemetry now share one controller rule: an unavailable target is unknown data, not numeric zero.
+Inventory, fluid, machine, power, and runtime Batch pace telemetry share one controller rule: unavailable measurement data is unknown, not numeric zero.
 
 `MetricAvailability` maps each numeric measurement channel to its domain's boolean availability channel. Factory Controller subscribes to that availability channel whenever a configured metric has one. When the bound source publishes `available=false`, only that condition's cached observation/result is cleared; source selection remains intact so normal replay can resume when the target returns.
 
