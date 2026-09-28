@@ -4,7 +4,15 @@ This page builds the simplest useful GridWorks network.
 
 ## 1. Craft the basic control components
 
-GridWorks registers its current content through Rebar's normal recipe/guide system. Use the Rebar/Pylon guide to view the exact survival recipes available in your installed build.
+GridWorks registers a dedicated **GridWorks** category on the root of `/rebar guide`. Open the guide and choose **GridWorks** to browse the addon by section:
+
+- Core & Linking
+- Sensors
+- Logic & Production
+- Monitoring & Alarms
+- Actuators & Power
+
+Every current GridWorks item is also still available through Rebar's normal guide search and recipe pages.
 
 For a first network, you will want:
 

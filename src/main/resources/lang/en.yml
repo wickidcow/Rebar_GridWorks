@@ -191,3 +191,34 @@ item:
       <arrow> <insn>Right click</insn> another to link or unlink
       <arrow> <insn>Sneak + right click</insn> to inspect the network
       <arrow> <insn>Sneak + left click</insn> an actuator to cycle its input circuit
+
+guide:
+  page:
+    gridworks: "GridWorks"
+    core_linking: "Core & Linking"
+    sensors: "Sensors"
+    logic_production: "Logic & Production"
+    monitoring_alarms: "Monitoring & Alarms"
+    actuators_power: "Actuators & Power"
+
+  button:
+    gridworks:
+      lore: |-
+        <arrow> Industrial automation and factory control
+        <arrow> Sensors, logic, production, alarms, and actuators
+    core_linking:
+      lore: |-
+        <arrow> Control Bus access and physical linking tools
+    sensors:
+      lore: |-
+        <arrow> Observe redstone, inventories, machines, fluids, and power
+    logic_production:
+      lore: |-
+        <arrow> Factory logic, batches, sequences, load shedding, delays, and pulses
+    monitoring_alarms:
+      lore: |-
+        <arrow> Status displays, alarms, consoles, and live factory telemetry
+    actuators_power:
+      lore: |-
+        <arrow> Relays, flow isolation, breakers, and power limiting
+

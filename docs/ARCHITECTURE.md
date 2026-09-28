@@ -509,7 +509,9 @@ The remaining dependency-specific work is a native Rebar electricity adapter. It
 
 `GridWorksContentCatalog` is the canonical list of player-facing item IDs. Runtime validation occurs immediately after Rebar item/recipe registration and compares the catalog with registered recipe keys and bundled English item metadata.
 
-A JUnit source-consistency check additionally parses `GridWorksContent.java` NamespacedKey assignments and `GridWorksRecipes.java` recipe declarations. This intentionally guards procedural registration code: an item added to one subsystem but omitted from another makes CI fail rather than silently shipping an unobtainable or untranslated device.
+`GridWorksGuideCatalog` defines the first-class GridWorks category attached to Rebar's released root guide page. Its five subcategories—Core & Linking, Sensors, Logic & Production, Monitoring & Alarms, and Actuators & Power—must cover every canonical player-facing item exactly once. `GridWorksGuide` resolves those IDs to the already-registered Rebar item stacks and uses ordinary Rebar `SimpleStaticGuidePage` / `PageButton` APIs; no guide internals are patched. The root button is explicitly removed during plugin disable and failed-startup rollback, preventing stale or duplicate entries across lifecycle transitions.
+
+A JUnit source-consistency check additionally parses `GridWorksContent.java` NamespacedKey assignments and `GridWorksRecipes.java` recipe declarations. Guide tests compare category coverage and the runtime item resolver against the same canonical catalog and require English page/button translations for the landing page plus all subcategories. An item added to one subsystem but omitted from another therefore makes CI fail rather than silently shipping an unobtainable, untranslated, or undiscoverable device.
 
 
 ## Runtime lifecycle rollback
@@ -542,7 +544,7 @@ The server is stopped through its normal console command and must terminate with
 
 ## Doctor invariants
 
-The live doctor is part of the release gate, so completion alone is not treated as health. It verifies that the registered recipe list exactly matches the canonical content catalog, Bukkit's `ControlBus` service resolves to the current live bus, the inventory/fluid/machine/power shared sampler tasks are still scheduled, and the static GridWorks instance matches the enabled plugin.
+The live doctor is part of the release gate, so completion alone is not treated as health. It verifies that the registered recipe list exactly matches the canonical content catalog, the GridWorks root guide category is attached with five sections covering all player-facing items, Bukkit's `ControlBus` service resolves to the current live bus, the inventory/fluid/machine/power shared sampler tasks are still scheduled, and the static GridWorks instance matches the enabled plugin.
 
 Provider availability, loaded node/sensor/device counts, and pending task totals are diagnostic context rather than pass/fail criteria. This keeps a normal installation without an electricity provider healthy while still catching internal lifecycle corruption.
 

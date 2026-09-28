@@ -7,6 +7,7 @@ import io.github.wickidcow.gridworks.config.GridWorksSettings;
 import io.github.wickidcow.gridworks.control.GraphControlBus;
 import io.github.wickidcow.gridworks.content.GridWorksContent;
 import io.github.wickidcow.gridworks.content.GridWorksRecipes;
+import io.github.wickidcow.gridworks.content.guide.GridWorksGuide;
 import io.github.wickidcow.gridworks.fluid.FluidSensorManager;
 import io.github.wickidcow.gridworks.inventory.InventorySensorManager;
 import io.github.wickidcow.gridworks.machine.MachineSensorManager;
@@ -124,6 +125,7 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
         getServer().getPluginManager().registerEvents(powerBranchDeviceManager, this);
 
         GridWorksContent.register(this);
+        GridWorksGuide.register(this);
 
         Bukkit.getServicesManager().register(
                 ControlBus.class,
@@ -159,6 +161,7 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
     }
 
     private void cleanupRuntime() {
+        cleanupStep("Rebar guide category", GridWorksGuide::unregister);
         cleanupStep("recipes", GridWorksRecipes::unregister);
         cleanupStep(
                 "Bukkit services",

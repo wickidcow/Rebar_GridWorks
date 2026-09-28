@@ -322,6 +322,8 @@ Like Fluid Valve, it accepts Default/A-D circuits or an addressed boolean comman
 
 GridWorks now registers shaped crafting recipes through Rebar's `RecipeType.VANILLA_SHAPED` rather than only registering item schemas. That makes the automation set craftable in survival and visible through Rebar's normal recipe/guide machinery.
 
+GridWorks also registers a first-class **GridWorks** category directly on the root of `/rebar guide`. The category groups every current player-facing item into **Core & Linking**, **Sensors**, **Logic & Production**, **Monitoring & Alarms**, and **Actuators & Power**. Registration is removed cleanly during plugin disable/rollback so reloads cannot leave duplicate or dead guide buttons.
+
 The progression intentionally starts with vanilla copper/redstone/quartz components for Control Interfaces, the Linker, basic sensors, lights, and relays. Advanced devices then consume earlier GridWorks components: timed/addressed relays build from Control Relay, Factory Controller/Monitor build from Control Interface, alarm infrastructure builds from Status Light/Control Interface, and the Part 3 power/flow devices build from the established control components.
 
 Recipes are registered under the `gridworks` crafting-book group and are explicitly removed from Rebar's recipe type when GridWorks disables, avoiding stale recipe registrations during plugin lifecycle changes.

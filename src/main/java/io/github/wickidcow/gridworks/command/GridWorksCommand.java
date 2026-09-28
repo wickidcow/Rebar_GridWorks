@@ -4,6 +4,7 @@ import io.github.wickidcow.gridworks.GridWorks;
 import io.github.wickidcow.gridworks.api.control.ControlBus;
 import io.github.wickidcow.gridworks.content.GridWorksContentCatalog;
 import io.github.wickidcow.gridworks.content.GridWorksRecipes;
+import io.github.wickidcow.gridworks.content.guide.GridWorksGuide;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -82,6 +83,12 @@ public final class GridWorksCommand implements CommandExecutor, TabCompleter {
 
         boolean instanceHealthy = GridWorks.getInstance() == plugin;
 
+        boolean guideHealthy =
+                GridWorksGuide.isRegistered()
+                        && GridWorksGuide.categoryCount() == 5
+                        && GridWorksGuide.itemCount()
+                                == GridWorksContentCatalog.ALL_IDS.size();
+
         long scheduledTasks = Bukkit.getScheduler()
                 .getPendingTasks()
                 .stream()
@@ -92,7 +99,8 @@ public final class GridWorksCommand implements CommandExecutor, TabCompleter {
                 contentHealthy
                         && serviceHealthy
                         && sensorSchedulersHealthy
-                        && instanceHealthy;
+                        && instanceHealthy
+                        && guideHealthy;
 
         sender.sendMessage(Component.text(
                 "GridWorks Doctor — " + plugin.getPluginMeta().getVersion(),
@@ -106,6 +114,17 @@ public final class GridWorksCommand implements CommandExecutor, TabCompleter {
                         + "/"
                         + GridWorksContentCatalog.ALL_IDS.size()
                         + " recipes match catalog"
+        );
+        checkLine(
+                sender,
+                "Rebar guide",
+                guideHealthy,
+                guideHealthy
+                        ? GridWorksGuide.categoryCount()
+                                + " categories / "
+                                + GridWorksGuide.itemCount()
+                                + " items attached to /rebar guide"
+                        : "GridWorks guide category is missing or incomplete"
         );
         checkLine(
                 sender,
