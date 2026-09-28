@@ -142,6 +142,8 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
 
     @Override
     protected void beforeActivated() {
+        activePeers.clear();
+        tracker.forgetAllSources();
         resetEdge.reset();
         paceTracker.reset();
         cancelWatchdog();
@@ -155,6 +157,8 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
     @Override
     protected void afterDeactivated() {
         cancelWatchdog();
+        activePeers.clear();
+        tracker.forgetAllSources();
         paceTracker.reset();
         resetEdge.reset();
     }
@@ -162,6 +166,8 @@ public final class BatchControllerBlock extends PhysicalControlNodeBlock
     @Override
     protected void afterRemoved() {
         cancelWatchdog();
+        activePeers.clear();
+        tracker.forgetAllSources();
         paceTracker.reset();
         resetEdge.reset();
     }

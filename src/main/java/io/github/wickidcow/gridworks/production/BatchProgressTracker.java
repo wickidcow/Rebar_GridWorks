@@ -54,6 +54,10 @@ public final class BatchProgressTracker {
         lastSourceCounts.remove(Objects.requireNonNull(source, "source"));
     }
 
+    public synchronized void forgetAllSources() {
+        lastSourceCounts.clear();
+    }
+
     /**
      * Updates one source baseline without adding to batch progress.
      *

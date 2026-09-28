@@ -63,6 +63,24 @@ class BatchProgressTrackerTest {
     }
 
     @Test
+    void forgettingAllSourcesClearsBaselinesWithoutChangingProgress() {
+        BatchProgressTracker tracker = new BatchProgressTracker(10L, 2L);
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+
+        tracker.observe(first, 10L);
+        tracker.observe(second, 20L);
+        assertEquals(2, tracker.trackedSourceCount());
+
+        tracker.forgetAllSources();
+
+        assertEquals(0, tracker.trackedSourceCount());
+        assertEquals(2L, tracker.progress());
+        assertEquals(0L, tracker.observe(first, 30L).appliedDelta());
+        assertEquals(2L, tracker.progress());
+    }
+
+    @Test
     void rebaselineAdvancesSourceHistoryWithoutAddingProgress() {
         BatchProgressTracker tracker = new BatchProgressTracker(10L, 3L);
         UUID source = UUID.randomUUID();

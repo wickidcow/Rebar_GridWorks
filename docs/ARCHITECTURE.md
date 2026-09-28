@@ -118,6 +118,8 @@ Replay-sensitive devices reset transient input baselines in the pre-activation h
 
 Sampler-backed Inventory, Fluid, Machine, and Power Grid sensors also clear only their transient cached snapshots in `beforeActivated()`. Their first replay therefore reads the current adjacent target rather than re-emitting a snapshot retained by a reactivated block instance. Machine Sensor additionally clears only `ObservedMachineCycleCounter`'s transient previous-processing observation while preserving persisted cycle totals and timestamp history; this prevents an old pre-unload processing state from pairing with a new idle sample and manufacturing a cycle.
 
+Part 4 controllers follow the same-instance reactivation rule. Batch Controller clears its runtime direct-peer set and every cumulative source baseline before activation/deactivation while preserving persisted target/progress/fault state. Sequence Controller clears its transient cached fault-interlock level before activation and relies on component replay to restore the live level. A reactivated object therefore behaves the same as a freshly reconstructed object instead of carrying stale live topology/input state across unload.
+
 ## Factory Monitor
 
 The Factory Monitor subscribes only to a bounded set of built-in GridWorks channels and keeps one latest signal per source/channel pair. A dedicated source selector switches between an Overview (newest source for each channel) and one observed source, so identical metrics from multiple machines no longer overwrite each other. Addressed commands retain only the latest command per source, keeping the dynamic address namespace bounded.

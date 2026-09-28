@@ -191,6 +191,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
 
     @Override
     protected void beforeActivated() {
+        faultInterlockActive = false;
         startEdge.reset();
         stageEdge.reset();
         resetEdge.reset();
@@ -205,6 +206,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
     @Override
     protected void afterDeactivated() {
         cancelStageTimeout();
+        faultInterlockActive = false;
         startEdge.reset();
         stageEdge.reset();
         resetEdge.reset();
@@ -213,6 +215,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
     @Override
     protected void afterRemoved() {
         cancelStageTimeout();
+        faultInterlockActive = false;
         startEdge.reset();
         stageEdge.reset();
         resetEdge.reset();
