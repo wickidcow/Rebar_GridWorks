@@ -143,12 +143,12 @@ item:
       <arrow> Runs a four-stage event-driven factory sequence
       <arrow> Each stage has a unique trigger address and active output address
       <arrow> Rising-edge triggers advance only the currently active stage
-      <arrow> Optional stage timeout enters a persistent FAULT state
+      <arrow> Each stage has its own optional timeout and persistent FAULT state
       <arrow> Level-sensitive Fault Interlock can stop a running sequence immediately
       <arrow> Fault input/output use separate collision-safe named addresses
       <arrow> Replay-safe Abort/Reset input can return the sequence to IDLE remotely
       <arrow> Publishes fault cause and live interlock state for diagnostics
-      <arrow> Timeout is OFF by default; only one delayed task exists while running
+      <arrow> All four timeouts default OFF; only the active stage owns one delayed task
       <arrow> Sequence stage survives reload; replay never manufactures advances
 
   power_limiter:

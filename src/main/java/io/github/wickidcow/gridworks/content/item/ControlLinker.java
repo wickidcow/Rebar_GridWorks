@@ -432,11 +432,12 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
                             ))
             );
             event.getPlayer().sendMessage(
-                    Component.text("Stage timeout: ", NamedTextColor.GRAY)
+                    Component.text("Stage timeouts: ", NamedTextColor.GRAY)
                             .append(Component.text(
-                                    controller.getStageTimeoutTicks() <= 0L
-                                            ? "OFF"
-                                            : controller.getStageTimeoutTicks() + " ticks",
+                                    "1=" + formatTimeoutTicks(controller.getStageTimeoutTicks(1))
+                                            + ", 2=" + formatTimeoutTicks(controller.getStageTimeoutTicks(2))
+                                            + ", 3=" + formatTimeoutTicks(controller.getStageTimeoutTicks(3))
+                                            + ", 4=" + formatTimeoutTicks(controller.getStageTimeoutTicks(4)),
                                     NamedTextColor.WHITE
                             ))
             );
@@ -682,6 +683,10 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
                                 ))
                 )
         );
+    }
+
+    private static String formatTimeoutTicks(long ticks) {
+        return ticks <= 0L ? "OFF" : ticks + "t";
     }
 
     private static String formatHistoryTime(long epochMillis) {

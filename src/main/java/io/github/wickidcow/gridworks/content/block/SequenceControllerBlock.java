@@ -14,6 +14,7 @@ import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
 import io.github.wickidcow.gridworks.control.RisingEdgeTrigger;
 import io.github.wickidcow.gridworks.production.SequenceFaultReason;
 import io.github.wickidcow.gridworks.production.SequenceRoutes;
+import io.github.wickidcow.gridworks.production.SequenceStageTimeouts;
 import io.github.wickidcow.gridworks.production.SequenceStateMachine;
 import java.util.ArrayList;
 import java.util.List;
@@ -59,8 +60,12 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
     private static final NamespacedKey FAULT_REASON_KEY = key("sequence_fault_reason");
     private static final NamespacedKey STAGE_TIMEOUT_TICKS_KEY = key("sequence_stage_timeout_ticks");
 
-    private static final long DEFAULT_STAGE_TIMEOUT_TICKS = 0L;
-    private static final long MAX_STAGE_TIMEOUT_TICKS = 72_000L;
+    private static final NamespacedKey[] STAGE_TIMEOUT_TICKS_KEYS = {
+            key("sequence_stage_timeout_1_ticks"),
+            key("sequence_stage_timeout_2_ticks"),
+            key("sequence_stage_timeout_3_ticks"),
+            key("sequence_stage_timeout_4_ticks")
+    };
 
     private static final NamespacedKey[] TRIGGER_ADDRESS_KEYS = {
             key("sequence_trigger_1"),
@@ -85,14 +90,13 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
     private volatile ControlAddress resetInputAddress;
     private volatile boolean faultInterlockActive;
     private volatile SequenceFaultReason faultReason;
-    private volatile long stageTimeoutTicks;
+    private final SequenceStageTimeouts stageTimeouts;
     private BukkitTask stageTimeoutTask;
 
     private final StatusItem statusItem = new StatusItem();
     private final StartItem startItem = new StartItem();
     private final AdvanceItem advanceItem = new AdvanceItem();
     private final AbortItem abortItem = new AbortItem();
-    private final TimeoutItem timeoutItem = new TimeoutItem();
     private final FaultAddressItem faultAddressItem = new FaultAddressItem();
     private final FaultInputAddressItem faultInputAddressItem = new FaultInputAddressItem();
     private final ResetInputAddressItem resetInputAddressItem = new ResetInputAddressItem();
@@ -105,6 +109,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
             createStageAddressItems(false);
     private final StageAddressItem[] stageTriggerItems =
             createStageAddressItems(true);
+    private final StageTimeoutItem[] stageTimeoutItems = createStageTimeoutItems();
 
     public SequenceControllerBlock(
             @NotNull Block block,
@@ -127,7 +132,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         );
         this.faultInterlockActive = false;
         this.faultReason = SequenceFaultReason.NONE;
-        this.stageTimeoutTicks = DEFAULT_STAGE_TIMEOUT_TICKS;
+        this.stageTimeouts = new SequenceStageTimeouts();
     }
 
     public SequenceControllerBlock(
@@ -159,9 +164,16 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                 pdc.get(FAULT_REASON_KEY, PersistentDataType.STRING),
                 sequence.isFaulted()
         );
-        Long storedTimeout = pdc.get(STAGE_TIMEOUT_TICKS_KEY, PersistentDataType.LONG);
-        this.stageTimeoutTicks = clampStageTimeout(
-                storedTimeout == null ? DEFAULT_STAGE_TIMEOUT_TICKS : storedTimeout
+        Long legacyTimeout = pdc.get(
+                STAGE_TIMEOUT_TICKS_KEY,
+                PersistentDataType.LONG
+        );
+        this.stageTimeouts = SequenceStageTimeouts.fromStored(
+                legacyTimeout,
+                pdc.get(STAGE_TIMEOUT_TICKS_KEYS[0], PersistentDataType.LONG),
+                pdc.get(STAGE_TIMEOUT_TICKS_KEYS[1], PersistentDataType.LONG),
+                pdc.get(STAGE_TIMEOUT_TICKS_KEYS[2], PersistentDataType.LONG),
+                pdc.get(STAGE_TIMEOUT_TICKS_KEYS[3], PersistentDataType.LONG)
         );
     }
 
@@ -256,13 +268,21 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                 PersistentDataType.STRING,
                 faultReason.name()
         );
+        // Keep the legacy single-timeout key updated with the longest configured
+        // stage timeout. New builds use the per-stage keys below; an older build
+        // therefore falls back to a conservative deadline rather than a shorter one.
         pdc.set(
                 STAGE_TIMEOUT_TICKS_KEY,
                 PersistentDataType.LONG,
-                stageTimeoutTicks
+                stageTimeouts.max()
         );
 
         for (int stage = 1; stage <= SequenceStateMachine.STAGE_COUNT; stage++) {
+            pdc.set(
+                    STAGE_TIMEOUT_TICKS_KEYS[stage - 1],
+                    PersistentDataType.LONG,
+                    stageTimeouts.get(stage)
+            );
             pdc.set(
                     TRIGGER_ADDRESS_KEYS[stage - 1],
                     PersistentDataType.STRING,
@@ -317,7 +337,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         bus.publish(
                 getNodeId(),
                 GridWorksChannels.SEQUENCE_TIMEOUT_TICKS,
-                ControlValue.of((double) stageTimeoutTicks)
+                ControlValue.of((double) activeStageTimeoutTicks())
         );
 
         SequenceRoutes currentRoutes = routes;
@@ -345,11 +365,11 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         return Gui.builder()
                 .setStructure(
                         "s # b # n # x # c",
-                        "1 o t # # # # # #",
-                        "2 p u # # # # # #",
-                        "3 q v # # # # # #",
-                        "4 r w # # # # # #",
-                        "i # d # f # e # g"
+                        "1 o t # j # # # #",
+                        "2 p u # k # # # #",
+                        "3 q v # l # # # #",
+                        "4 r w # m # # # #",
+                        "i # # # f # e # g"
                 )
                 .addIngredient('#', GuiItems.background())
                 .addIngredient('s', statusItem)
@@ -358,7 +378,6 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                 .addIngredient('x', abortItem)
                 .addIngredient('c', completeAddressItem)
                 .addIngredient('i', startAddressItem)
-                .addIngredient('d', timeoutItem)
                 .addIngredient('f', faultAddressItem)
                 .addIngredient('e', faultInputAddressItem)
                 .addIngredient('g', resetInputAddressItem)
@@ -374,6 +393,10 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                 .addIngredient('u', stageTriggerItems[1])
                 .addIngredient('v', stageTriggerItems[2])
                 .addIngredient('w', stageTriggerItems[3])
+                .addIngredient('j', stageTimeoutItems[0])
+                .addIngredient('k', stageTimeoutItems[1])
+                .addIngredient('l', stageTimeoutItems[2])
+                .addIngredient('m', stageTimeoutItems[3])
                 .build();
     }
 
@@ -415,7 +438,11 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
     }
 
     public long getStageTimeoutTicks() {
-        return stageTimeoutTicks;
+        return activeStageTimeoutTicks();
+    }
+
+    public long getStageTimeoutTicks(int stage) {
+        return stageTimeouts.get(stage);
     }
 
     private void handleBooleanSignal(ControlChannel channel, boolean value) {
@@ -682,22 +709,26 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         requestStateReplay();
     }
 
-    private void changeStageTimeout(long delta) {
-        long current = stageTimeoutTicks;
-        long next = Math.max(
-                0L,
-                Math.min(MAX_STAGE_TIMEOUT_TICKS, current + delta)
-        );
+    private void changeStageTimeout(int stage, long delta) {
+        long current = stageTimeouts.get(stage);
+        long next = SequenceStageTimeouts.clamp(current + delta);
         if (next == current) {
             return;
         }
 
-        stageTimeoutTicks = next;
-        if (sequence.isRunning()) {
+        stageTimeouts.set(stage, next);
+        if (sequence.isRunning() && sequence.currentStage() == stage) {
             scheduleStageTimeout();
         }
         publishCurrentState();
         notifyItems();
+    }
+
+    private long activeStageTimeoutTicks() {
+        int stage = sequence.currentStage();
+        return stage >= 1 && stage <= SequenceStateMachine.STAGE_COUNT
+                ? stageTimeouts.get(stage)
+                : SequenceStageTimeouts.DEFAULT_TIMEOUT_TICKS;
     }
 
     private boolean canEditRoutes() {
@@ -734,12 +765,15 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
 
     private void scheduleStageTimeout() {
         cancelStageTimeout();
-        long timeout = stageTimeoutTicks;
-        if (!sequence.isRunning() || timeout <= 0L) {
+        if (!sequence.isRunning()) {
             return;
         }
 
         int expectedStage = sequence.currentStage();
+        long timeout = stageTimeouts.get(expectedStage);
+        if (timeout <= 0L) {
+            return;
+        }
         stageTimeoutTask = GridWorks.getInstance().getServer().getScheduler().runTaskLater(
                 GridWorks.getInstance(),
                 () -> {
@@ -779,7 +813,6 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         abortItem.notifyWindows();
         startAddressItem.notifyWindows();
         completeAddressItem.notifyWindows();
-        timeoutItem.notifyWindows();
         faultAddressItem.notifyWindows();
         faultInputAddressItem.notifyWindows();
         resetInputAddressItem.notifyWindows();
@@ -788,6 +821,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
             stageStatusItems[index].notifyWindows();
             stageOutputItems[index].notifyWindows();
             stageTriggerItems[index].notifyWindows();
+            stageTimeoutItems[index].notifyWindows();
         }
     }
 
@@ -1043,10 +1077,6 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         );
     }
 
-    private static long clampStageTimeout(long ticks) {
-        return Math.max(0L, Math.min(MAX_STAGE_TIMEOUT_TICKS, ticks));
-    }
-
     private static String formatStageTimeout(long ticks) {
         if (ticks <= 0L) {
             return "OFF";
@@ -1077,6 +1107,15 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                 new StageAddressItem[SequenceStateMachine.STAGE_COUNT];
         for (int stage = 1; stage <= SequenceStateMachine.STAGE_COUNT; stage++) {
             items[stage - 1] = new StageAddressItem(stage, trigger);
+        }
+        return items;
+    }
+
+    private StageTimeoutItem[] createStageTimeoutItems() {
+        StageTimeoutItem[] items =
+                new StageTimeoutItem[SequenceStateMachine.STAGE_COUNT];
+        for (int stage = 1; stage <= SequenceStateMachine.STAGE_COUNT; stage++) {
+            items[stage - 1] = new StageTimeoutItem(stage);
         }
         return items;
     }
@@ -1120,9 +1159,10 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                                     : NamedTextColor.WHITE
                     ),
                     Component.text(
-                            stageTimeoutTicks <= 0L
-                                    ? "Stage timeout: OFF"
-                                    : "Stage timeout: " + formatStageTimeout(stageTimeoutTicks),
+                            stage >= 1 && stage <= SequenceStateMachine.STAGE_COUNT
+                                    ? "Stage " + stage + " timeout: "
+                                            + formatStageTimeout(stageTimeouts.get(stage))
+                                    : "Timeouts are configured per stage",
                             NamedTextColor.GRAY
                     )
             );
@@ -1226,24 +1266,33 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         }
     }
 
-    private final class TimeoutItem extends SequenceItem {
+    private final class StageTimeoutItem extends SequenceItem {
+        private final int stage;
+
+        private StageTimeoutItem(int stage) {
+            this.stage = stage;
+        }
+
         @Override
         public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            long timeout = stageTimeouts.get(stage);
+            boolean active = sequence.isRunning() && sequence.currentStage() == stage;
+
             return item(
-                    stageTimeoutTicks <= 0L ? Material.GRAY_DYE : Material.CLOCK,
-                    "Stage Timeout: " + formatStageTimeout(stageTimeoutTicks)
+                    timeout <= 0L ? Material.GRAY_DYE : Material.CLOCK,
+                    "Stage " + stage + " Timeout: " + formatStageTimeout(timeout)
             ).lore(
                     Component.text("Left +5s / Right -5s", NamedTextColor.YELLOW),
                     Component.text("Shift uses 60 seconds", NamedTextColor.YELLOW),
                     Component.text(
-                            "OFF preserves legacy wait-forever behavior",
+                            "OFF waits indefinitely for this stage",
                             NamedTextColor.GRAY
                     ),
                     Component.text(
-                            sequence.isRunning()
-                                    ? "Editing restarts the current stage deadline"
-                                    : "One delayed task is used only while RUNNING",
-                            NamedTextColor.DARK_GRAY
+                            active
+                                    ? "Editing restarts this stage deadline"
+                                    : "Applies when Stage " + stage + " becomes active",
+                            active ? NamedTextColor.AQUA : NamedTextColor.DARK_GRAY
                     )
             );
         }
@@ -1256,9 +1305,9 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         ) {
             long step = clickType.isShiftClick() ? 1_200L : 100L;
             if (clickType.isLeftClick()) {
-                changeStageTimeout(step);
+                changeStageTimeout(stage, step);
             } else if (clickType.isRightClick()) {
-                changeStageTimeout(-step);
+                changeStageTimeout(stage, -step);
             }
         }
     }

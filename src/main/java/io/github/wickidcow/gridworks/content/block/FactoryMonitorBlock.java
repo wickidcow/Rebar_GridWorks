@@ -77,7 +77,7 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
             new SignalDefinition(GridWorksChannels.SEQUENCE_FAULT, "Sequence Fault", Material.RED_CONCRETE),
             new SignalDefinition(GridWorksChannels.SEQUENCE_FAULT_REASON, "Sequence Fault Reason", Material.NAME_TAG),
             new SignalDefinition(GridWorksChannels.SEQUENCE_FAULT_INTERLOCK_ACTIVE, "Fault Interlock Active", Material.SCULK_SENSOR),
-            new SignalDefinition(GridWorksChannels.SEQUENCE_TIMEOUT_TICKS, "Sequence Timeout", Material.CLOCK),
+            new SignalDefinition(GridWorksChannels.SEQUENCE_TIMEOUT_TICKS, "Active Stage Timeout", Material.CLOCK),
 
             new SignalDefinition(GridWorksChannels.MACHINE_AVAILABLE, "Machine Available", Material.YELLOW_GLAZED_TERRACOTTA),
             new SignalDefinition(GridWorksChannels.MACHINE_KIND, "Machine Kind", Material.NAME_TAG),
