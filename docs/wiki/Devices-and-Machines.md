@@ -6,21 +6,19 @@ GridWorks currently validates a canonical catalog of **23 player-facing content 
 
 | Device | Purpose |
 | --- | --- |
-| Control Interface | Core automation component used by advanced GridWorks devices |
-| GridWorks Linker | Creates, removes, and inspects Control Bus links |
+| [[Control Interface]] | Core automation component used by advanced GridWorks devices |
+| [[GridWorks Linker]] | Creates, removes, inspects, and configures Control Bus links |
 
 ## Redstone and signaling
 
 | Device | Purpose |
 | --- | --- |
-| Redstone Sensor | Reads powered state and analog redstone strength |
-| Status Light | Displays a Control Bus boolean state |
-| Control Relay | Converts a command into steady vanilla redstone |
-| Addressed Relay | Converts one named address into vanilla redstone |
-| Pulse Relay | Produces a timed pulse on a real rising edge |
-| Delay Relay | Adds independent ON/OFF delay and debounce behavior |
-
-These compact signaling devices are covered by [[Control Bus and Linking]] and [[Factory Automation]].
+| [[Redstone Sensor]] | Reads powered state and analog redstone strength |
+| [[Status Light]] | Displays a Control Bus boolean state |
+| [[Control Relay]] | Converts a command into steady vanilla redstone |
+| [[Addressed Relay]] | Converts one named address into vanilla redstone |
+| [[Pulse Relay]] | Produces a timed pulse on a real rising edge |
+| [[Delay Relay]] | Adds independent ON/OFF delay and debounce behavior |
 
 ## Monitoring and alarms
 
@@ -34,9 +32,9 @@ These compact signaling devices are covered by [[Control Bus and Linking]] and [
 
 | Device | Purpose |
 | --- | --- |
-| Inventory Sensor | Item count, slot use, and occupancy |
+| [[Inventory Sensor]] | Item count, slot use, and occupancy |
 | [[Machine Sensor]] | Processing state, progress, timing, and observed cycles |
-| Fluid Tank Sensor | Fluid type, amount, capacity, and fill ratio |
+| [[Fluid Tank Sensor]] | Fluid type, amount, capacity, and fill ratio |
 | [[Power Grid Sensor]] | Provider-neutral electrical grid telemetry |
 
 See [[Sensors and Telemetry]] for the shared sensor model.
@@ -61,12 +59,16 @@ See [[Sensors and Telemetry]] for the shared sensor model.
 
 ## Recipes
 
-Exact recipes should be viewed through the installed Rebar/Pylon guide so the Wiki does not become stale when progression is adjusted during active development.
+Use the installed Rebar/Pylon guide for exact recipes. GridWorks is still under active development, so keeping recipe grids in the Wiki would make them easier to become stale than the in-game guide.
 
-GridWorks CI verifies that every canonical player-facing content entry has both survival recipe registration and English item metadata.
+GridWorks CI verifies that every canonical player-facing content entry has:
+
+- a registered survival recipe;
+- bundled English item metadata.
 
 ## Learn by system
 
+- [[Getting Started]]
 - [[Factory Automation]]
 - [[Production Control]]
 - [[Power and Flow Control]]

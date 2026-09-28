@@ -5,16 +5,33 @@
 - [[Installing GridWorks]]
 - [[Getting Started]]
 - [[Control Bus and Linking]]
+- [[GridWorks Linker]]
 
 **Device Reference**
 
-Sensors & Monitoring
+Foundation
+- [[Control Interface]]
+- [[GridWorks Linker]]
+
+Sensors
+- [[Redstone Sensor]]
+- [[Inventory Sensor]]
+- [[Fluid Tank Sensor]]
 - [[Machine Sensor]]
 - [[Power Grid Sensor]]
+- [[Sensors and Telemetry]]
+
+Signals & Outputs
+- [[Status Light]]
+- [[Control Relay]]
+- [[Addressed Relay]]
+- [[Pulse Relay]]
+- [[Delay Relay]]
+
+Monitoring & Alarms
 - [[Factory Monitor]]
 - [[Alarm Indicator]]
 - [[Alarm Console]]
-- [[Sensors and Telemetry]]
 
 Logic & Production
 - [[Factory Controller]]
