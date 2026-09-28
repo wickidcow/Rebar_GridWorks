@@ -21,6 +21,11 @@ public final class RedstoneSensorBlock extends PhysicalControlNodeBlock implemen
     }
 
     @Override
+    protected void beforeActivated() {
+        lastPower = -1;
+    }
+
+    @Override
     protected void afterActivated() {
         updatePower(getBlock().getBlockPower());
     }
