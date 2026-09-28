@@ -60,9 +60,9 @@ Avoid dramatically lowering intervals for a more responsive GUI. Even change-onl
 
 ## Production controllers
 
-Batch Controller derives production rate/ETA from progress events instead of adding another sampler.
+Batch Controller derives production rate/ETA from progress events instead of adding another sampler. Progress updates within 50 ms are coalesced into one burst so parallel Machine Sensors do not create artificial microsecond rate intervals.
 
-Sequence Controller is event-driven; its only scheduler use is the optional single stage-timeout task while running.
+Sequence Controller is event-driven. It stores four independent optional stage timeout values, but only the currently active stage can own one one-shot delayed timeout task. No repeating Sequence Controller scheduler is created.
 
 ## /gridworks doctor
 

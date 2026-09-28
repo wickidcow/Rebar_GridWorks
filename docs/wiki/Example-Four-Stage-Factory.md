@@ -122,11 +122,28 @@ batch_fault ---> sequence fault interlock
 
 Because the interlock is level-sensitive, an already-active fault remains protective after restart/reconnect.
 
-## Add stage timeouts
+## Add per-stage timeouts
 
-Enable Sequence Controller stage timeout when a stage should not be allowed to wait forever.
+Configure an independent timeout for any stage that should not be allowed to wait forever.
 
-A timeout moves the workflow into persistent FAULT and records the reason.
+For example:
+
+- Stage 1 fill: 30 seconds
+- Stage 2 production: 5 minutes
+- Stage 3 drain: 45 seconds
+- Stage 4 cargo release: 20 seconds
+
+All four timeouts default OFF. Only the currently active stage can own a delayed timeout task, so separate safety windows do not create four repeating schedulers.
+
+A timeout moves the workflow into persistent FAULT and records the failed stage/reason.
+
+## Track completed factory runs
+
+Every real Stage 4 -> COMPLETE transition increments Sequence Controller **Completed Runs** and records the last-completion time.
+
+Use **Sequence Run History** to inspect those values. Shift + right click resets the history without changing the active sequence state.
+
+You can also use **Sequence Completed Runs** as a [[Factory Controller]] numeric metric—for example, to raise a maintenance output after 100 complete process cycles.
 
 ## Why this design is efficient
 

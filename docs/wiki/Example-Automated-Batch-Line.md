@@ -82,12 +82,16 @@ The reset route is rising-edge driven and replay-safe.
 
 ## Add production pacing
 
-After enough fresh progress events, Batch Controller can expose:
+Batch Controller derives pace from real progress events without adding another sampler.
+
+Positive deltas reported within 50 ms are coalesced into one burst, so multiple directly linked Machine Sensors sampled back-to-back do not create an artificial rate spike. The first distinct burst establishes timing; the next distinct burst closes that interval and makes pace available.
+
+Batch Controller can then expose:
 
 - cycles/minute;
 - ETA seconds.
 
-Display these with [[Factory Monitor]] or use them in [[Factory Controller]] logic.
+Display these with [[Factory Monitor]] or use them in [[Factory Controller]] logic. Pace returns to unavailable after a new batch, reload/reactivation, watchdog fault, or relevant Machine Sensor connect/disconnect until two new distinct bursts are observed.
 
 ## Important limitation
 
