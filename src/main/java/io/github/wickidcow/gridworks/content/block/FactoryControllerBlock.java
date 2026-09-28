@@ -1804,6 +1804,28 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
                         ComparisonOperator.GREATER_OR_EQUAL,
                         1.0
                 )
+        ),
+        BATCH_RATE_LOW(
+                "Batch Rate <= 30/min",
+                new NumericControlRule(
+                        GridWorksChannels.BATCH_RATE_PER_MINUTE,
+                        ComparisonOperator.LESS_OR_EQUAL,
+                        30.0
+                ),
+                false,
+                LogicOperator.AND,
+                null
+        ),
+        BATCH_ETA_HIGH(
+                "Batch ETA >= 60s",
+                new NumericControlRule(
+                        GridWorksChannels.BATCH_ETA_SECONDS,
+                        ComparisonOperator.GREATER_OR_EQUAL,
+                        60.0
+                ),
+                false,
+                LogicOperator.AND,
+                null
         );
 
         private final String displayName;
