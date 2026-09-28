@@ -79,7 +79,23 @@ class ObservedMachineCycleCounterTest {
     }
 
     @Test
-    void rejectsInvalidPersistedState() {
+    void storedStateIsSanitizedBeforeConstruction() {
+        ObservedMachineCycleCounter missing =
+                ObservedMachineCycleCounter.fromStored(null, null);
+        assertEquals(0L, missing.observedCycles());
+        assertEquals(0L, missing.lastCycleEpochMillis());
+
+        ObservedMachineCycleCounter corrupt =
+                ObservedMachineCycleCounter.fromStored(Long.MAX_VALUE, -10L);
+        assertEquals(
+                ObservedMachineCycleCounter.MAX_EXACT_COUNT,
+                corrupt.observedCycles()
+        );
+        assertEquals(0L, corrupt.lastCycleEpochMillis());
+    }
+
+    @Test
+    void rejectsInvalidDirectConstruction() {
         assertThrows(IllegalArgumentException.class, () -> new ObservedMachineCycleCounter(-1L, 0L));
         assertThrows(
                 IllegalArgumentException.class,

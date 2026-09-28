@@ -61,11 +61,9 @@ public final class MachineSensorBlock extends PhysicalControlNodeBlock
             @NotNull PersistentDataContainer pdc
     ) {
         super(block, pdc);
-        Long storedCycles = pdc.get(OBSERVED_CYCLES_KEY, PersistentDataType.LONG);
-        Long storedLastCycle = pdc.get(LAST_CYCLE_EPOCH_MS_KEY, PersistentDataType.LONG);
-        this.cycleCounter = new ObservedMachineCycleCounter(
-                storedCycles == null ? 0L : storedCycles,
-                storedLastCycle == null ? 0L : storedLastCycle
+        this.cycleCounter = ObservedMachineCycleCounter.fromStored(
+                pdc.get(OBSERVED_CYCLES_KEY, PersistentDataType.LONG),
+                pdc.get(LAST_CYCLE_EPOCH_MS_KEY, PersistentDataType.LONG)
         );
     }
 

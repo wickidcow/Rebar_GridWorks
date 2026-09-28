@@ -38,6 +38,19 @@ public final class ObservedMachineCycleCounter {
         this.lastCycleEpochMillis = lastCycleEpochMillis;
     }
 
+    public static ObservedMachineCycleCounter fromStored(
+            Long observedCycles,
+            Long lastCycleEpochMillis
+    ) {
+        long safeCycles = observedCycles == null
+                ? 0L
+                : Math.max(0L, Math.min(MAX_EXACT_COUNT, observedCycles));
+        long safeTimestamp = lastCycleEpochMillis == null
+                ? 0L
+                : Math.max(0L, lastCycleEpochMillis);
+        return new ObservedMachineCycleCounter(safeCycles, safeTimestamp);
+    }
+
     public synchronized boolean observe(MachineSnapshot snapshot, long nowEpochMillis) {
         Objects.requireNonNull(snapshot, "snapshot");
 
