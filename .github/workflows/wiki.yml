@@ -1,0 +1,52 @@
+name: Sync Wiki
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "docs/wiki/**"
+      - ".github/workflows/wiki.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gridworks-wiki
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    name: Publish native GitHub Wiki
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout GridWorks
+        uses: actions/checkout@v4
+
+      - name: Clone Wiki
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" .wiki-publish
+
+      - name: Replace Wiki pages from versioned source
+        run: |
+          find .wiki-publish -maxdepth 1 -type f -name '*.md' -delete
+          cp docs/wiki/*.md .wiki-publish/
+
+      - name: Publish Wiki
+        working-directory: .wiki-publish
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "Wiki is already up to date."
+            exit 0
+          fi
+
+          git commit -m "Sync GridWorks wiki from main"
+          git push origin HEAD
