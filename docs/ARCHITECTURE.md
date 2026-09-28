@@ -211,7 +211,7 @@ Alarm history is intentionally aggregate rather than an event database. Each Ala
 
 The occurrence counter advances only when `AlarmLatch.observe` reports a real false-to-true transition. Initial state replay, chunk reload, and server restart therefore cannot manufacture incidents. The counter saturates at `Long.MAX_VALUE` rather than overflowing, and the last-triggered timestamp never moves backward if the host clock is adjusted.
 
-History is also published as bounded telemetry and displayed by the Alarm Console, Factory Monitor, and Linker inspection. No history polling task or global storage file is introduced.
+History is also published as bounded telemetry and displayed by the Alarm Console, Factory Monitor, and Linker inspection. Alarm occurrence count is clamped/saturated at the largest integer exactly representable by Control Bus numeric transport, and negative/corrupt stored history is sanitized rather than allowed to poison telemetry. No history polling task or global storage file is introduced.
 
 ## CI Git initialization
 

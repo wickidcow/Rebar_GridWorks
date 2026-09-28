@@ -42,12 +42,20 @@ class AlarmHistoryStateTest {
     }
 
     @Test
-    void occurrenceCounterSaturatesInsteadOfOverflowing() {
+    void occurrenceCounterStaysExactlyRepresentableOnControlBus() {
         AlarmHistoryState history = new AlarmHistoryState(Long.MAX_VALUE, 1L);
+
+        assertEquals(
+                AlarmHistoryState.MAX_EXACT_COUNT,
+                history.occurrenceCount()
+        );
 
         history.recordTrigger(2L);
 
-        assertEquals(Long.MAX_VALUE, history.occurrenceCount());
+        assertEquals(
+                AlarmHistoryState.MAX_EXACT_COUNT,
+                history.occurrenceCount()
+        );
         assertEquals(2L, history.lastTriggeredEpochMillis());
     }
 }

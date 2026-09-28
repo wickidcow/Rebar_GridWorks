@@ -8,11 +8,16 @@ package io.github.wickidcow.gridworks.alarm;
  * giving operators useful incident context.</p>
  */
 public final class AlarmHistoryState {
+    public static final long MAX_EXACT_COUNT = 9_007_199_254_740_991L;
+
     private long occurrenceCount;
     private long lastTriggeredEpochMillis;
 
     public AlarmHistoryState(long occurrenceCount, long lastTriggeredEpochMillis) {
-        this.occurrenceCount = Math.max(0L, occurrenceCount);
+        this.occurrenceCount = Math.max(
+                0L,
+                Math.min(MAX_EXACT_COUNT, occurrenceCount)
+        );
         this.lastTriggeredEpochMillis = Math.max(0L, lastTriggeredEpochMillis);
     }
 
@@ -21,7 +26,7 @@ public final class AlarmHistoryState {
             throw new IllegalArgumentException("epochMillis must be non-negative");
         }
 
-        if (occurrenceCount < Long.MAX_VALUE) {
+        if (occurrenceCount < MAX_EXACT_COUNT) {
             occurrenceCount++;
         }
         lastTriggeredEpochMillis = Math.max(lastTriggeredEpochMillis, epochMillis);
