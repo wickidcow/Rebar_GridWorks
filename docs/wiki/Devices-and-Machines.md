@@ -20,39 +20,53 @@ GridWorks currently validates a canonical catalog of **23 player-facing content 
 | Pulse Relay | Produces a timed pulse on a real rising edge |
 | Delay Relay | Adds independent ON/OFF delay and debounce behavior |
 
+These compact signaling devices are covered by [[Control Bus and Linking]] and [[Factory Automation]].
+
 ## Monitoring and alarms
 
 | Device | Purpose |
 | --- | --- |
-| Alarm Indicator | Latched named alarm with severity and acknowledgement |
-| Alarm Console | Central alarm view and acknowledgement interface |
-| Factory Monitor | Live Control Bus telemetry display |
+| [[Alarm Indicator]] | Latched named alarm with severity and acknowledgement |
+| [[Alarm Console]] | Central alarm view and acknowledgement interface |
+| [[Factory Monitor]] | Live Control Bus telemetry display |
 
 ## Sensors
 
 | Device | Purpose |
 | --- | --- |
 | Inventory Sensor | Item count, slot use, and occupancy |
-| Machine Sensor | Processing state, progress, timing, and observed cycles |
+| [[Machine Sensor]] | Processing state, progress, timing, and observed cycles |
 | Fluid Tank Sensor | Fluid type, amount, capacity, and fill ratio |
-| Power Grid Sensor | Provider-neutral electrical grid telemetry |
+| [[Power Grid Sensor]] | Provider-neutral electrical grid telemetry |
+
+See [[Sensors and Telemetry]] for the shared sensor model.
 
 ## Logic and production
 
 | Device | Purpose |
 | --- | --- |
-| Factory Controller | Up to two sensor conditions with AND/OR logic |
-| Batch Controller | Aggregates new machine cycles toward a target |
-| Sequence Controller | Persistent four-stage production workflow |
-| Load Shedding Controller | Controls Essential, Normal, and Optional power tiers |
+| [[Factory Controller]] | Up to two sensor conditions with AND/OR logic |
+| [[Batch Controller]] | Aggregates new machine cycles toward a target |
+| [[Sequence Controller]] | Persistent four-stage production workflow |
+| [[Load Shedding Controller]] | Controls Essential, Normal, and Optional power tiers |
 
 ## Flow and branch control
 
 | Device | Purpose |
 | --- | --- |
-| Smart Breaker | Opens or closes a provider-exposed power branch |
-| Power Limiter | Applies or bypasses a branch watt cap |
-| Fluid Valve | Control Bus-operated Rebar fluid pass-through |
-| Cargo Isolator | Control Bus-operated cargo shutoff/buffer |
+| [[Smart Breaker]] | Opens or closes a provider-exposed power branch |
+| [[Power Limiter]] | Applies or bypasses a branch watt cap |
+| [[Fluid Valve]] | Control Bus-operated Rebar fluid pass-through |
+| [[Cargo Isolator]] | Control Bus-operated cargo shutoff/buffer |
 
-For behavior and examples, continue with [[Factory Automation]], [[Production Control]], and [[Power and Flow Control]].
+## Recipes
+
+Exact recipes should be viewed through the installed Rebar/Pylon guide so the Wiki does not become stale when progression is adjusted during active development.
+
+GridWorks CI verifies that every canonical player-facing content entry has both survival recipe registration and English item metadata.
+
+## Learn by system
+
+- [[Factory Automation]]
+- [[Production Control]]
+- [[Power and Flow Control]]
