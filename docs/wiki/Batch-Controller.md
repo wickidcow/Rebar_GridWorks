@@ -84,7 +84,9 @@ Replay after restart establishes only the edge baseline, so a reset line left ON
 
 ## Pace and ETA
 
-Batch Controller derives runtime production pace from real progress events.
+Batch Controller derives runtime production pace from real progress events without adding another sampler.
+
+Positive progress updates arriving within **50 ms** are coalesced into one production burst. This prevents multiple directly linked Machine Sensors from producing an artificial rate spike when the shared sampler publishes their changed cycle totals back-to-back.
 
 It can publish:
 
@@ -92,14 +94,14 @@ It can publish:
 - cycles/minute
 - ETA seconds
 
-Pace becomes unavailable after events that invalidate timing history, including:
+The first distinct progress burst establishes timing. The next distinct burst closes the prior interval and produces the observed rate. Pace becomes unavailable after events that invalidate timing history, including:
 
-- reload;
+- reload or same-instance reactivation;
 - Start New Batch;
 - watchdog fault;
 - relevant Machine Sensor connect/disconnect.
 
-It requires fresh progress events before becoming valid again.
+Two distinct progress bursts are therefore required before pace becomes valid again.
 
 ## Output routing
 
@@ -111,6 +113,8 @@ Completion can use:
 Fault has its own named address.
 
 Completion, fault, and reset routes are kept distinct.
+
+The Production page of the [[Factory Monitor]] exposes batch progress, target, completion/fault state, watchdog timeout, pace availability, cycles/minute, and ETA.
 
 ## Example: repeated automated batches
 

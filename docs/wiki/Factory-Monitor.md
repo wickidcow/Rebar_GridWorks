@@ -30,6 +30,11 @@ Batch Controller ----/
 
 This avoids creating a second machine-polling system just for the display.
 
+On the **Production** page, current Part 4 telemetry includes:
+
+- Batch progress, target, completion, fault, watchdog, rate availability, cycles/minute, and ETA;
+- Sequence running state, active stage, completion, fault reason, live fault interlock state, active-stage timeout, completed-run count, and last-completion time.
+
 ## Refresh behavior
 
 Refresh:

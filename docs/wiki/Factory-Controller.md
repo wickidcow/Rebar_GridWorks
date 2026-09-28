@@ -102,14 +102,20 @@ Depending on linked sensors/controllers, metrics include:
 - unpowered-consumer count
 - batch cycles/minute
 - batch ETA seconds
+- sequence completed runs
 
-Batch pace metrics return the condition to **WAITING** whenever rate data is unavailable.
+Batch pace metrics return the condition to **WAITING** whenever rate data is unavailable. Sequence completed runs is persisted telemetry and can be reset from the Sequence Controller's Run History item.
 
 ## Presets
 
 Factory Controller includes reusable presets for common starting points. Presets are intended as templates; changing their rule fields makes the configuration custom again.
 
 Examples include stock/fluid readiness, redstone thresholds, machine progress, power/load conditions, and production pace conditions.
+
+Current production presets include:
+
+- **Batch Rate <= 30/min**
+- **Batch ETA >= 60s**
 
 ## WAITING state
 

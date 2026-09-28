@@ -31,7 +31,9 @@ Start New Batch acts as deliberate fault acknowledgement.
 
 Production pace is derived from real progress events rather than a new polling task.
 
-The controller can expose cycles/minute and ETA seconds, with an explicit availability state so unknown pace is never misrepresented as zero.
+Progress deltas arriving within 50 ms are coalesced into one burst so multiple linked Machine Sensors sampled back-to-back do not create unrealistic microsecond rate intervals. The next distinct burst closes the prior interval and updates cycles/minute and ETA.
+
+The controller exposes an explicit availability state so unknown pace is never misrepresented as zero.
 
 ## Sequence Controller
 
@@ -68,6 +70,8 @@ Stage 4 ---> cargo release
 output_ready --------------> Stage 4 trigger
 ```
 
-Optional stage timeout can place the sequence into persistent FAULT.
+Each stage has its own optional timeout and can place the sequence into persistent FAULT. Only the active stage owns a delayed timeout task.
 
 Fault Interlock is level-sensitive, making a Batch Controller fault a reliable direct production-stop path even after replay/restart.
+
+Sequence Controller also persists completed-run history and last-completion time. Operators can reset that history independently of sequence state, and Factory Controller can use **Sequence Completed Runs** as a numeric metric for maintenance or downstream automation.

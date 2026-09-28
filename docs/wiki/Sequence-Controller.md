@@ -55,22 +55,24 @@ It must become false and then rise true again before it advances the stage.
 
 This prevents restart/reconnect from skipping work.
 
-## Stage timeout
+## Per-stage timeouts
 
-Optional **Stage Timeout** defaults OFF.
+Each of the four stages has its own optional **Stage Timeout**, and all four default **OFF**.
 
-When enabled, GridWorks schedules one delayed task for the active stage.
+That allows different safety windows for filling, processing, draining, and transfer stages while keeping the runtime bounded: only the currently active stage can own one delayed task.
 
-If the stage fails to advance before the deadline:
+If the active stage fails to advance before its deadline:
 
 - sequence enters persisted FAULT;
 - the timed-out stage is remembered;
 - stage/completion outputs are cleared;
 - fault output is asserted.
 
-Changing the timeout while RUNNING restarts the current stage deadline.
+Editing the **active** stage timeout while RUNNING restarts only that stage's deadline. Editing a future stage changes only the value that will be used when that stage becomes active.
 
-After server reload, a running timeout receives a fresh full deadline rather than treating offline time as elapsed fault time.
+Existing placed controllers using the older single timeout migrate automatically: the old value becomes the fallback for any stage that does not yet have a per-stage value.
+
+After server reload, a running stage receives a fresh full deadline rather than treating offline time as elapsed fault time.
 
 ## Fault Interlock
 
@@ -96,11 +98,24 @@ A real false-to-true command returns RUNNING, COMPLETE, or FAULT to IDLE and cle
 
 Its first replayed value is a baseline, so a reset line left ON during restart cannot silently erase sequence state.
 
+## Run history
+
+Sequence Controller persists:
+
+- **Completed Runs**
+- **Last Completion**
+
+The run counter increments only on the real **Stage 4 -> COMPLETE** transition. Restart, abort, fault, replay, and earlier stage advances never increment it.
+
+The **Sequence Run History** GUI item shows both values. **Shift + right click** resets the count and timestamp without changing the current sequence phase or outputs.
+
+`gridworks:sequence/completed_runs` is also available as a Factory Controller numeric metric, so maintenance or downstream rules can trigger after a chosen number of complete process cycles.
+
 ## Persistence
 
 Current phase and active stage persist across reloads.
 
-Fault cause is persisted separately for diagnostics.
+Fault cause, completed-run count, last-completion timestamp, and all four stage timeout values persist separately for diagnostics and recovery.
 
 ## Related pages
 
