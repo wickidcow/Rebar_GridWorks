@@ -10,16 +10,18 @@ on:
       - ".github/workflows/wiki.yml"
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: gridworks-wiki
   cancel-in-progress: true
 
 jobs:
-  sync:
-    name: Publish native GitHub Wiki
+  validate:
+    name: Validate versioned Wiki
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout GridWorks
@@ -36,6 +38,17 @@ jobs:
 
       - name: Validate versioned Wiki links
         run: ./gradlew test --tests io.github.wickidcow.gridworks.docs.GridWorksWikiConsistencyTest --stacktrace --no-daemon
+
+  publish:
+    name: Publish native GitHub Wiki
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout GridWorks
+        uses: actions/checkout@v7
 
       - name: Clone Wiki
         env:
