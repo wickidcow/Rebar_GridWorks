@@ -5,13 +5,17 @@ import java.util.OptionalDouble;
 /**
  * Runtime-only pace estimate for positive Batch Controller progress events.
  *
- * <p>The first event establishes a timing baseline. Each later event computes
- * the observed cycles-per-minute rate from that event's positive delta and the
- * monotonic time since the previous positive progress event.</p>
+ * <p>Progress events arriving within one short burst window are coalesced so
+ * parallel Machine Sensors sampled back-to-back do not create an artificial
+ * microsecond interval. The next distinct burst closes the prior interval and
+ * produces the observed cycles-per-minute rate.</p>
  */
 public final class BatchPaceTracker {
-    private boolean initialized;
-    private long lastProgressNanos;
+    static final long BURST_WINDOW_NANOS = 50_000_000L;
+
+    private boolean burstActive;
+    private long burstStartNanos;
+    private long burstDelta;
     private double ratePerMinute;
 
     public synchronized void observeProgress(long appliedDelta, long nowNanos) {
@@ -19,23 +23,24 @@ public final class BatchPaceTracker {
             throw new IllegalArgumentException("appliedDelta must be positive");
         }
 
-        if (!initialized) {
-            initialized = true;
-            lastProgressNanos = nowNanos;
+        if (!burstActive) {
+            startBurst(appliedDelta, nowNanos);
             ratePerMinute = 0.0;
             return;
         }
 
-        long elapsedNanos = nowNanos - lastProgressNanos;
-        if (elapsedNanos <= 0L) {
+        long elapsedNanos = nowNanos - burstStartNanos;
+        if (elapsedNanos <= BURST_WINDOW_NANOS) {
+            addToBurst(appliedDelta);
             return;
         }
 
-        lastProgressNanos = nowNanos;
-        ratePerMinute = appliedDelta * 60_000_000_000.0 / elapsedNanos;
+        ratePerMinute = burstDelta * 60_000_000_000.0 / elapsedNanos;
         if (!Double.isFinite(ratePerMinute) || ratePerMinute <= 0.0) {
             ratePerMinute = 0.0;
         }
+
+        startBurst(appliedDelta, nowNanos);
     }
 
     public synchronized boolean isAvailable() {
@@ -64,8 +69,26 @@ public final class BatchPaceTracker {
     }
 
     public synchronized void reset() {
-        initialized = false;
-        lastProgressNanos = 0L;
+        burstActive = false;
+        burstStartNanos = 0L;
+        burstDelta = 0L;
         ratePerMinute = 0.0;
+    }
+
+    private void startBurst(long appliedDelta, long nowNanos) {
+        burstActive = true;
+        burstStartNanos = nowNanos;
+        burstDelta = Math.min(
+                BatchProgressTracker.MAX_EXACT_COUNT,
+                appliedDelta
+        );
+    }
+
+    private void addToBurst(long appliedDelta) {
+        long max = BatchProgressTracker.MAX_EXACT_COUNT;
+        long safeDelta = Math.min(max, appliedDelta);
+        burstDelta = burstDelta > max - safeDelta
+                ? max
+                : burstDelta + safeDelta;
     }
 }

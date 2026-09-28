@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 
 class BatchPaceTrackerTest {
     @Test
-    void firstProgressEventOnlyEstablishesTimingBaseline() {
+    void firstBurstOnlyEstablishesTimingBaseline() {
         BatchPaceTracker tracker = new BatchPaceTracker();
 
         tracker.observeProgress(1L, 1_000_000_000L);
@@ -16,11 +16,26 @@ class BatchPaceTrackerTest {
     }
 
     @Test
-    void laterProgressComputesObservedRateAndEta() {
+    void parallelEventsInsideBurstWindowAreCoalesced() {
         BatchPaceTracker tracker = new BatchPaceTracker();
 
-        tracker.observeProgress(1L, 1_000_000_000L);
-        tracker.observeProgress(4L, 3_000_000_000L);
+        tracker.observeProgress(2L, 1_000_000_000L);
+        tracker.observeProgress(3L, 1_010_000_000L);
+        assertFalse(tracker.isAvailable());
+
+        tracker.observeProgress(1L, 2_000_000_000L);
+
+        assertTrue(tracker.isAvailable());
+        assertEquals(300.0, tracker.ratePerMinute(), 0.000001);
+        assertEquals(2.0, tracker.etaSeconds(10L).orElseThrow(), 0.000001);
+    }
+
+    @Test
+    void nextDistinctBurstClosesPreviousInterval() {
+        BatchPaceTracker tracker = new BatchPaceTracker();
+
+        tracker.observeProgress(4L, 1_000_000_000L);
+        tracker.observeProgress(1L, 3_000_000_000L);
 
         assertTrue(tracker.isAvailable());
         assertEquals(120.0, tracker.ratePerMinute(), 0.000001);
@@ -31,7 +46,7 @@ class BatchPaceTrackerTest {
     @Test
     void resetMakesPaceUnavailableAgain() {
         BatchPaceTracker tracker = new BatchPaceTracker();
-        tracker.observeProgress(1L, 1_000_000_000L);
+        tracker.observeProgress(2L, 1_000_000_000L);
         tracker.observeProgress(1L, 2_000_000_000L);
         assertTrue(tracker.isAvailable());
 
