@@ -146,6 +146,15 @@ public final class LoadSheddingControllerBlock extends PhysicalControlNodeBlock
     }
 
     @Override
+    protected void beforeActivated() {
+        powerAvailable = false;
+        loadRatio = null;
+        unpoweredConsumers = null;
+        telemetryKnown = false;
+        lastPublishedState = null;
+    }
+
+    @Override
     public boolean accepts(@NotNull ControlChannel channel) {
         return GridWorksChannels.POWER_AVAILABLE.equals(channel)
                 || GridWorksChannels.POWER_LOAD_RATIO.equals(channel)

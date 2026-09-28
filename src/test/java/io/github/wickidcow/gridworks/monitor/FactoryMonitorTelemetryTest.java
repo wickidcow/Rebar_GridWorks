@@ -115,6 +115,32 @@ class FactoryMonitorTelemetryTest {
     }
 
     @Test
+    void clearDropsAllTelemetry() {
+        FactoryMonitorTelemetry telemetry = new FactoryMonitorTelemetry();
+        UUID source = UUID.randomUUID();
+
+        telemetry.observe(new ControlSignal(
+                source,
+                GridWorksChannels.REDSTONE_POWERED,
+                ControlValue.of(true),
+                1
+        ));
+        telemetry.observe(new ControlSignal(
+                source,
+                ControlAddress.fromUserInput("line").channel(),
+                ControlValue.of(false),
+                2
+        ));
+
+        telemetry.clear();
+
+        assertTrue(telemetry.sourceIds().isEmpty());
+        assertEquals(0, telemetry.signalCount());
+        assertTrue(telemetry.latest(source, GridWorksChannels.REDSTONE_POWERED).isEmpty());
+        assertTrue(telemetry.latestAddressed(source).isEmpty());
+    }
+
+    @Test
     void retainSourcesDropsDisconnectedTelemetry() {
         FactoryMonitorTelemetry telemetry = new FactoryMonitorTelemetry();
         UUID keep = UUID.randomUUID();

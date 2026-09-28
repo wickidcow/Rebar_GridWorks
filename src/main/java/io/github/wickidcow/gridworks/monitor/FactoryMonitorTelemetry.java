@@ -79,6 +79,11 @@ public final class FactoryMonitorTelemetry {
         return signals.size() + addressedSignals.size();
     }
 
+    public void clear() {
+        signals.clear();
+        addressedSignals.clear();
+    }
+
     public int sourceSignalCount(UUID source) {
         Objects.requireNonNull(source, "source");
 

@@ -63,6 +63,11 @@ public final class AddressedRelayBlock extends PhysicalControlNodeBlock implemen
     }
 
     @Override
+    protected void beforeActivated() {
+        powered = false;
+    }
+
+    @Override
     protected void afterActivated() {
         applyOutputState();
     }

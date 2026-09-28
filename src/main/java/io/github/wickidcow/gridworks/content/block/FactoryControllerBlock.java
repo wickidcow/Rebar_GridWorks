@@ -353,6 +353,16 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
     }
 
     @Override
+    protected void beforeActivated() {
+        conditionA.lastObserved = null;
+        conditionA.lastResult = null;
+        conditionB.lastObserved = null;
+        conditionB.lastResult = null;
+        outputEnabled = false;
+        outputKnown = false;
+    }
+
+    @Override
     public boolean accepts(@NotNull ControlChannel channel) {
         if (conditionA.rule.channel().equals(channel)
                 || (conditionBEnabled && conditionB.rule.channel().equals(channel))) {

@@ -131,6 +131,13 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
     }
 
     @Override
+    protected void beforeActivated() {
+        telemetry.clear();
+        selectedSources.clear();
+        selectedPages.clear();
+    }
+
+    @Override
     public boolean accepts(@NotNull ControlChannel channel) {
         return signalItems.containsKey(channel)
                 || ControlAddress.isAddressedChannel(channel);
