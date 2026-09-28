@@ -29,6 +29,17 @@ class SequenceCompletionHistoryTest {
     }
 
     @Test
+    void resetClearsCountAndTimestamp() {
+        SequenceCompletionHistory history =
+                new SequenceCompletionHistory(12L, 5_000L);
+
+        history.reset();
+
+        assertEquals(0L, history.completedRuns());
+        assertEquals(0L, history.lastCompletionEpochMillis());
+    }
+
+    @Test
     void countSaturatesAtExactControlBusLimit() {
         SequenceCompletionHistory history =
                 new SequenceCompletionHistory(

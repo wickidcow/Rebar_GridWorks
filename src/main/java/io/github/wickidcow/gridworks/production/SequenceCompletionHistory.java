@@ -55,6 +55,11 @@ public final class SequenceCompletionHistory {
         );
     }
 
+    public synchronized void reset() {
+        completedRuns = 0L;
+        lastCompletionEpochMillis = 0L;
+    }
+
     public synchronized long completedRuns() {
         return completedRuns;
     }

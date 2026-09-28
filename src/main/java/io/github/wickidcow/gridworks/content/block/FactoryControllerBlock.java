@@ -18,6 +18,7 @@ import io.github.wickidcow.gridworks.api.control.LogicOperator;
 import io.github.wickidcow.gridworks.api.control.MetricAvailability;
 import io.github.wickidcow.gridworks.api.control.NumericControlRule;
 import io.github.wickidcow.gridworks.machine.ObservedMachineCycleCounter;
+import io.github.wickidcow.gridworks.production.SequenceCompletionHistory;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -232,6 +233,15 @@ public final class FactoryControllerBlock extends PhysicalControlNodeBlock
                     5.0,
                     30.0,
                     Double.MAX_VALUE
+            ),
+            new Metric(
+                    "Sequence Completed Runs",
+                    GridWorksChannels.SEQUENCE_COMPLETED_RUNS,
+                    Material.NETHER_STAR,
+                    10.0,
+                    1.0,
+                    10.0,
+                    SequenceCompletionHistory.MAX_EXACT_COUNT
             )
     );
 

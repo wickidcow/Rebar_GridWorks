@@ -147,7 +147,7 @@ item:
       <arrow> Level-sensitive Fault Interlock can stop a running sequence immediately
       <arrow> Fault input/output use separate collision-safe named addresses
       <arrow> Replay-safe Abort/Reset input can return the sequence to IDLE remotely
-      <arrow> Publishes fault cause, completed-run history, and live interlock state
+      <arrow> Publishes fault cause, resettable completed-run history, and live interlock state
       <arrow> All four timeouts default OFF; only the active stage owns one delayed task
       <arrow> Sequence stage survives reload; replay never manufactures advances
 

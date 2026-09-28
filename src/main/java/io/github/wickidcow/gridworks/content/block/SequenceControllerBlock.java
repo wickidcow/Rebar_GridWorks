@@ -17,6 +17,7 @@ import io.github.wickidcow.gridworks.production.SequenceFaultReason;
 import io.github.wickidcow.gridworks.production.SequenceRoutes;
 import io.github.wickidcow.gridworks.production.SequenceStageTimeouts;
 import io.github.wickidcow.gridworks.production.SequenceStateMachine;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -105,6 +106,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
     private final FaultAddressItem faultAddressItem = new FaultAddressItem();
     private final FaultInputAddressItem faultInputAddressItem = new FaultInputAddressItem();
     private final ResetInputAddressItem resetInputAddressItem = new ResetInputAddressItem();
+    private final HistoryItem historyItem = new HistoryItem();
     private final SpecialAddressItem startAddressItem =
             new SpecialAddressItem(true);
     private final SpecialAddressItem completeAddressItem =
@@ -395,7 +397,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                         "2 p u # k # # # #",
                         "3 q v # l # # # #",
                         "4 r w # m # # # #",
-                        "i # # # f # e # g"
+                        "i # h # f # e # g"
                 )
                 .addIngredient('#', GuiItems.background())
                 .addIngredient('s', statusItem)
@@ -404,6 +406,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                 .addIngredient('x', abortItem)
                 .addIngredient('c', completeAddressItem)
                 .addIngredient('i', startAddressItem)
+                .addIngredient('h', historyItem)
                 .addIngredient('f', faultAddressItem)
                 .addIngredient('e', faultInputAddressItem)
                 .addIngredient('g', resetInputAddressItem)
@@ -749,6 +752,12 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         requestStateReplay();
     }
 
+    private void resetCompletionHistory() {
+        completionHistory.reset();
+        publishCurrentState();
+        notifyItems();
+    }
+
     private void changeStageTimeout(int stage, long delta) {
         long current = stageTimeouts.get(stage);
         long next = SequenceStageTimeouts.clamp(current + delta);
@@ -853,6 +862,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         abortItem.notifyWindows();
         startAddressItem.notifyWindows();
         completeAddressItem.notifyWindows();
+        historyItem.notifyWindows();
         faultAddressItem.notifyWindows();
         faultInputAddressItem.notifyWindows();
         resetInputAddressItem.notifyWindows();
@@ -1117,6 +1127,12 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         );
     }
 
+    private static String formatHistoryTime(long epochMillis) {
+        return epochMillis <= 0L
+                ? "never"
+                : Instant.ofEpochMilli(epochMillis).toString();
+    }
+
     private static String formatStageTimeout(long ticks) {
         if (ticks <= 0L) {
             return "OFF";
@@ -1306,6 +1322,44 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         ) {
             if (clickType.isRightClick() && clickType.isShiftClick()) {
                 abortSequence();
+            }
+        }
+    }
+
+    private final class HistoryItem extends SequenceItem {
+        @Override
+        public @NotNull ItemProvider getItemProvider(@NotNull Player player) {
+            return item(Material.WRITABLE_BOOK, "Sequence Run History")
+                    .lore(
+                            Component.text(
+                                    "Completed runs: " + completionHistory.completedRuns(),
+                                    NamedTextColor.AQUA
+                            ),
+                            Component.text(
+                                    "Last: " + formatHistoryTime(
+                                            completionHistory.lastCompletionEpochMillis()
+                                    ),
+                                    NamedTextColor.GRAY
+                            ),
+                            Component.text(
+                                    "Shift + right click to reset history",
+                                    NamedTextColor.YELLOW
+                            ),
+                            Component.text(
+                                    "Does not change the active sequence state",
+                                    NamedTextColor.DARK_GRAY
+                            )
+                    );
+        }
+
+        @Override
+        public void handleClick(
+                @NotNull ClickType clickType,
+                @NotNull Player player,
+                @NotNull Click click
+        ) {
+            if (clickType.isRightClick() && clickType.isShiftClick()) {
+                resetCompletionHistory();
             }
         }
     }
