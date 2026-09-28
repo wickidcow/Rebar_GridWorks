@@ -23,7 +23,19 @@ jobs:
 
     steps:
       - name: Checkout GridWorks
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Validate versioned Wiki links
+        run: ./gradlew test --tests io.github.wickidcow.gridworks.docs.GridWorksWikiConsistencyTest --stacktrace --no-daemon
 
       - name: Clone Wiki
         env:
