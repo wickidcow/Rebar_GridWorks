@@ -65,6 +65,7 @@ public abstract class PhysicalControlNodeBlock extends RebarBlock
     @Override
     public void postInitialise() {
         super.postInitialise();
+        lastSignal = null;
         beforeActivated();
         GridWorks.getInstance().getPhysicalControlNetwork().activate(this);
         afterActivated();
