@@ -4,6 +4,7 @@
 - [[Home]]
 - [[Installing GridWorks]]
 - [[Getting Started]]
+- [[Recipes and Progression]]
 - [[Control Bus and Linking]]
 - [[GridWorks Linker]]
 
@@ -46,15 +47,23 @@ Flow & Power
 - [[Cargo Isolator]]
 - [[Devices and Machines]]
 
-**Guides**
+**Tutorials**
+- [[Example Simple Redstone Network]]
+- [[Example Automated Batch Line]]
+- [[Example Four Stage Factory]]
 - [[Factory Automation]]
 - [[Production Control]]
 - [[Power and Flow Control]]
 
+**Help**
+- [[Frequently Asked Questions|FAQ]]
+- [[Glossary]]
+- [[Troubleshooting]]
+
 **Server Owners**
 - [[Configuration]]
 - [[Commands and Permissions]]
-- [[Troubleshooting]]
+- [[Performance and Optimization]]
 
 **Developers**
 - [[Developer API]]

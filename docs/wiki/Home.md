@@ -19,12 +19,16 @@ GridWorks is a Rebar addon built around one goal: make Minecraft factories **sma
 | Build my first network | [[Getting Started]] |
 | Understand links, circuits, and addresses | [[Control Bus and Linking]] |
 | See every current GridWorks device | [[Devices and Machines]] |
+| Learn the crafting/progression path | [[Recipes and Progression]] |
 | Automate a factory | [[Factory Automation]] |
+| Follow a complete example build | [[Example Four Stage Factory]] |
 | Build batch or multi-stage production | [[Production Control]] |
 | Automate power, fluids, or cargo | [[Power and Flow Control]] |
 | Configure a server | [[Configuration]] |
 | Check commands and permissions | [[Commands and Permissions]] |
 | Diagnose a problem | [[Troubleshooting]] |
+| Improve server-side efficiency | [[Performance and Optimization]] |
+| Find quick answers | [[Frequently Asked Questions|FAQ]] |
 | Integrate another addon with GridWorks | [[Developer API]] |
 | See what is coming next | [[Roadmap and Compatibility]] |
 
