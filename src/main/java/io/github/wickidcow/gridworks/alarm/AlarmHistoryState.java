@@ -18,7 +18,7 @@ public final class AlarmHistoryState {
                 0L,
                 Math.min(MAX_EXACT_COUNT, occurrenceCount)
         );
-        this.lastTriggeredEpochMillis = Math.max(0L, lastTriggeredEpochMillis);
+        this.lastTriggeredEpochMillis = exactNonNegative(lastTriggeredEpochMillis);
     }
 
     public void recordTrigger(long epochMillis) {
@@ -29,7 +29,10 @@ public final class AlarmHistoryState {
         if (occurrenceCount < MAX_EXACT_COUNT) {
             occurrenceCount++;
         }
-        lastTriggeredEpochMillis = Math.max(lastTriggeredEpochMillis, epochMillis);
+        lastTriggeredEpochMillis = Math.max(
+                lastTriggeredEpochMillis,
+                exactNonNegative(epochMillis)
+        );
     }
 
     public long occurrenceCount() {
@@ -42,5 +45,9 @@ public final class AlarmHistoryState {
 
     public boolean hasTriggered() {
         return occurrenceCount > 0L && lastTriggeredEpochMillis > 0L;
+    }
+
+    private static long exactNonNegative(long value) {
+        return Math.max(0L, Math.min(MAX_EXACT_COUNT, value));
     }
 }

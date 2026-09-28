@@ -39,6 +39,12 @@ class AlarmHistoryStateTest {
         assertEquals(0L, history.occurrenceCount());
         assertEquals(0L, history.lastTriggeredEpochMillis());
         assertThrows(IllegalArgumentException.class, () -> history.recordTrigger(-1L));
+
+        AlarmHistoryState oversized = new AlarmHistoryState(1L, Long.MAX_VALUE);
+        assertEquals(
+                AlarmHistoryState.MAX_EXACT_COUNT,
+                oversized.lastTriggeredEpochMillis()
+        );
     }
 
     @Test
@@ -57,5 +63,17 @@ class AlarmHistoryStateTest {
                 history.occurrenceCount()
         );
         assertEquals(2L, history.lastTriggeredEpochMillis());
+    }
+
+    @Test
+    void triggerTimestampStaysExactlyRepresentableOnControlBus() {
+        AlarmHistoryState history = new AlarmHistoryState(1L, 0L);
+
+        history.recordTrigger(Long.MAX_VALUE);
+
+        assertEquals(
+                AlarmHistoryState.MAX_EXACT_COUNT,
+                history.lastTriggeredEpochMillis()
+        );
     }
 }

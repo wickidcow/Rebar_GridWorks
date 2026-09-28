@@ -211,7 +211,7 @@ Alarm history is intentionally aggregate rather than an event database. Each Ala
 
 The occurrence counter advances only when `AlarmLatch.observe` reports a real false-to-true transition. Initial state replay, chunk reload, and server restart therefore cannot manufacture incidents. The counter saturates at `Long.MAX_VALUE` rather than overflowing, and the last-triggered timestamp never moves backward if the host clock is adjusted.
 
-History is also published as bounded telemetry and displayed by the Alarm Console, Factory Monitor, and Linker inspection. Alarm occurrence count is clamped/saturated at the largest integer exactly representable by Control Bus numeric transport, and negative/corrupt stored history is sanitized rather than allowed to poison telemetry. No history polling task or global storage file is introduced.
+History is also published as bounded telemetry and displayed by the Alarm Console, Factory Monitor, and Linker inspection. Alarm occurrence count and persisted history timestamps are clamped/saturated at the largest integer exactly representable by Control Bus numeric transport, and negative/corrupt stored history is sanitized rather than allowed to poison telemetry. No history polling task or global storage file is introduced.
 
 ## CI Git initialization
 
@@ -353,7 +353,7 @@ Machine Sensor also owns a persisted `ObservedMachineCycleCounter`. The first av
 
 The resulting `machine/observed_cycles` and `machine/last_cycle_epoch_ms` telemetry is replayable state. Observed Cycles is intentionally defined as activity telemetry, not a guaranteed recipe-output count, because released Rebar has no universal completion event spanning both processor interfaces GridWorks supports.
 
-Machine Sensor exposes this state through a small GUI. Resetting the observed-cycle count clears only the persisted total and last-cycle timestamp; it deliberately preserves the current processing baseline. This means resetting during an active job does not lose that job from the new batch. The reset immediately republishes telemetry, so downstream Factory Controllers fall below their prior cycle threshold without requiring topology churn or a sensor reload. Persisted cycle history is sanitized on load: missing/negative values become zero and oversized counts clamp to the exactly representable Control Bus limit, so corrupt history cannot prevent an otherwise valid sensor from loading.
+Machine Sensor exposes this state through a small GUI. Resetting the observed-cycle count clears only the persisted total and last-cycle timestamp; it deliberately preserves the current processing baseline. This means resetting during an active job does not lose that job from the new batch. The reset immediately republishes telemetry, so downstream Factory Controllers fall below their prior cycle threshold without requiring topology churn or a sensor reload. Persisted cycle history is sanitized on load: missing/negative values become zero and oversized counts or timestamps clamp to the exactly representable Control Bus limit, so corrupt history cannot prevent an otherwise valid sensor from loading.
 
 
 ## Part 4 Batch Controller
@@ -391,7 +391,7 @@ Abort/reset uses an independent `RisingEdgeTrigger`. Its transient edge state is
 
 State publication is complete and idempotent: running/stage/complete/fault telemetry, persisted fault reason, live fault-interlock level, active-stage timeout ticks, completed-run count, and last-completion timestamp are published. All four stage outputs are explicitly written true/false, and completion/fault outputs are derived from the persisted phase. Restart and abort therefore clear abandoned outputs without a scan.
 
-`SequenceCompletionHistory` persists bounded completion count and last-completion epoch time. The controller records history only when `SequenceStateMachine.advance()` returns the exact RUNNING Stage 4 -> COMPLETE transition. The counter saturates at the largest integer exactly representable by Control Bus numeric transport; timestamps never move backward. Missing/corrupt persisted values are sanitized before construction so history cannot prevent an otherwise valid controller from loading. The GUI exposes an explicit Shift + right click history reset that clears count/timestamp only, republishes the zeroed telemetry immediately, and leaves sequence phase/output state untouched.
+`SequenceCompletionHistory` persists bounded completion count and last-completion epoch time. The controller records history only when `SequenceStateMachine.advance()` returns the exact RUNNING Stage 4 -> COMPLETE transition. Count and timestamp telemetry stay within the largest integer exactly representable by Control Bus numeric transport, and timestamps never move backward. Missing/corrupt persisted values are sanitized before construction so history cannot prevent an otherwise valid controller from loading. The GUI exposes an explicit Shift + right click history reset that clears count/timestamp only, republishes the zeroed telemetry immediately, and leaves sequence phase/output state untouched.
 
 `sequence/completed_runs` is appended to Factory Controller's numeric metric registry. It needs no separate availability channel: normal direct-peer unavailability already invalidates the bound condition, while reconnect/replay restores the persisted count.
 

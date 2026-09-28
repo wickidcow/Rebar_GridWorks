@@ -22,9 +22,11 @@ public final class SequenceCompletionHistory {
                     "completedRuns must be between 0 and " + MAX_EXACT_COUNT
             );
         }
-        if (lastCompletionEpochMillis < 0L) {
+        if (lastCompletionEpochMillis < 0L
+                || lastCompletionEpochMillis > MAX_EXACT_COUNT) {
             throw new IllegalArgumentException(
-                    "lastCompletionEpochMillis must be non-negative"
+                    "lastCompletionEpochMillis must be between 0 and "
+                            + MAX_EXACT_COUNT
             );
         }
 
@@ -41,7 +43,7 @@ public final class SequenceCompletionHistory {
                 : Math.max(0L, Math.min(MAX_EXACT_COUNT, completedRuns));
         long safeTimestamp = lastCompletionEpochMillis == null
                 ? 0L
-                : Math.max(0L, lastCompletionEpochMillis);
+                : Math.max(0L, Math.min(MAX_EXACT_COUNT, lastCompletionEpochMillis));
         return new SequenceCompletionHistory(safeRuns, safeTimestamp);
     }
 
@@ -51,7 +53,7 @@ public final class SequenceCompletionHistory {
         }
         lastCompletionEpochMillis = Math.max(
                 lastCompletionEpochMillis,
-                Math.max(0L, nowEpochMillis)
+                Math.max(0L, Math.min(MAX_EXACT_COUNT, nowEpochMillis))
         );
     }
 

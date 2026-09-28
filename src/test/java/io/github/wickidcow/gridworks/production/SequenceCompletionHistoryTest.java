@@ -70,6 +70,13 @@ class SequenceCompletionHistoryTest {
                 corrupt.completedRuns()
         );
         assertEquals(0L, corrupt.lastCompletionEpochMillis());
+
+        SequenceCompletionHistory oversizedTimestamp =
+                SequenceCompletionHistory.fromStored(1L, Long.MAX_VALUE);
+        assertEquals(
+                SequenceCompletionHistory.MAX_EXACT_COUNT,
+                oversizedTimestamp.lastCompletionEpochMillis()
+        );
     }
 
     @Test
@@ -88,6 +95,25 @@ class SequenceCompletionHistoryTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new SequenceCompletionHistory(0L, -1L)
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new SequenceCompletionHistory(
+                        0L,
+                        SequenceCompletionHistory.MAX_EXACT_COUNT + 1L
+                )
+        );
+    }
+
+    @Test
+    void completionTimestampStaysExactlyRepresentableOnControlBus() {
+        SequenceCompletionHistory history = new SequenceCompletionHistory();
+
+        history.recordCompletion(Long.MAX_VALUE);
+
+        assertEquals(
+                SequenceCompletionHistory.MAX_EXACT_COUNT,
+                history.lastCompletionEpochMillis()
         );
     }
 }

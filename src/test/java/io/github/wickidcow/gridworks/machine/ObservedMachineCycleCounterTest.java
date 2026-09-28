@@ -92,6 +92,13 @@ class ObservedMachineCycleCounterTest {
                 corrupt.observedCycles()
         );
         assertEquals(0L, corrupt.lastCycleEpochMillis());
+
+        ObservedMachineCycleCounter oversizedTimestamp =
+                ObservedMachineCycleCounter.fromStored(1L, Long.MAX_VALUE);
+        assertEquals(
+                ObservedMachineCycleCounter.MAX_EXACT_COUNT,
+                oversizedTimestamp.lastCycleEpochMillis()
+        );
     }
 
     @Test
@@ -104,5 +111,24 @@ class ObservedMachineCycleCounterTest {
                 )
         );
         assertThrows(IllegalArgumentException.class, () -> new ObservedMachineCycleCounter(0L, -1L));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new ObservedMachineCycleCounter(
+                        0L,
+                        ObservedMachineCycleCounter.MAX_EXACT_COUNT + 1L
+                )
+        );
+    }
+
+    @Test
+    void observedTimestampStaysExactlyRepresentableOnControlBus() {
+        ObservedMachineCycleCounter counter = new ObservedMachineCycleCounter();
+        counter.observe(MachineSnapshot.processing("processor", 100, 50), 1L);
+
+        assertTrue(counter.observe(MachineSnapshot.idle("processor"), Long.MAX_VALUE));
+        assertEquals(
+                ObservedMachineCycleCounter.MAX_EXACT_COUNT,
+                counter.lastCycleEpochMillis()
+        );
     }
 }

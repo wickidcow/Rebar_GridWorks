@@ -31,8 +31,10 @@ public final class ObservedMachineCycleCounter {
                     "observedCycles must be between 0 and " + MAX_EXACT_COUNT
             );
         }
-        if (lastCycleEpochMillis < 0L) {
-            throw new IllegalArgumentException("lastCycleEpochMillis must be non-negative");
+        if (lastCycleEpochMillis < 0L || lastCycleEpochMillis > MAX_EXACT_COUNT) {
+            throw new IllegalArgumentException(
+                    "lastCycleEpochMillis must be between 0 and " + MAX_EXACT_COUNT
+            );
         }
         this.observedCycles = observedCycles;
         this.lastCycleEpochMillis = lastCycleEpochMillis;
@@ -47,7 +49,7 @@ public final class ObservedMachineCycleCounter {
                 : Math.max(0L, Math.min(MAX_EXACT_COUNT, observedCycles));
         long safeTimestamp = lastCycleEpochMillis == null
                 ? 0L
-                : Math.max(0L, lastCycleEpochMillis);
+                : Math.max(0L, Math.min(MAX_EXACT_COUNT, lastCycleEpochMillis));
         return new ObservedMachineCycleCounter(safeCycles, safeTimestamp);
     }
 
@@ -72,7 +74,10 @@ public final class ObservedMachineCycleCounter {
         if (observedCycles < MAX_EXACT_COUNT) {
             observedCycles++;
         }
-        lastCycleEpochMillis = Math.max(lastCycleEpochMillis, Math.max(0L, nowEpochMillis));
+        lastCycleEpochMillis = Math.max(
+                lastCycleEpochMillis,
+                Math.max(0L, Math.min(MAX_EXACT_COUNT, nowEpochMillis))
+        );
         return true;
     }
 
