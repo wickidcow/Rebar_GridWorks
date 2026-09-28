@@ -442,6 +442,17 @@ public final class ControlLinker extends RebarItem implements BlockInteractRebar
                             ))
             );
             event.getPlayer().sendMessage(
+                    Component.text("Completed runs: ", NamedTextColor.GRAY)
+                            .append(Component.text(
+                                    controller.getCompletedRuns()
+                                            + " / last "
+                                            + formatHistoryTime(
+                                                    controller.getLastCompletionEpochMillis()
+                                            ),
+                                    NamedTextColor.WHITE
+                            ))
+            );
+            event.getPlayer().sendMessage(
                     Component.text("Start route: ", NamedTextColor.GRAY)
                             .append(Component.text(
                                     controller.getRoutes().start().channel().toString(),

@@ -12,6 +12,7 @@ import io.github.wickidcow.gridworks.api.control.ControlStateSource;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
 import io.github.wickidcow.gridworks.control.RisingEdgeTrigger;
+import io.github.wickidcow.gridworks.production.SequenceCompletionHistory;
 import io.github.wickidcow.gridworks.production.SequenceFaultReason;
 import io.github.wickidcow.gridworks.production.SequenceRoutes;
 import io.github.wickidcow.gridworks.production.SequenceStageTimeouts;
@@ -58,6 +59,9 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
     private static final NamespacedKey FAULT_INPUT_ADDRESS_KEY = key("sequence_fault_input_address");
     private static final NamespacedKey RESET_INPUT_ADDRESS_KEY = key("sequence_reset_input_address");
     private static final NamespacedKey FAULT_REASON_KEY = key("sequence_fault_reason");
+    private static final NamespacedKey COMPLETED_RUNS_KEY = key("sequence_completed_runs");
+    private static final NamespacedKey LAST_COMPLETION_EPOCH_MS_KEY =
+            key("sequence_last_completion_epoch_ms");
     private static final NamespacedKey STAGE_TIMEOUT_TICKS_KEY = key("sequence_stage_timeout_ticks");
 
     private static final NamespacedKey[] STAGE_TIMEOUT_TICKS_KEYS = {
@@ -81,6 +85,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
     };
 
     private final SequenceStateMachine sequence;
+    private final SequenceCompletionHistory completionHistory;
     private final RisingEdgeTrigger startEdge = new RisingEdgeTrigger();
     private final RisingEdgeTrigger stageEdge = new RisingEdgeTrigger();
     private final RisingEdgeTrigger resetEdge = new RisingEdgeTrigger();
@@ -117,6 +122,7 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
     ) {
         super(block, context);
         this.sequence = new SequenceStateMachine();
+        this.completionHistory = new SequenceCompletionHistory();
         this.routes = SequenceRoutes.defaults(getNodeId());
         this.faultAddress = defaultFaultAddress(getNodeId(), routes);
         this.faultInputAddress = defaultFaultInputAddress(
@@ -143,6 +149,10 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         this.sequence = SequenceStateMachine.fromStored(
                 pdc.get(PHASE_KEY, PersistentDataType.STRING),
                 pdc.get(STAGE_KEY, PersistentDataType.INTEGER)
+        );
+        this.completionHistory = SequenceCompletionHistory.fromStored(
+                pdc.get(COMPLETED_RUNS_KEY, PersistentDataType.LONG),
+                pdc.get(LAST_COMPLETION_EPOCH_MS_KEY, PersistentDataType.LONG)
         );
         this.routes = loadRoutes(pdc, getNodeId());
         this.faultAddress = loadFaultAddress(pdc, getNodeId(), routes);
@@ -236,6 +246,12 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
     protected void writeNodeData(@NotNull PersistentDataContainer pdc) {
         pdc.set(PHASE_KEY, PersistentDataType.STRING, sequence.phase().name());
         pdc.set(STAGE_KEY, PersistentDataType.INTEGER, sequence.currentStage());
+        pdc.set(COMPLETED_RUNS_KEY, PersistentDataType.LONG, completionHistory.completedRuns());
+        pdc.set(
+                LAST_COMPLETION_EPOCH_MS_KEY,
+                PersistentDataType.LONG,
+                completionHistory.lastCompletionEpochMillis()
+        );
 
         SequenceRoutes currentRoutes = routes;
         pdc.set(
@@ -339,6 +355,16 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                 GridWorksChannels.SEQUENCE_TIMEOUT_TICKS,
                 ControlValue.of((double) activeStageTimeoutTicks())
         );
+        bus.publish(
+                getNodeId(),
+                GridWorksChannels.SEQUENCE_COMPLETED_RUNS,
+                ControlValue.of((double) completionHistory.completedRuns())
+        );
+        bus.publish(
+                getNodeId(),
+                GridWorksChannels.SEQUENCE_LAST_COMPLETION_EPOCH_MS,
+                ControlValue.of((double) completionHistory.lastCompletionEpochMillis())
+        );
 
         SequenceRoutes currentRoutes = routes;
         for (int stage = 1; stage <= SequenceStateMachine.STAGE_COUNT; stage++) {
@@ -437,6 +463,14 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
         return faultReason;
     }
 
+    public long getCompletedRuns() {
+        return completionHistory.completedRuns();
+    }
+
+    public long getLastCompletionEpochMillis() {
+        return completionHistory.lastCompletionEpochMillis();
+    }
+
     public long getStageTimeoutTicks() {
         return activeStageTimeoutTicks();
     }
@@ -511,7 +545,13 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
             return;
         }
 
-        sequence.advance();
+        SequenceStateMachine.Transition transition = sequence.advance();
+        if (transition.previousPhase() == SequenceStateMachine.Phase.RUNNING
+                && transition.previousStage() == SequenceStateMachine.STAGE_COUNT
+                && transition.phase() == SequenceStateMachine.Phase.COMPLETE) {
+            completionHistory.recordCompletion(System.currentTimeMillis());
+        }
+
         stageEdge.reset();
         if (sequence.isRunning()) {
             scheduleStageTimeout();
@@ -1164,6 +1204,10 @@ public final class SequenceControllerBlock extends PhysicalControlNodeBlock
                                             + formatStageTimeout(stageTimeouts.get(stage))
                                     : "Timeouts are configured per stage",
                             NamedTextColor.GRAY
+                    ),
+                    Component.text(
+                            "Completed runs: " + completionHistory.completedRuns(),
+                            NamedTextColor.DARK_AQUA
                     )
             );
         }

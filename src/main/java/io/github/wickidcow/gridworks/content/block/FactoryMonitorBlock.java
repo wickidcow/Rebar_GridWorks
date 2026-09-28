@@ -78,6 +78,8 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
             new SignalDefinition(GridWorksChannels.SEQUENCE_FAULT_REASON, "Sequence Fault Reason", Material.NAME_TAG),
             new SignalDefinition(GridWorksChannels.SEQUENCE_FAULT_INTERLOCK_ACTIVE, "Fault Interlock Active", Material.SCULK_SENSOR),
             new SignalDefinition(GridWorksChannels.SEQUENCE_TIMEOUT_TICKS, "Active Stage Timeout", Material.CLOCK),
+            new SignalDefinition(GridWorksChannels.SEQUENCE_COMPLETED_RUNS, "Sequence Completed Runs", Material.NETHER_STAR),
+            new SignalDefinition(GridWorksChannels.SEQUENCE_LAST_COMPLETION_EPOCH_MS, "Last Sequence Completion", Material.CLOCK),
 
             new SignalDefinition(GridWorksChannels.MACHINE_AVAILABLE, "Machine Available", Material.YELLOW_GLAZED_TERRACOTTA),
             new SignalDefinition(GridWorksChannels.MACHINE_KIND, "Machine Kind", Material.NAME_TAG),
@@ -361,7 +363,8 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
 
     private static String displayValue(ControlChannel channel, ControlValue value) {
         if ((GridWorksChannels.MACHINE_LAST_CYCLE_EPOCH_MS.equals(channel)
-                || GridWorksChannels.ALARM_LAST_TRIGGERED_EPOCH_MS.equals(channel))
+                || GridWorksChannels.ALARM_LAST_TRIGGERED_EPOCH_MS.equals(channel)
+                || GridWorksChannels.SEQUENCE_LAST_COMPLETION_EPOCH_MS.equals(channel))
                 && value instanceof ControlValue.NumberValue numberValue) {
             long epochMillis = (long) numberValue.value();
             return epochMillis <= 0L
@@ -725,7 +728,9 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
                         GridWorksChannels.SEQUENCE_FAULT,
                         GridWorksChannels.SEQUENCE_FAULT_REASON,
                         GridWorksChannels.SEQUENCE_FAULT_INTERLOCK_ACTIVE,
-                        GridWorksChannels.SEQUENCE_TIMEOUT_TICKS
+                        GridWorksChannels.SEQUENCE_TIMEOUT_TICKS,
+                        GridWorksChannels.SEQUENCE_COMPLETED_RUNS,
+                        GridWorksChannels.SEQUENCE_LAST_COMPLETION_EPOCH_MS
                 )
         ),
         POWER_AND_ALARMS(
