@@ -4,10 +4,10 @@
 
 | Component | Current development target |
 | --- | --- |
-| GridWorks | 0.3.0-SNAPSHOT |
+| GridWorks | 0.4.0-SNAPSHOT |
 | Minecraft / Paper | 26.2 |
 | Java | 25 |
-| Rebar | 0.43.0-26.2 |
+| Rebar | 1.0.0-20260929.193904-140 |
 
 The repository's Gradle properties and CI are authoritative if this page ever trails a newer development commit.
 
@@ -44,7 +44,7 @@ GridWorks owns the automation around that system:
 - alarm on shortages;
 - coordinate production with available power.
 
-Upstream Rebar electricity has now merged to Rebar master, but the current released dependency used by GridWorks, **Rebar 0.43.0-26.2**, predates that API. GridWorks therefore remains provider-neutral until electricity appears in a released Rebar artifact. At that point, a thin native adapter can implement the existing `PowerGridProvider` and `PowerBranchProvider` contracts without moving electricity ownership into GridWorks.
+Native Rebar electricity is integrated using the pinned development API `1.0.0-20260929.193904-140` from upstream commit `5e34938`. Use a matching Rebar development server JAR; the stable `0.43.0-26.2` JAR lacks this API. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
 
 ## Implemented foundation
 

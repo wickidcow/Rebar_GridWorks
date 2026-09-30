@@ -20,6 +20,8 @@ public final class PowerBranchDeviceManager implements Listener, AutoCloseable {
     private final GridWorks plugin;
     private final Set<PowerBranchDevice> devices =
             Collections.newSetFromMap(new IdentityHashMap<>());
+    private final Set<Chunk> changedChunks = new java.util.HashSet<>();
+    private boolean reconciliationQueued;
 
     public PowerBranchDeviceManager(GridWorks plugin) {
         this.plugin = plugin;
@@ -56,7 +58,31 @@ public final class PowerBranchDeviceManager implements Listener, AutoCloseable {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onChunkLoad(ChunkLoadEvent event) {
-        reconcileTargeting(event.getChunk());
+        queueChunk(event.getChunk());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onBlockLoad(io.github.pylonmc.rebar.event.RebarBlockLoadEvent event) {
+        queueChunk(event.getBlock().getChunk());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onBlockPlace(io.github.pylonmc.rebar.event.RebarBlockPlaceEvent event) {
+        queueChunk(event.getBlock().getChunk());
+    }
+
+    private void queueChunk(Chunk chunk) {
+        changedChunks.add(chunk);
+        if (reconciliationQueued) return;
+        reconciliationQueued = true;
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            reconciliationQueued = false;
+            var chunks = List.copyOf(changedChunks);
+            changedChunks.clear();
+            for (Chunk changed : chunks) {
+                if (changed.isLoaded()) reconcileTargeting(changed);
+            }
+        });
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -101,5 +127,6 @@ public final class PowerBranchDeviceManager implements Listener, AutoCloseable {
     @Override
     public void close() {
         devices.clear();
+        changedChunks.clear();
     }
 }

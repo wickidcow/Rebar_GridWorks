@@ -38,7 +38,8 @@ public final class GridWorksGuideCatalog {
                     "cargo_isolator",
                     "fluid_valve",
                     "smart_breaker",
-                    "power_limiter"
+                    "power_limiter",
+                    "power_coupler"
             ))
     );
 

@@ -41,7 +41,7 @@ class GridWorksGuideCatalogTest {
 
         assertEquals(GridWorksContentCatalog.ALL_ID_SET, itemIds);
         assertEquals(5, GridWorksGuideCatalog.CATEGORIES.size());
-        assertEquals(24, itemIds.size());
+        assertEquals(25, itemIds.size());
     }
 
     @Test

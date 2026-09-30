@@ -46,7 +46,7 @@ GridWorks deliberately avoids known internal/unreleased boundaries including:
 - Rebar internal FluidManager;
 - internal CargoRoutes;
 - using TickingRebarBlock.isTicking as a processing-state proxy;
-- unreleased `io.github.pylonmc.rebar.electricity` classes.
+Native Rebar electricity is integrated using the pinned development API `1.0.0-20260929.193904-140` from upstream commit `5e34938`. Use a matching Rebar development server JAR; the stable `0.43.0-26.2` JAR lacks this API. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
 
 CI checks production source for these boundaries.
 

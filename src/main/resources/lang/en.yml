@@ -1,6 +1,14 @@
 addon: "GridWorks"
 
 item:
+  power_coupler:
+    name: "Power Coupler"
+    lore: |-
+      <arrow> Wire north and south ports into a Rebar electrical branch
+      <arrow> Aim a Smart Breaker and optional Power Limiter at this block
+      <arrow> Starts OPEN; close the breaker to supply power
+      <arrow> Uses native Rebar electricity; never changes cable ratings
+
   control_interface:
     name: "Control Interface"
     lore: |-

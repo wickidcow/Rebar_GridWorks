@@ -1,6 +1,6 @@
 # Power and Flow Control
 
-GridWorks keeps electricity integration provider-neutral until Rebar's native electricity API is released as a supported dependency.
+Native Rebar electricity is integrated using the pinned development API `1.0.0-20260929.193904-140` from upstream commit `5e34938`. Use a matching Rebar development server JAR; the stable `0.43.0-26.2` JAR lacks this API. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
 
 ## Power Grid Sensor
 
@@ -70,6 +70,6 @@ It defaults to the safe isolated behavior during active route changes.
 
 ## Native Rebar electricity
 
-GridWorks deliberately does not compile against Rebar's unreleased electricity package.
+Native Rebar electricity is integrated using the pinned development API `1.0.0-20260929.193904-140` from upstream commit `5e34938`. Use a matching Rebar development server JAR; the stable `0.43.0-26.2` JAR lacks this API. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
 
-The existing `PowerGridProvider` and `PowerBranchProvider` boundaries are intended to let the native adapter drop in later without redesigning the player-facing automation layer.
+Native Rebar electricity is integrated using the pinned development API `1.0.0-20260929.193904-140` from upstream commit `5e34938`. Use a matching Rebar development server JAR; the stable `0.43.0-26.2` JAR lacks this API. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).

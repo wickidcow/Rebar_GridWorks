@@ -22,6 +22,13 @@ public final class GridWorksRecipes {
     public static void register(GridWorks plugin) {
         unregister();
 
+        register(recipe(plugin, "power_coupler", GridWorksContent.POWER_COUPLER_ITEM,
+                "CIC", "RQR", "CIC")
+                .setIngredient('C', Material.COPPER_INGOT)
+                .setIngredient('I', Material.IRON_INGOT)
+                .setIngredient('R', Material.REDSTONE)
+                .setIngredient('Q', GridWorksContent.CONTROL_INTERFACE_ITEM));
+
         register(recipe(plugin, "control_interface", amount(GridWorksContent.CONTROL_INTERFACE_ITEM, 2),
                 "CRC",
                 "RQR",

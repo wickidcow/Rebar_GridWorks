@@ -89,6 +89,16 @@ jobs:
 
           echo "Packaged GridWorks JAR contents verified."
 
+      - name: Download verified upstream electricity server
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .upstream/rebar
+          curl --fail --location --retry 3 https://nightly.link/pylonmc/rebar/actions/runs/36620712190/rebar-2064.zip -o .upstream/rebar/server.zip
+          echo 'ed9bbaf30511b804beaf2daf1b3024e0612056bac8b3d78f0550460d9b1394d0  .upstream/rebar/server.zip' | sha256sum -c -
+          unzip .upstream/rebar/server.zip -d .upstream/rebar
+
       - name: Smoke test Paper + Rebar + GridWorks
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         shell: bash
@@ -104,14 +114,14 @@ jobs:
           rm -f "$INPUT_PIPE" "$LOG_FILE"
           mkfifo "$INPUT_PIPE"
 
-          ./gradlew runServer --stacktrace --no-daemon < "$INPUT_PIPE" > "$LOG_FILE" 2>&1 &
+          ./gradlew runServer -Prebar.serverJar="$GITHUB_WORKSPACE/.upstream/rebar/rebar-2064.jar" --stacktrace --no-daemon < "$INPUT_PIPE" > "$LOG_FILE" 2>&1 &
           SERVER_PID=$!
 
           exec 3>"$INPUT_PIPE"
 
           READY=0
           for _ in $(seq 1 120); do
-            if grep -Fq "Validated 24 GridWorks content entries and survival recipes." "$LOG_FILE" \
+            if grep -Fq "Validated 25 GridWorks content entries and survival recipes." "$LOG_FILE" \
               && grep -Fq "GridWorks control bus initialized" "$LOG_FILE" \
               && grep -Fq "Done (" "$LOG_FILE"; then
               READY=1
@@ -203,7 +213,7 @@ jobs:
           fi
 
           echo "GridWorks Paper smoke test passed."
-          grep -F "Validated 24 GridWorks content entries and survival recipes." "$LOG_FILE"
+          grep -F "Validated 25 GridWorks content entries and survival recipes." "$LOG_FILE"
           grep -F "GridWorks control bus initialized" "$LOG_FILE"
           grep -F "Done (" "$LOG_FILE"
           grep -F "GridWorks Doctor result: PASS" "$LOG_FILE"

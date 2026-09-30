@@ -10,7 +10,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
 
@@ -20,12 +19,11 @@ class RebarPublicApiBoundaryTest {
     private static final List<String> FORBIDDEN_PRODUCTION_REFERENCES = List.of(
             "io.github.pylonmc.rebar.fluid.FluidManager",
             "io.github.pylonmc.rebar.logistics.CargoRoutes",
-            "TickingRebarBlock.isTicking",
-            "io.github.pylonmc.rebar.electricity."
+            "TickingRebarBlock.isTicking"
     );
 
     @Test
-    void productionCodeDoesNotUseKnownRebarInternalsOrUnreleasedElectricity()
+    void productionCodeDoesNotUseKnownRebarInternals()
             throws Exception {
         List<String> violations = new ArrayList<>();
 
@@ -49,13 +47,13 @@ class RebarPublicApiBoundaryTest {
 
         assertTrue(
                 violations.isEmpty(),
-                () -> "GridWorks crossed the released Rebar API boundary: "
+                () -> "GridWorks crossed the public Rebar API boundary: "
                         + violations
         );
     }
 
     @Test
-    void rebarDependencyIsAReleasedBuildMatchingMinecraftLine()
+    void rebarDependencyPinsTheReviewedElectricitySnapshot()
             throws IOException {
         Properties properties = new Properties();
         try (Reader reader = Files.newBufferedReader(Path.of("gradle.properties"))) {
@@ -68,34 +66,10 @@ class RebarPublicApiBoundaryTest {
         assertTrue(rebarVersion != null && !rebarVersion.isBlank());
         assertTrue(minecraftVersion != null && !minecraftVersion.isBlank());
 
-        String normalized = rebarVersion.toLowerCase(Locale.ROOT);
-        for (String forbidden : List.of(
-                "snapshot",
-                "feature",
-                "develop",
-                "master",
-                "main",
-                "/",
-                "\\"
-        )) {
-            assertFalse(
-                    normalized.contains(forbidden),
-                    () -> "rebar.version must reference a released artifact, not '"
-                            + rebarVersion + "'"
-            );
-        }
+        assertEquals("1.0.0-20260929.193904-140", rebarVersion,
+                "Electricity builds pin the immutable upstream API snapshot");
+        assertEquals("26.2", minecraftVersion);
 
-        int separator = rebarVersion.lastIndexOf('-');
-        assertTrue(
-                separator > 0 && separator < rebarVersion.length() - 1,
-                () -> "Expected released Rebar version '<version>-<minecraft>', got "
-                        + rebarVersion
-        );
-        assertEquals(
-                minecraftVersion,
-                rebarVersion.substring(separator + 1),
-                "Rebar and Paper/Minecraft target lines must match"
-        );
     }
 
     @Test

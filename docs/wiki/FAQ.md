@@ -68,13 +68,13 @@ A replayed already-ON stage trigger establishes a baseline only. A real false-to
 
 GridWorks' electricity layer is provider-neutral.
 
-A compatible addon must register the appropriate GridWorks power provider service. Native Rebar electricity support is waiting on a released upstream electricity API.
+Native Rebar electricity is integrated using the pinned development API `1.0.0-20260929.193904-140` from upstream commit `5e34938`. Use a matching Rebar development server JAR; the stable `0.43.0-26.2` JAR lacks this API. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
 
 ## Is GridWorks safe to update during development?
 
 Use a normal server stop/start and keep backups as you would for any actively developed automation plugin.
 
-The rolling development JAR passes compilation/tests plus a real Paper + released Rebar smoke gate before publication.
+The rolling development JAR passes compilation/tests plus a real Paper + pinned Rebar electricity smoke gate before publication.
 
 ## Where do I find recipes?
 

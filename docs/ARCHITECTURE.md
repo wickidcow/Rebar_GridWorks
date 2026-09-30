@@ -428,7 +428,7 @@ Machine Sensor's numeric progress/process-time/ticks-remaining channels are firs
 
 The 0.2.x development line completes the provider-neutral automation layer: persistent Control Bus topology, sensor state replay, inventory/fluid/machine/redstone/power telemetry, multi-condition Factory Controller logic, addressed routing, relays/timers, alarm operations, power-provider services, Power Grid Sensor, and hysteresis-based load shedding.
 
-Part 2 deliberately stopped at provider-neutral power telemetry because released Rebar 0.43.0-26.2 does not expose the upstream electricity package. Part 3 has since added provider-neutral branch control, Smart Breaker, and Power Limiter without changing those stable control, telemetry, or rule contracts.
+Part 2 deliberately stopped at provider-neutral power telemetry because released Rebar 1.0.0-20260929.193904-140 does not expose the upstream electricity package. Part 3 has since added provider-neutral branch control, Smart Breaker, and Power Limiter without changing those stable control, telemetry, or rule contracts.
 
 
 ## Part 3 branch-control boundary
@@ -512,7 +512,7 @@ Persistent parsing continues to use the existing conservative fallbacks: invalid
 
 Part 3's GridWorks-owned architecture is now in place: branch switching/limiting contracts, event-driven provider lifecycle, safe Circuit/Address routing, cargo isolation, fluid isolation, and survival recipe registration all compile against released Rebar APIs.
 
-The remaining dependency-specific work is a native Rebar electricity adapter. Upstream electricity has merged to Rebar master, but the pinned released Rebar 0.43.0-26.2 artifact predates that API. The adapter therefore still waits for a released Rebar version exposing the electricity graph/edge API. Until then, third-party electricity addons may integrate through the public Bukkit service contracts without requiring GridWorks core changes.
+Native Rebar electricity is integrated using the pinned development API `1.0.0-20260929.193904-140` from upstream commit `5e34938`. Use a matching Rebar development server JAR; the stable `0.43.0-26.2` JAR lacks this API. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
 
 
 ## Stock Controller hysteresis
@@ -541,7 +541,7 @@ Cleanup is intentionally idempotent and step-isolated. One cleanup failure is lo
 
 ## Real-server smoke validation
 
-The `main` CI path runs unit tests first and then starts Paper 26.2 with released Rebar plus the automatically detected GridWorks project JAR using run-paper. The smoke gate waits for both the runtime content-integrity validation and Control Bus initialization messages.
+The `main` CI path runs unit tests first and then starts Paper 26.2 with the pinned Rebar electricity development build plus the automatically detected GridWorks project JAR using run-paper. The smoke gate waits for both the runtime content-integrity validation and Control Bus initialization messages.
 
 The server is stopped through its console input after readiness is proven. A premature process exit, enable failure, missing readiness marker, or unclean shutdown fails the workflow. The rolling raw development JAR is published only after this smoke gate succeeds.
 

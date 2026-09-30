@@ -6,7 +6,7 @@ Check:
 
 1. Paper is on the supported 26.2 line.
 2. Java 25 is being used.
-3. Rebar 0.43.0-26.2 is installed and enabled.
+3. Rebar 1.0.0-20260929.193904-140 is installed and enabled.
 4. The GridWorks JAR matches the current development line.
 5. `config.yml` does not contain an invalid numeric value.
 
@@ -52,7 +52,7 @@ Observed Cycles tracks observed processing-to-idle activity. It is not guarantee
 
 Power integration requires another addon/provider to register GridWorks' provider-neutral power service.
 
-Rebar 0.43.0-26.2 does not yet ship the native electricity API GridWorks is waiting to adapt.
+Rebar 1.0.0-20260929.193904-140 does not yet ship the native electricity API GridWorks is waiting to adapt.
 
 ## What to include in a bug report
 
