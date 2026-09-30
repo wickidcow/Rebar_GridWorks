@@ -28,6 +28,7 @@ Vanilla copper / redstone / quartz
       advanced automation
               |
               +--> Factory Controller
+              +--> Stock Controller
               +--> Factory Monitor
               +--> Alarm system
               +--> Batch Controller
@@ -47,7 +48,8 @@ For a new player, a sensible order is:
 4. [[Status Light]] or [[Control Relay]]
 5. [[Inventory Sensor]]
 6. [[Factory Controller]]
-7. whichever specialized sensors/actuators your factory needs
+7. [[Stock Controller]] when you want automatic refill/stop bands
+8. whichever specialized sensors/actuators your factory needs
 
 ## Production progression
 

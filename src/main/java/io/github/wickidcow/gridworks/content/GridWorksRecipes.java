@@ -157,6 +157,16 @@ public final class GridWorksRecipes {
                 .setIngredient('I', GridWorksContent.CONTROL_INTERFACE_ITEM)
                 .setIngredient('Q', Material.COMPARATOR));
 
+        register(recipe(plugin, "stock_controller", GridWorksContent.STOCK_CONTROLLER_ITEM,
+                "CIC",
+                "RFR",
+                "CQC")
+                .setIngredient('C', Material.COPPER_INGOT)
+                .setIngredient('I', GridWorksContent.INVENTORY_SENSOR_ITEM)
+                .setIngredient('R', Material.REDSTONE)
+                .setIngredient('F', GridWorksContent.FACTORY_CONTROLLER_ITEM)
+                .setIngredient('Q', Material.COMPARATOR));
+
         register(recipe(plugin, "alarm_console", GridWorksContent.ALARM_CONSOLE_ITEM,
                 "TAT",
                 "MIM",

@@ -11,7 +11,7 @@ GridWorks is designed as an automation layer for the Rebar ecosystem rather than
 5. **Suppress graph duplicates.** A node receives a publication at most once even when the network contains cycles.
 6. **Prefer events over global polling.** Sensors use native change events where available and use configurable scheduled sampling only when the source has no event model.
 7. **Do not force chunk loads.** Physical networks operate only on currently loaded Rebar blocks and recover when chunks load naturally.
-8. **Keep upstream-sensitive code isolated.** Rebar electricity is under active development, so electricity-specific code belongs behind a bridge instead of leaking into the core API.
+8. **Keep upstream-sensitive code isolated.** Rebar electricity has merged upstream but is not yet present in the pinned released dependency, so electricity-specific code belongs behind a bridge instead of leaking into the core API.
 9. **Persist topology separately from live routing.** A saved physical link can exist while one or both endpoint chunks are unloaded; the live graph contains loaded endpoints only.
 10. **Centralize block lifecycle behavior.** Physical GridWorks node blocks inherit UUID persistence, activation, unload, break cleanup, and last-signal capture from one base class.
 
@@ -67,7 +67,7 @@ GridWorks publishes its `ControlBus` through Bukkit's `ServicesManager`, allowin
 
 Electricity integration remains isolated behind `PowerGridBridge`. The public/provider-neutral `PowerGridSnapshot` contains only GridWorks measurements: node/producer/consumer counts, powered consumers, production capacity, and demand, with derived load/reserve/powered ratios.
 
-The released Rebar dependency does not contain the electricity package currently present on the upstream `seggan/feature/elektrikity` branch, so no reflection is used to bind unreleased internals and no dead Power Sensor is registered.
+The released Rebar dependency does not contain the electricity API now merged to upstream master, so no reflection is used to bind master-only internals and no dead Power Sensor is registered.
 
 Instead, GridWorks exposes the public `PowerGridProvider` service contract. `ServicePowerGridBridge` asks Bukkit's `ServicesManager` for the highest-priority currently registered provider each time a snapshot is needed. Provider registration therefore follows Bukkit's standard plugin lifecycle and automatically disappears when the owning plugin is disabled.
 
@@ -439,14 +439,14 @@ A Smart Breaker can receive either a compact Default/A-D command circuit or an a
 
 The provider contract requires an APPLIED result to be immediately visible in a subsequent snapshot. GridWorks verifies that readback and surfaces mismatches instead of assuming the command worked.
 
-The current upstream Rebar electricity development branch represents connections as `ElectricNetwork.Edge` objects with mutable `powerLimit` and `unidirectional` properties. A future native adapter can therefore implement Smart Breaker by translating logical open/closed state into stable edge behavior while keeping that translation out of GridWorks core.
+The merged upstream Rebar electricity implementation represents connections as `ElectricNetwork.Edge` objects with mutable `powerLimit` and `unidirectional` properties. After that API ships in a release, a native adapter can implement Smart Breaker by translating logical open/closed state into stable edge behavior while keeping that translation out of GridWorks core.
 
 
 ## Power Limiter
 
 Power Limiter is the second `PowerBranchDevice`. It uses the same target-face and provider lifecycle as Smart Breaker, but its desired state is `PowerLimitSetting`: a validated positive configured watt cap plus an enabled/bypass flag.
 
-The provider-neutral bypass representation is `Double.MAX_VALUE`, matching the current upstream Rebar development branch's default unlimited `ElectricNetwork.Edge.powerLimit`. A provider that has no limiting capability may still implement branch switching; its default `setPowerLimitWatts` response is UNSUPPORTED.
+The provider-neutral bypass representation is `Double.MAX_VALUE`, matching the merged upstream Rebar electricity implementation's default unlimited `ElectricNetwork.Edge.powerLimit`. A provider that has no limiting capability may still implement branch switching; its default `setPowerLimitWatts` response is UNSUPPORTED.
 
 Limiter readback uses a small relative floating-point tolerance for finite limits and exact comparison for the unlimited sentinel. APPLIED commands are verified through a fresh branch snapshot.
 
@@ -502,8 +502,16 @@ Persistent parsing continues to use the existing conservative fallbacks: invalid
 
 Part 3's GridWorks-owned architecture is now in place: branch switching/limiting contracts, event-driven provider lifecycle, safe Circuit/Address routing, cargo isolation, fluid isolation, and survival recipe registration all compile against released Rebar APIs.
 
-The remaining dependency-specific work is a native Rebar electricity adapter. It must wait for a released Rebar version exposing the electricity graph/edge API. Until then, third-party electricity addons may integrate through the public Bukkit service contracts without requiring GridWorks core changes.
+The remaining dependency-specific work is a native Rebar electricity adapter. Upstream electricity has merged to Rebar master, but the pinned released Rebar 0.43.0-26.2 artifact predates that API. The adapter therefore still waits for a released Rebar version exposing the electricity graph/edge API. Until then, third-party electricity addons may integrate through the public Bukkit service contracts without requiring GridWorks core changes.
 
+
+## Stock Controller hysteresis
+
+Stock Controller consumes existing Inventory Sensor telemetry and owns no sampler. AUTO source selection binds only to a matching **direct** physical link; explicit source selection cycles the same loaded direct-link set used by Factory Controller.
+
+Its persistent `demand` bit is a hysteresis latch, not permission to energize hardware during startup. `beforeActivated()` clears only transient telemetry/known-state. Until current/replayed inventory telemetry arrives, the output is fail-safe OFF. When telemetry arrives inside the deadband, the persisted latch decides whether the previous refill operation should continue; values at/below low force demand ON and values at/above high force it OFF.
+
+Threshold edits preserve a non-zero metric-specific gap, metric changes reset to safe defaults/AUTO, and route changes explicitly clear the previous output before publishing on the new circuit/address.
 
 ## Content registration integrity
 

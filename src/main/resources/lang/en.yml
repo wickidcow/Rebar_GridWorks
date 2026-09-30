@@ -184,6 +184,16 @@ item:
       <arrow> Refresh prunes disconnected sources and replays loaded state
       <arrow> Never scans worlds or forces chunks to load
 
+  stock_controller:
+    name: "Stock Controller"
+    lore: |-
+      <arrow> Maintains inventory stock between configurable low/high bands
+      <arrow> Turns production ON at/below the low threshold
+      <arrow> Keeps the prior state through the deadband to prevent rapid cycling
+      <arrow> Turns production OFF at/above the high threshold
+      <arrow> Missing inventory telemetry fails safe OFF
+      <arrow> Supports Circuit or human-readable Address output routing
+
   gridworks_linker:
     name: "GridWorks Linker"
     lore: |-
@@ -214,7 +224,7 @@ guide:
         <arrow> Observe redstone, inventories, machines, fluids, and power
     logic_production:
       lore: |-
-        <arrow> Factory logic, batches, sequences, load shedding, delays, and pulses
+        <arrow> Factory logic, stock control, batches, sequences, load shedding, delays, and pulses
     monitoring_alarms:
       lore: |-
         <arrow> Status displays, alarms, consoles, and live factory telemetry

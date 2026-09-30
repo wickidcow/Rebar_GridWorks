@@ -103,6 +103,7 @@ public final class GridWorksGuide {
                     GridWorksContent.LOAD_SHEDDING_CONTROLLER_ITEM;
             case "smart_breaker" -> GridWorksContent.SMART_BREAKER_ITEM;
             case "factory_monitor" -> GridWorksContent.FACTORY_MONITOR_ITEM;
+            case "stock_controller" -> GridWorksContent.STOCK_CONTROLLER_ITEM;
             case "gridworks_linker" -> GridWorksContent.GRIDWORKS_LINKER_ITEM;
             default -> throw new IllegalArgumentException(
                     "Unknown GridWorks content id: " + itemId

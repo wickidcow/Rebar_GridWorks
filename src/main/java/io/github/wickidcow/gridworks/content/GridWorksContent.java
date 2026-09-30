@@ -26,6 +26,7 @@ import io.github.wickidcow.gridworks.content.block.RedstoneSensorBlock;
 import io.github.wickidcow.gridworks.content.block.SequenceControllerBlock;
 import io.github.wickidcow.gridworks.content.block.SmartBreakerBlock;
 import io.github.wickidcow.gridworks.content.block.StatusLightBlock;
+import io.github.wickidcow.gridworks.content.block.StockControllerBlock;
 import io.github.wickidcow.gridworks.content.item.ControlLinker;
 import io.github.wickidcow.gridworks.content.listener.RedstoneSensorListener;
 import io.github.wickidcow.gridworks.content.listener.StatusLightListener;
@@ -56,6 +57,7 @@ public final class GridWorksContent {
     public static NamespacedKey LOAD_SHEDDING_CONTROLLER;
     public static NamespacedKey SMART_BREAKER;
     public static NamespacedKey FACTORY_MONITOR;
+    public static NamespacedKey STOCK_CONTROLLER;
     public static NamespacedKey GRIDWORKS_LINKER;
 
     public static ItemStack CONTROL_INTERFACE_ITEM;
@@ -80,6 +82,7 @@ public final class GridWorksContent {
     public static ItemStack LOAD_SHEDDING_CONTROLLER_ITEM;
     public static ItemStack SMART_BREAKER_ITEM;
     public static ItemStack FACTORY_MONITOR_ITEM;
+    public static ItemStack STOCK_CONTROLLER_ITEM;
     public static ItemStack GRIDWORKS_LINKER_ITEM;
 
     private GridWorksContent() {
@@ -109,6 +112,7 @@ public final class GridWorksContent {
         LOAD_SHEDDING_CONTROLLER = new NamespacedKey(plugin, "load_shedding_controller");
         SMART_BREAKER = new NamespacedKey(plugin, "smart_breaker");
         FACTORY_MONITOR = new NamespacedKey(plugin, "factory_monitor");
+        STOCK_CONTROLLER = new NamespacedKey(plugin, "stock_controller");
         GRIDWORKS_LINKER = new NamespacedKey(plugin, "gridworks_linker");
 
         RebarBlock.register(CONTROL_INTERFACE, Material.LODESTONE, ControlInterfaceBlock.class);
@@ -141,6 +145,11 @@ public final class GridWorksContent {
         );
         RebarBlock.register(SMART_BREAKER, Material.END_ROD, SmartBreakerBlock.class);
         RebarBlock.register(FACTORY_MONITOR, Material.TINTED_GLASS, FactoryMonitorBlock.class);
+        RebarBlock.register(
+                STOCK_CONTROLLER,
+                Material.WAXED_COPPER_BLOCK,
+                StockControllerBlock.class
+        );
 
         CONTROL_INTERFACE_ITEM = ItemStackBuilder.rebar(Material.LODESTONE, CONTROL_INTERFACE).build();
         ALARM_INDICATOR_ITEM = ItemStackBuilder.rebar(Material.REDSTONE_LAMP, ALARM_INDICATOR).build();
@@ -173,6 +182,10 @@ public final class GridWorksContent {
                 SMART_BREAKER
         ).build();
         FACTORY_MONITOR_ITEM = ItemStackBuilder.rebar(Material.TINTED_GLASS, FACTORY_MONITOR).build();
+        STOCK_CONTROLLER_ITEM = ItemStackBuilder.rebar(
+                Material.WAXED_COPPER_BLOCK,
+                STOCK_CONTROLLER
+        ).build();
         GRIDWORKS_LINKER_ITEM = ItemStackBuilder.rebar(Material.RECOVERY_COMPASS, GRIDWORKS_LINKER).build();
 
         RebarItem.register(RebarItem.class, CONTROL_INTERFACE_ITEM, CONTROL_INTERFACE);
@@ -201,6 +214,7 @@ public final class GridWorksContent {
         );
         RebarItem.register(RebarItem.class, SMART_BREAKER_ITEM, SMART_BREAKER);
         RebarItem.register(RebarItem.class, FACTORY_MONITOR_ITEM, FACTORY_MONITOR);
+        RebarItem.register(RebarItem.class, STOCK_CONTROLLER_ITEM, STOCK_CONTROLLER);
         RebarItem.register(ControlLinker.class, GRIDWORKS_LINKER_ITEM);
 
         GridWorksRecipes.register(plugin);

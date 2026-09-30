@@ -4,7 +4,7 @@
 
 GridWorks is a Rebar addon focused on making factories smarter rather than simply making machines faster. Its long-term goal is to connect sensors, controllers, power systems, cargo, fluids, machines, and redstone through a common automation layer.
 
-> **Part 4 production control is now underway on the 0.3.x development line.** The automation foundation and provider-neutral Part 3 branch-control layer are complete; Machine Sensor cycle telemetry, Batch Controller targets/watchdogs/pace, and the four-stage Sequence Controller now provide event-driven production control without new polling loops. The native Rebar electricity adapter remains upstream-blocked until its electricity API ships in a released dependency.
+> **The 0.3.x line is the factory-control layer.** Machine Sensor telemetry, Batch/Sequence control, and Stock Controller hysteresis provide event-driven production coordination. Rebar's electricity work has merged upstream, but GridWorks remains provider-neutral until that API ships in a released Rebar dependency; electricity generation, storage, cabling, and simulation remain outside GridWorks.
 
 ## Current systems
 
@@ -53,6 +53,12 @@ Acknowledgement itself is a Control Bus command (`gridworks:alarm/acknowledge`) 
 The Inventory Sensor faces an adjacent inventory and publishes availability, total item count, occupied slots, total slots, and occupied-slot ratio. It understands Rebar virtual/logistic inventories before falling back to ordinary Bukkit container inventories.
 
 There is no universal inventory-change event across every supported inventory type, so all loaded Inventory Sensors share one configurable sampler and publish only when their snapshot changes.
+
+### Stock control
+
+The **Stock Controller** keeps a directly linked Inventory Sensor between a configurable low and high target. Its output means **production needed**: it turns ON at/below the low threshold, stays latched through the deadband, and turns OFF at/above the high threshold. This hysteresis prevents production lines from chattering around one threshold.
+
+It supports total item count or occupied-slot ratio, AUTO/direct source selection, Default/A-D or addressed output, persisted hysteresis state, and fail-safe OFF while current inventory telemetry is unavailable. It consumes existing Inventory Sensor events and adds no polling task of its own.
 
 ### Machine sensing
 
@@ -216,7 +222,7 @@ Control Bus callbacks deliberately run on the publisher's thread. Physical GridW
 
 ## Power-grid bridge status
 
-GridWorks now has a provider-neutral `PowerGridSnapshot` model, an internal `PowerGridBridge`, and a public `PowerGridProvider` Bukkit service contract. The released Rebar dependency (`0.43.0-26.2`) does **not** contain the electricity API currently being developed on Rebar's `seggan/feature/elektrikity` branch, so GridWorks does not compile against unreleased classes.
+GridWorks now has a provider-neutral `PowerGridSnapshot` model, an internal `PowerGridBridge`, and a public `PowerGridProvider` Bukkit service contract. Rebar's electricity work has merged to upstream master, but the released dependency used here (`0.43.0-26.2`) predates that API, so GridWorks does not compile against master-only electricity classes.
 
 The neutral snapshot already defines the measurements GridWorks needs: node/producer/consumer counts, powered/unpowered consumers, production capacity, demand, load ratio, reserve watts, and powered-consumer ratio. `PowerGridTelemetry` maps those values onto stable `gridworks:power/*` Control Bus channels, and the Factory Monitor already has bounded display slots for the most useful power signals.
 
@@ -271,7 +277,7 @@ GridWorks is licensed under the GNU General Public License v3.0. See [LICENSE](L
 
 ## Part 3 — Smart electrical branch control
 
-The **0.3.x development line** begins the native-electricity control layer without coupling GridWorks core to Rebar's unreleased electricity package.
+The **0.3.x development line** provides electricity-aware factory control without making GridWorks the electricity implementation. Native binding remains deferred until the merged upstream electricity API appears in a released Rebar dependency.
 
 GridWorks now exposes a second Bukkit service contract, `PowerBranchProvider`, for controllable electrical branches. A provider resolves a branch on a specific loaded block face and can apply an idempotent open/closed state. The snapshot model also reserves a validated optional watt-limit value so the future Power Limiter can use the same provider boundary.
 
@@ -281,7 +287,7 @@ The **Smart Breaker** faces one adjacent provider-exposed electrical branch. `tr
 
 The desired branch state is persisted. If the provider or target chunk is temporarily unavailable, the desired command is retained and reapplied when it returns. Provider registration/unregistration and target chunk load/unload are handled with Bukkit events; there is no Smart Breaker polling task.
 
-The current released Rebar build still does not provide `PowerBranchProvider`. The future native adapter can map this contract onto Rebar's developing `ElectricNetwork.Edge` model, where connections already expose mutable per-edge power limits. GridWorks does not compile against that development branch.
+The current released Rebar dependency still does not expose the merged upstream electricity API. The future native adapter can map this contract onto Rebar's electrical network model after that API appears in a release. GridWorks does not compile against master-only electricity classes.
 
 
 ### Power Limiter
@@ -340,7 +346,7 @@ Each physical actuator still owns its domain-specific fail-safe action, but it o
 
 The current 0.3.x development line now includes the provider-neutral electrical branch-control API, Smart Breaker, Power Limiter, released-API Fluid Valve, released-API Cargo Isolator, unified actuator input routing, and survival crafting recipes for the full current GridWorks set.
 
-The intentionally unresolved piece is the **native Rebar electricity adapter**. Rebar 0.43.0-26.2 still does not ship the electricity package being developed upstream, so GridWorks will not compile against those unreleased classes. When that API is released, the adapter can implement the existing `PowerGridProvider` and `PowerBranchProvider` contracts without redesigning sensors, controllers, breakers, limiters, or load shedding.
+The intentionally unresolved piece is the **native Rebar electricity adapter**. Rebar 0.43.0-26.2 still does not ship the electricity API that has now merged upstream, so GridWorks will not compile against master-only classes. When that API is released, the adapter can implement the existing `PowerGridProvider` and `PowerBranchProvider` contracts without redesigning sensors, controllers, breakers, limiters, or load shedding.
 
 
 ## Development build download
@@ -352,7 +358,7 @@ Pull-request builds still run the full compile/test gate but do not publish a do
 
 ## Content integrity checks
 
-GridWorks now has a canonical catalog for all 23 player-facing content IDs. Startup validates that every catalog entry has a registered survival recipe and bundled English item metadata; a mismatch stops enablement with the exact missing/extra IDs instead of leaving a partially usable addon.
+GridWorks now has a canonical catalog for all 24 player-facing content IDs. Startup validates that every catalog entry has a registered survival recipe and bundled English item metadata; a mismatch stops enablement with the exact missing/extra IDs instead of leaving a partially usable addon.
 
 CI also source-checks the actual `NamespacedKey` registrations, recipe declarations, and `lang/en.yml` item keys against that same catalog. Adding a future machine while forgetting its recipe or language entry therefore fails tests before the rolling development JAR is published.
 
@@ -366,7 +372,7 @@ Normal plugin disable uses the same idempotent cleanup path, so cleanup behavior
 
 ## Real-server CI smoke gate
 
-Successful `main` builds now boot a real Paper 26.2 test server through run-paper with released Rebar and the just-built GridWorks JAR before the rolling raw JAR is published. CI requires GridWorks to complete its 23-entry content/recipe validation and reach the Control Bus initialized state, then shuts the server down cleanly.
+Successful `main` builds now boot a real Paper 26.2 test server through run-paper with released Rebar and the just-built GridWorks JAR before the rolling raw JAR is published. CI requires GridWorks to complete its 24-entry content/recipe validation and reach the Control Bus initialized state, then shuts the server down cleanly.
 
 This catches enable-time API/linkage problems, Rebar registration failures, bundled-language/recipe validation failures, and startup lifecycle regressions that unit tests alone cannot see. Pull requests continue to run compile/unit tests without publishing or replacing the development JAR.
 
@@ -383,7 +389,7 @@ The rolling `dev-build` release metadata is updated to the exact smoke-tested co
 
 ## Paper startup smoke test
 
-Successful `main` builds now go beyond compilation and unit tests: CI starts a real Paper 26.2 server through `run-paper`, loads the freshly built GridWorks JAR alongside Rebar, waits for Paper's normal `Done` marker, verifies GridWorks' 23-entry content validation and Control Bus initialization, executes the live `gridworks doctor` command, and then requires a clean shutdown.
+Successful `main` builds now go beyond compilation and unit tests: CI starts a real Paper 26.2 server through `run-paper`, loads the freshly built GridWorks JAR alongside Rebar, waits for Paper's normal `Done` marker, verifies GridWorks' 24-entry content validation and Control Bus initialization, executes the live `gridworks doctor` command, and then requires a clean shutdown.
 
 The rolling raw development JAR is published only after this single integration gate succeeds. Pull requests still run the compile/unit-test gate without publishing a development JAR. The smoke gate catches classloading, plugin-enable, Rebar registration, bundled-resource, recipe-registration, command, scheduler/listener startup, and shutdown failures that ordinary unit tests cannot exercise.
 
@@ -413,7 +419,7 @@ The validated snapshot drives the Control Bus propagation cap, all four shared s
 
 CI now exhaustively scans every production Java source for the Rebar internals GridWorks has deliberately avoided: internal `FluidManager`, internal `CargoRoutes`, the internal `TickingRebarBlock.isTicking` helper, and the unreleased `io.github.pylonmc.rebar.electricity` package.
 
-The same regression test requires `rebar.version` to be a released artifact on the same Minecraft line as `minecraft.version` and keeps Rebar as a `compileOnly` server dependency. When Rebar eventually releases electricity publicly, this guard is the intentional place to review and update that boundary rather than quietly binding to a development branch.
+The same regression test requires `rebar.version` to be a released artifact on the same Minecraft line as `minecraft.version` and keeps Rebar as a `compileOnly` server dependency. When a Rebar release containing electricity becomes available, this guard is the intentional place to review and update that boundary rather than quietly binding to master-only classes.
 
 
 ## Byte-for-byte development release verification

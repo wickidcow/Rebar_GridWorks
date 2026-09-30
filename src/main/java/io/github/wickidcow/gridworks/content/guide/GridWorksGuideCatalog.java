@@ -22,6 +22,7 @@ public final class GridWorksGuideCatalog {
                     "batch_controller",
                     "sequence_controller",
                     "load_shedding_controller",
+                    "stock_controller",
                     "delay_relay",
                     "pulse_relay"
             )),

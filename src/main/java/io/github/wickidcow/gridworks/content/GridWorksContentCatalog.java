@@ -34,6 +34,7 @@ public final class GridWorksContentCatalog {
             "load_shedding_controller",
             "smart_breaker",
             "factory_monitor",
+            "stock_controller",
             "gridworks_linker"
     );
 

@@ -41,6 +41,7 @@ GridWorks currently includes a complete control and automation foundation:
 - human-readable addressed commands;
 - redstone, inventory, fluid, machine, and power sensors;
 - Factory Controller rules and a live Factory Monitor;
+- Stock Controller low/high inventory regulation with hysteresis;
 - latched alarms and a central Alarm Console;
 - Batch Controller production targets, watchdogs, rate, and ETA;
 - four-stage Sequence Controller workflows;
