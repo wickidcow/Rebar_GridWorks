@@ -1,6 +1,6 @@
 # Devices and Machines
 
-GridWorks currently validates a canonical catalog of **24 player-facing content IDs**. All current devices are intended to participate in normal Rebar recipe/guide visibility.
+GridWorks currently validates a canonical catalog of **25 player-facing content IDs**. All current devices are intended to participate in normal Rebar recipe/guide visibility.
 
 ## Foundation
 
@@ -73,3 +73,7 @@ GridWorks CI verifies that every canonical player-facing content entry has:
 - [[Factory Automation]]
 - [[Production Control]]
 - [[Power and Flow Control]]
+
+## Power Coupler
+
+A native Rebar electrical junction controlled by the existing Smart Breaker and Power Limiter. See [[Native Electricity]] for wiring and power usage.

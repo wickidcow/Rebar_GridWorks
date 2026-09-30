@@ -11,6 +11,9 @@ version = providers.gradleProperty("version").get()
 
 repositories {
     mavenCentral()
+    maven("https://central.sonatype.com/repository/maven-snapshots/") {
+        content { includeGroup("io.github.pylonmc") }
+    }
     maven("https://repo.papermc.io/repository/maven-public/") {
         name = "papermc"
     }
@@ -88,9 +91,8 @@ bukkit {
 }
 
 tasks.runServer {
-    downloadPlugins {
-        github("pylonmc", "rebar", rebarVersion, "rebar-$rebarVersion.jar")
-    }
+    // Supply the matching upstream development SERVER jar via -Prebar.serverJar=/path/to/rebar.jar.
+    providers.gradleProperty("rebar.serverJar").orNull?.let { pluginJars.from(file(it)) }
     minecraftVersion(minecraftVersion)
     maxHeapSize = "1G"
     jvmArgs("-Dcom.mojang.eula.agree=true")

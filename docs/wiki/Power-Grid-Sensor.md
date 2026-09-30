@@ -2,7 +2,7 @@
 
 The **Power Grid Sensor** exposes electrical-grid telemetry through GridWorks' provider-neutral power API.
 
-It does not depend directly on an unreleased Rebar electricity implementation.
+Native Rebar electricity is integrated using the pinned development API `1.0.0-20260929.193904-140` from upstream commit `5e34938`. Use a matching Rebar development server JAR; the stable `0.43.0-26.2` JAR lacks this API. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
 
 ## Requirements
 

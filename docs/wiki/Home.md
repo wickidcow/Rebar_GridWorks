@@ -6,10 +6,10 @@ Welcome to the official GridWorks Wiki.
 
 GridWorks is a Rebar addon built around one goal: make Minecraft factories **smarter**, not simply faster. Sensors observe machines and resources, the Control Bus moves telemetry and commands, controllers make decisions, and actuators safely control redstone, cargo, fluids, and electrical branches.
 
-> **Current development line:** 0.3.x  
+> **Current development line:** 0.4.x
 > **Minecraft / Paper:** 26.2  
 > **Java:** 25  
-> **Rebar:** 0.43.0-26.2
+> **Rebar:** 1.0.0-20260929.193904-140
 
 ## Where should I start?
 

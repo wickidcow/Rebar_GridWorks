@@ -35,6 +35,8 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
 
 public final class GridWorksContent {
+    public static NamespacedKey POWER_COUPLER;
+    public static ItemStack POWER_COUPLER_ITEM;
     public static NamespacedKey CONTROL_INTERFACE;
     public static NamespacedKey ALARM_INDICATOR;
     public static NamespacedKey ALARM_CONSOLE;
@@ -90,6 +92,7 @@ public final class GridWorksContent {
     }
 
     public static void register(GridWorks plugin) {
+        POWER_COUPLER = new NamespacedKey(plugin, "power_coupler");
         CONTROL_INTERFACE = new NamespacedKey(plugin, "control_interface");
         ALARM_INDICATOR = new NamespacedKey(plugin, "alarm_indicator");
         ALARM_CONSOLE = new NamespacedKey(plugin, "alarm_console");
@@ -115,6 +118,7 @@ public final class GridWorksContent {
         STOCK_CONTROLLER = new NamespacedKey(plugin, "stock_controller");
         GRIDWORKS_LINKER = new NamespacedKey(plugin, "gridworks_linker");
 
+        RebarBlock.register(POWER_COUPLER, Material.CUT_COPPER, io.github.wickidcow.gridworks.power.nativeapi.PowerCouplerBlock.class);
         RebarBlock.register(CONTROL_INTERFACE, Material.LODESTONE, ControlInterfaceBlock.class);
         RebarBlock.register(ALARM_INDICATOR, Material.REDSTONE_LAMP, AlarmIndicatorBlock.class);
         RebarBlock.register(ALARM_CONSOLE, Material.POLISHED_BLACKSTONE_BRICKS, AlarmConsoleBlock.class);
@@ -151,6 +155,7 @@ public final class GridWorksContent {
                 StockControllerBlock.class
         );
 
+        POWER_COUPLER_ITEM = ItemStackBuilder.rebar(Material.CUT_COPPER, POWER_COUPLER).build();
         CONTROL_INTERFACE_ITEM = ItemStackBuilder.rebar(Material.LODESTONE, CONTROL_INTERFACE).build();
         ALARM_INDICATOR_ITEM = ItemStackBuilder.rebar(Material.REDSTONE_LAMP, ALARM_INDICATOR).build();
         ALARM_CONSOLE_ITEM = ItemStackBuilder.rebar(Material.POLISHED_BLACKSTONE_BRICKS, ALARM_CONSOLE).build();
@@ -188,6 +193,7 @@ public final class GridWorksContent {
         ).build();
         GRIDWORKS_LINKER_ITEM = ItemStackBuilder.rebar(Material.RECOVERY_COMPASS, GRIDWORKS_LINKER).build();
 
+        RebarItem.register(RebarItem.class, POWER_COUPLER_ITEM, POWER_COUPLER);
         RebarItem.register(RebarItem.class, CONTROL_INTERFACE_ITEM, CONTROL_INTERFACE);
         RebarItem.register(RebarItem.class, ALARM_INDICATOR_ITEM, ALARM_INDICATOR);
         RebarItem.register(RebarItem.class, ALARM_CONSOLE_ITEM, ALARM_CONSOLE);

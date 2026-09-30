@@ -95,6 +95,7 @@ public final class GridWorksGuide {
             case "fluid_sensor" -> GridWorksContent.FLUID_SENSOR_ITEM;
             case "fluid_valve" -> GridWorksContent.FLUID_VALVE_ITEM;
             case "power_grid_sensor" -> GridWorksContent.POWER_GRID_SENSOR_ITEM;
+            case "power_coupler" -> GridWorksContent.POWER_COUPLER_ITEM;
             case "power_limiter" -> GridWorksContent.POWER_LIMITER_ITEM;
             case "factory_controller" -> GridWorksContent.FACTORY_CONTROLLER_ITEM;
             case "batch_controller" -> GridWorksContent.BATCH_CONTROLLER_ITEM;

@@ -28,6 +28,7 @@ public final class GridWorksContentCatalog {
             "fluid_valve",
             "power_grid_sensor",
             "power_limiter",
+            "power_coupler",
             "factory_controller",
             "batch_controller",
             "sequence_controller",

@@ -65,6 +65,7 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
     }
 
     private void enableRuntime() {
+        requireElectricityApi();
         registerWithRebar();
 
         saveDefaultConfig();
@@ -108,9 +109,14 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
                 settings.machineMaxSamplesPerTick()
         );
 
-        // Resolve power data through Bukkit services. Released Rebar does not
-        // yet provide electricity, but third-party addons and the future native
-        // Rebar adapter can register PowerGridProvider without changing core.
+        // The pinned upstream snapshot contains the native electricity API.
+        var nativePower = new io.github.wickidcow.gridworks.power.nativeapi.RebarPowerProvider();
+        Bukkit.getServicesManager().register(
+                io.github.wickidcow.gridworks.api.power.PowerGridProvider.class,
+                nativePower, this, ServicePriority.Lowest);
+        Bukkit.getServicesManager().register(
+                io.github.wickidcow.gridworks.api.power.PowerBranchProvider.class,
+                nativePower, this, ServicePriority.Lowest);
         powerGridBridge = new ServicePowerGridBridge(
                 Bukkit.getServicesManager(),
                 "No PowerGridProvider is registered"
@@ -145,6 +151,15 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
                         + settings.maxPropagationNodes()
                         + " nodes)."
         );
+    }
+
+    private void requireElectricityApi() {
+        try {
+            Class.forName("io.github.pylonmc.rebar.block.interfaces.ElectricRebarBlock", false, getClassLoader());
+        } catch (ClassNotFoundException exception) {
+            throw new IllegalStateException("GridWorks 0.4 requires electricity-enabled Rebar build 2064 "
+                    + "(commit 5e34938). Stable Rebar 0.43.0-26.2 does not include electricity.", exception);
+        }
     }
 
     private void registerCommands() {
