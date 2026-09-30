@@ -2,6 +2,7 @@ package io.github.wickidcow.gridworks.content.block;
 
 import io.github.pylonmc.rebar.block.context.BlockCreateContext;
 import io.github.wickidcow.gridworks.GridWorks;
+import io.github.wickidcow.gridworks.api.control.ControlPublication;
 import io.github.wickidcow.gridworks.api.control.ControlStateSource;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
@@ -61,9 +62,7 @@ public final class PowerGridSensorBlock extends PhysicalControlNodeBlock
 
     @Override
     public void publishCurrentState() {
-        if (lastSnapshot == null) {
-            sampleNow();
-        } else {
+        if (lastSnapshot != null) {
             publish(lastSnapshot);
         }
     }
@@ -147,21 +146,31 @@ public final class PowerGridSensorBlock extends PhysicalControlNodeBlock
     }
 
     private void publish(Optional<PowerGridSnapshot> snapshot) {
-        var bus = GridWorks.getInstance().getControlBus();
         var values = snapshot
                 .map(PowerGridTelemetry::fromSnapshot)
                 .orElseGet(PowerGridTelemetry::unavailable);
+        var publications = new java.util.ArrayList<ControlPublication>(
+                values.size() + 1
+        );
 
         for (var entry : values.entrySet()) {
-            bus.publish(getNodeId(), entry.getKey(), entry.getValue());
+            publications.add(ControlPublication.of(
+                    entry.getKey(),
+                    entry.getValue()
+            ));
         }
 
-        bus.publish(
-                getNodeId(),
+        publications.add(ControlPublication.of(
                 GridWorksChannels.POWER_SAMPLE_REVISION,
                 ControlValue.of((double) sampleRevision)
+        ));
+
+        GridWorks.getInstance().getControlBus().publishBatch(
+                getNodeId(),
+                publications
         );
     }
+
 
     private static long nextRevision(long current) {
         // Keep the numeric ControlValue exactly representable by IEEE-754.

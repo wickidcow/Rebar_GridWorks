@@ -155,7 +155,37 @@ class PersistentConnectionStoreTest {
 
         assertThrows(IOException.class, () -> store.toggle(a, b));
         assertFalse(store.contains(a, b));
+        assertTrue(store.neighbors(a).isEmpty());
+        assertTrue(store.neighbors(b).isEmpty());
         assertTrue(store.links().isEmpty());
+    }
+
+    @Test
+    void largePersistedChainBuildsIndexedAdjacencyCorrectly() throws Exception {
+        Path file = tempDir.resolve("large-network.txt");
+        java.util.List<UUID> nodes = new java.util.ArrayList<>();
+        java.util.List<String> lines = new java.util.ArrayList<>();
+        lines.add("# GridWorks persistent Control Interface links");
+
+        for (int i = 0; i < 2000; i++) {
+            nodes.add(new UUID(0L, i + 1L));
+        }
+        for (int i = 0; i < nodes.size() - 1; i++) {
+            lines.add(nodes.get(i) + "," + nodes.get(i + 1));
+        }
+        Files.write(file, lines, StandardCharsets.UTF_8);
+
+        PersistentConnectionStore store = new PersistentConnectionStore(file);
+
+        assertEquals(Set.of(nodes.get(1)), store.neighbors(nodes.getFirst()));
+        assertEquals(
+                Set.of(nodes.get(998), nodes.get(1000)),
+                store.neighbors(nodes.get(999))
+        );
+
+        Set<UUID> component = store.componentOf(nodes.getFirst());
+        assertEquals(2000, component.size());
+        assertEquals(1999, store.edgeCount(component));
     }
 
     @Test

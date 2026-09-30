@@ -5,6 +5,7 @@ import io.github.pylonmc.rebar.block.interfaces.GuiRebarBlock;
 import io.github.pylonmc.rebar.item.builder.ItemStackBuilder;
 import io.github.pylonmc.rebar.util.gui.GuiItems;
 import io.github.wickidcow.gridworks.GridWorks;
+import io.github.wickidcow.gridworks.api.control.ControlPublication;
 import io.github.wickidcow.gridworks.api.control.ControlStateSource;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
@@ -96,9 +97,7 @@ public final class MachineSensorBlock extends PhysicalControlNodeBlock
 
     @Override
     public void publishCurrentState() {
-        if (lastSnapshot == null) {
-            sampleNow();
-        } else {
+        if (lastSnapshot != null) {
             publish(lastSnapshot);
         }
     }
@@ -212,33 +211,50 @@ public final class MachineSensorBlock extends PhysicalControlNodeBlock
     }
 
     private void publish(MachineSnapshot snapshot) {
-        var bus = GridWorks.getInstance().getControlBus();
-
-        bus.publish(
-                getNodeId(),
+        var publications = new java.util.ArrayList<ControlPublication>(8);
+        publications.add(ControlPublication.of(
                 GridWorksChannels.MACHINE_AVAILABLE,
                 ControlValue.of(snapshot.available())
-        );
+        ));
 
         if (snapshot.available()) {
-            bus.publish(getNodeId(), GridWorksChannels.MACHINE_KIND, ControlValue.of(snapshot.kind()));
-            bus.publish(getNodeId(), GridWorksChannels.MACHINE_PROCESSING, ControlValue.of(snapshot.processing()));
-            bus.publish(getNodeId(), GridWorksChannels.MACHINE_PROGRESS, ControlValue.of(snapshot.progress()));
-            bus.publish(getNodeId(), GridWorksChannels.MACHINE_PROCESS_TIME_TICKS, ControlValue.of((double) snapshot.processTimeTicks()));
-            bus.publish(getNodeId(), GridWorksChannels.MACHINE_TICKS_REMAINING, ControlValue.of((double) snapshot.ticksRemaining()));
+            publications.add(ControlPublication.of(
+                    GridWorksChannels.MACHINE_KIND,
+                    ControlValue.of(snapshot.kind())
+            ));
+            publications.add(ControlPublication.of(
+                    GridWorksChannels.MACHINE_PROCESSING,
+                    ControlValue.of(snapshot.processing())
+            ));
+            publications.add(ControlPublication.of(
+                    GridWorksChannels.MACHINE_PROGRESS,
+                    ControlValue.of(snapshot.progress())
+            ));
+            publications.add(ControlPublication.of(
+                    GridWorksChannels.MACHINE_PROCESS_TIME_TICKS,
+                    ControlValue.of((double) snapshot.processTimeTicks())
+            ));
+            publications.add(ControlPublication.of(
+                    GridWorksChannels.MACHINE_TICKS_REMAINING,
+                    ControlValue.of((double) snapshot.ticksRemaining())
+            ));
         }
 
-        bus.publish(
-                getNodeId(),
+        publications.add(ControlPublication.of(
                 GridWorksChannels.MACHINE_OBSERVED_CYCLES,
                 ControlValue.of((double) cycleCounter.observedCycles())
-        );
-        bus.publish(
-                getNodeId(),
+        ));
+        publications.add(ControlPublication.of(
                 GridWorksChannels.MACHINE_LAST_CYCLE_EPOCH_MS,
                 ControlValue.of((double) cycleCounter.lastCycleEpochMillis())
+        ));
+
+        GridWorks.getInstance().getControlBus().publishBatch(
+                getNodeId(),
+                publications
         );
     }
+
 
     private final class CycleStatusItem extends AbstractItem {
         @Override

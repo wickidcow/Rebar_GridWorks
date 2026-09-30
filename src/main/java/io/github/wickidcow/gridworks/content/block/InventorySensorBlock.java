@@ -2,6 +2,7 @@ package io.github.wickidcow.gridworks.content.block;
 
 import io.github.pylonmc.rebar.block.context.BlockCreateContext;
 import io.github.wickidcow.gridworks.GridWorks;
+import io.github.wickidcow.gridworks.api.control.ControlPublication;
 import io.github.wickidcow.gridworks.api.control.ControlStateSource;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
@@ -49,9 +50,7 @@ public final class InventorySensorBlock extends PhysicalControlNodeBlock impleme
 
     @Override
     public void publishCurrentState() {
-        if (lastSnapshot == null) {
-            sampleNow();
-        } else {
+        if (lastSnapshot != null) {
             publish(lastSnapshot);
         }
     }
@@ -126,37 +125,34 @@ public final class InventorySensorBlock extends PhysicalControlNodeBlock impleme
     }
 
     private void publish(InventorySnapshot snapshot) {
-        var bus = GridWorks.getInstance().getControlBus();
-
-        bus.publish(
-                getNodeId(),
+        var publications = new java.util.ArrayList<ControlPublication>(5);
+        publications.add(ControlPublication.of(
                 GridWorksChannels.INVENTORY_AVAILABLE,
                 ControlValue.of(snapshot.available())
-        );
+        ));
 
-        if (!snapshot.available()) {
-            return;
+        if (snapshot.available()) {
+            publications.add(ControlPublication.of(
+                    GridWorksChannels.INVENTORY_ITEMS,
+                    ControlValue.of((double) snapshot.items())
+            ));
+            publications.add(ControlPublication.of(
+                    GridWorksChannels.INVENTORY_OCCUPIED_SLOTS,
+                    ControlValue.of((double) snapshot.occupiedSlots())
+            ));
+            publications.add(ControlPublication.of(
+                    GridWorksChannels.INVENTORY_TOTAL_SLOTS,
+                    ControlValue.of((double) snapshot.totalSlots())
+            ));
+            publications.add(ControlPublication.of(
+                    GridWorksChannels.INVENTORY_OCCUPIED_RATIO,
+                    ControlValue.of(snapshot.occupiedRatio())
+            ));
         }
 
-        bus.publish(
+        GridWorks.getInstance().getControlBus().publishBatch(
                 getNodeId(),
-                GridWorksChannels.INVENTORY_ITEMS,
-                ControlValue.of((double) snapshot.items())
-        );
-        bus.publish(
-                getNodeId(),
-                GridWorksChannels.INVENTORY_OCCUPIED_SLOTS,
-                ControlValue.of((double) snapshot.occupiedSlots())
-        );
-        bus.publish(
-                getNodeId(),
-                GridWorksChannels.INVENTORY_TOTAL_SLOTS,
-                ControlValue.of((double) snapshot.totalSlots())
-        );
-        bus.publish(
-                getNodeId(),
-                GridWorksChannels.INVENTORY_OCCUPIED_RATIO,
-                ControlValue.of(snapshot.occupiedRatio())
+                publications
         );
     }
 }

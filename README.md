@@ -254,6 +254,22 @@ Saved tier routes are also repaired through a deterministic collision-safe route
 
 The remaining native-electricity step is the actual Rebar adapter once its electricity API lands in a released dependency. Power sensing, addressed load groups, controller metrics, load shedding, Smart Breaker, and Power Limiter are already implemented behind provider-neutral contracts.
 
+## Large-server scaling
+
+GridWorks' shared infrastructure is designed for servers with hundreds or thousands of placed automation devices:
+
+- persistent link lookup uses an indexed adjacency graph instead of rescanning every saved link;
+- Control Bus dispatch routes are cached while topology is stable;
+- multi-field sensor snapshots use one batched recipient route;
+- inventory/fluid/machine/power sensors are spread round-robin across ticks with hard per-tick budgets;
+- mass topology replay is coalesced to one pass per loaded component per tick;
+- Factory Monitor and Alarm Console coalesce same-tick GUI update bursts;
+- no ordinary world scans or forced chunk loading are used.
+
+Large servers should still avoid treating every factory as one giant broadcast component. The propagation cap remains a safety boundary, and `/gridworks doctor` reports current sensor populations plus estimated sweep time.
+
+See the Wiki's **Performance and Optimization** page for the scaling model and tuning guidance.
+
 ## Requirements
 
 - Paper 26.2

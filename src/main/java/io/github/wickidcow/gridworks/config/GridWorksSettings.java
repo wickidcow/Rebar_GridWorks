@@ -9,6 +9,10 @@ public record GridWorksSettings(
         long fluidSampleIntervalTicks,
         long machineSampleIntervalTicks,
         long powerSampleIntervalTicks,
+        int inventoryMaxSamplesPerTick,
+        int fluidMaxSamplesPerTick,
+        int machineMaxSamplesPerTick,
+        int powerMaxSamplesPerTick,
         int cargoIsolatorTransferRate
 ) {
     private static final int DEFAULT_MAX_PROPAGATION_NODES = 4096;
@@ -16,6 +20,10 @@ public record GridWorksSettings(
     private static final long DEFAULT_FLUID_SAMPLE_INTERVAL_TICKS = 10L;
     private static final long DEFAULT_MACHINE_SAMPLE_INTERVAL_TICKS = 20L;
     private static final long DEFAULT_POWER_SAMPLE_INTERVAL_TICKS = 20L;
+    private static final int DEFAULT_INVENTORY_MAX_SAMPLES_PER_TICK = 128;
+    private static final int DEFAULT_FLUID_MAX_SAMPLES_PER_TICK = 128;
+    private static final int DEFAULT_MACHINE_MAX_SAMPLES_PER_TICK = 64;
+    private static final int DEFAULT_POWER_MAX_SAMPLES_PER_TICK = 32;
     private static final int DEFAULT_CARGO_ISOLATOR_TRANSFER_RATE = 1;
 
     public GridWorksSettings {
@@ -24,6 +32,10 @@ public record GridWorksSettings(
                 || fluidSampleIntervalTicks <= 0L
                 || machineSampleIntervalTicks <= 0L
                 || powerSampleIntervalTicks <= 0L
+                || inventoryMaxSamplesPerTick <= 0
+                || fluidMaxSamplesPerTick <= 0
+                || machineMaxSamplesPerTick <= 0
+                || powerMaxSamplesPerTick <= 0
                 || cargoIsolatorTransferRate <= 0) {
             throw new IllegalArgumentException(
                     "GridWorksSettings values must all be positive"
@@ -61,6 +73,26 @@ public record GridWorksSettings(
                         "sensors.power.sample-interval-ticks"
                 ),
                 NumericSettingValidator.positiveInt(
+                        config.get("sensors.inventory.max-samples-per-tick"),
+                        DEFAULT_INVENTORY_MAX_SAMPLES_PER_TICK,
+                        "sensors.inventory.max-samples-per-tick"
+                ),
+                NumericSettingValidator.positiveInt(
+                        config.get("sensors.fluid.max-samples-per-tick"),
+                        DEFAULT_FLUID_MAX_SAMPLES_PER_TICK,
+                        "sensors.fluid.max-samples-per-tick"
+                ),
+                NumericSettingValidator.positiveInt(
+                        config.get("sensors.machine.max-samples-per-tick"),
+                        DEFAULT_MACHINE_MAX_SAMPLES_PER_TICK,
+                        "sensors.machine.max-samples-per-tick"
+                ),
+                NumericSettingValidator.positiveInt(
+                        config.get("sensors.power.max-samples-per-tick"),
+                        DEFAULT_POWER_MAX_SAMPLES_PER_TICK,
+                        "sensors.power.max-samples-per-tick"
+                ),
+                NumericSettingValidator.positiveInt(
                         config.get("cargo.isolator.transfer-rate"),
                         DEFAULT_CARGO_ISOLATOR_TRANSFER_RATE,
                         "cargo.isolator.transfer-rate"
@@ -79,6 +111,14 @@ public record GridWorksSettings(
                 + machineSampleIntervalTicks
                 + "/"
                 + powerSampleIntervalTicks
+                + "; per-tick sensor budgets "
+                + inventoryMaxSamplesPerTick
+                + "/"
+                + fluidMaxSamplesPerTick
+                + "/"
+                + machineMaxSamplesPerTick
+                + "/"
+                + powerMaxSamplesPerTick
                 + "; cargo isolator rate "
                 + cargoIsolatorTransferRate;
     }

@@ -8,6 +8,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -19,16 +21,44 @@ public final class PhysicalControlNetwork implements AutoCloseable {
     private final ControlBus controlBus;
     private final PersistentConnectionStore connectionStore;
     private final Consumer<RuntimeException> callbackFailureHandler;
+    private final Consumer<Runnable> replayScheduler;
     private final Map<UUID, ControlNode> activeNodes = new HashMap<>();
+    private final Set<UUID> pendingReplayRoots = new LinkedHashSet<>();
+
+    private boolean replayScheduled;
 
     public PhysicalControlNetwork(
             ControlBus controlBus,
             PersistentConnectionStore connectionStore,
             Consumer<RuntimeException> callbackFailureHandler
     ) {
+        this(
+                controlBus,
+                connectionStore,
+                callbackFailureHandler,
+                Runnable::run
+        );
+    }
+
+    public PhysicalControlNetwork(
+            ControlBus controlBus,
+            PersistentConnectionStore connectionStore,
+            Consumer<RuntimeException> callbackFailureHandler,
+            Consumer<Runnable> replayScheduler
+    ) {
         this.controlBus = Objects.requireNonNull(controlBus, "controlBus");
-        this.connectionStore = Objects.requireNonNull(connectionStore, "connectionStore");
-        this.callbackFailureHandler = Objects.requireNonNull(callbackFailureHandler, "callbackFailureHandler");
+        this.connectionStore = Objects.requireNonNull(
+                connectionStore,
+                "connectionStore"
+        );
+        this.callbackFailureHandler = Objects.requireNonNull(
+                callbackFailureHandler,
+                "callbackFailureHandler"
+        );
+        this.replayScheduler = Objects.requireNonNull(
+                replayScheduler,
+                "replayScheduler"
+        );
     }
 
     public void activate(ControlNode node) {
@@ -40,7 +70,8 @@ public final class PhysicalControlNetwork implements AutoCloseable {
             ControlNode existing = activeNodes.get(nodeId);
             if (existing != null && existing != node) {
                 throw new IllegalStateException(
-                        "Duplicate loaded GridWorks node id " + nodeId
+                        "Duplicate loaded GridWorks node id "
+                                + nodeId
                                 + ". This usually means persistent block data was duplicated."
                 );
             }
@@ -82,13 +113,17 @@ public final class PhysicalControlNetwork implements AutoCloseable {
             }
 
             activeNodes.remove(nodeId);
+            pendingReplayRoots.remove(nodeId);
             controlBus.unregister(nodeId);
         }
 
         notifyPeersUnavailable(nodeId, unavailablePeers);
     }
 
-    public synchronized void remove(UUID nodeId, ControlNode expectedNode) throws IOException {
+    public synchronized void remove(
+            UUID nodeId,
+            ControlNode expectedNode
+    ) throws IOException {
         IOException failure = null;
 
         try {
@@ -104,7 +139,8 @@ public final class PhysicalControlNetwork implements AutoCloseable {
         }
     }
 
-    public boolean toggleLink(UUID first, UUID second) throws IOException {
+    public boolean toggleLink(UUID first, UUID second)
+            throws IOException {
         ControlNode firstNode;
         ControlNode secondNode;
         boolean connected;
@@ -145,14 +181,14 @@ public final class PhysicalControlNetwork implements AutoCloseable {
     }
 
     public synchronized int persistentConnectionCount() {
-        return connectionStore.links().size();
+        return connectionStore.linkCount();
     }
 
     /**
      * Returns directly linked nodes that are currently loaded.
      *
-     * <p>This never loads chunks or scans the world. It intersects the persisted
-     * direct-link set with the live-node registry.</p>
+     * <p>This never loads chunks or scans the world. It intersects the
+     * persistent direct-link set with the live-node registry.</p>
      */
     public synchronized List<UUID> activeLinkedNodes(UUID nodeId) {
         requireActive(nodeId);
@@ -186,30 +222,83 @@ public final class PhysicalControlNetwork implements AutoCloseable {
     }
 
     /**
-     * Replays all loaded state sources in the live component containing nodeId.
-     * No chunks are loaded and callbacks execute outside the topology monitor.
+     * Requests current-state replay for the loaded component containing nodeId.
+     *
+     * <p>The production runtime supplies a next-tick scheduler, so many chunk
+     * activations or route edits in one tick collapse into one replay pass per
+     * resulting component. The three-argument constructor keeps immediate
+     * execution for lightweight unit/integration use.</p>
      */
     public void replayStateSources(UUID nodeId) {
-        List<ControlStateSource> sources = new ArrayList<>();
+        boolean shouldSchedule = false;
 
         synchronized (this) {
             if (!activeNodes.containsKey(nodeId)) {
                 return;
             }
 
-            for (UUID componentNode : controlBus.componentOf(nodeId)) {
-                ControlNode node = activeNodes.get(componentNode);
-                if (node instanceof ControlStateSource stateSource) {
-                    sources.add(stateSource);
-                }
+            pendingReplayRoots.add(nodeId);
+            if (!replayScheduled) {
+                replayScheduled = true;
+                shouldSchedule = true;
             }
         }
 
-        for (ControlStateSource source : sources) {
-            try {
-                source.publishCurrentState();
-            } catch (RuntimeException exception) {
-                callbackFailureHandler.accept(exception);
+        if (!shouldSchedule) {
+            return;
+        }
+
+        try {
+            replayScheduler.accept(this::flushPendingReplays);
+        } catch (RuntimeException exception) {
+            synchronized (this) {
+                replayScheduled = false;
+            }
+            callbackFailureHandler.accept(exception);
+        }
+    }
+
+    private void flushPendingReplays() {
+        List<UUID> roots;
+
+        synchronized (this) {
+            roots = List.copyOf(pendingReplayRoots);
+            pendingReplayRoots.clear();
+            replayScheduled = false;
+        }
+
+        Set<UUID> covered = new HashSet<>();
+
+        for (UUID root : roots) {
+            if (covered.contains(root)) {
+                continue;
+            }
+
+            Set<UUID> component;
+            List<ControlStateSource> sources = new ArrayList<>();
+
+            synchronized (this) {
+                if (!activeNodes.containsKey(root)) {
+                    continue;
+                }
+
+                component = controlBus.componentOf(root);
+                covered.addAll(component);
+
+                for (UUID componentNode : component) {
+                    ControlNode node = activeNodes.get(componentNode);
+                    if (node instanceof ControlStateSource stateSource) {
+                        sources.add(stateSource);
+                    }
+                }
+            }
+
+            for (ControlStateSource source : sources) {
+                try {
+                    source.publishCurrentState();
+                } catch (RuntimeException exception) {
+                    callbackFailureHandler.accept(exception);
+                }
             }
         }
     }
@@ -217,12 +306,17 @@ public final class PhysicalControlNetwork implements AutoCloseable {
     private ControlNode requireActive(UUID nodeId) {
         ControlNode node = activeNodes.get(nodeId);
         if (node == null) {
-            throw new IllegalArgumentException("Control node is not loaded: " + nodeId);
+            throw new IllegalArgumentException(
+                    "Control node is not loaded: " + nodeId
+            );
         }
         return node;
     }
 
-    private void notifyPeersAvailable(ControlNode node, List<ControlNode> peers) {
+    private void notifyPeersAvailable(
+            ControlNode node,
+            List<ControlNode> peers
+    ) {
         for (ControlNode peer : peers) {
             notifyPeerAvailable(node, peer.id());
             notifyPeerAvailable(peer, node.id());
@@ -241,7 +335,10 @@ public final class PhysicalControlNetwork implements AutoCloseable {
         }
     }
 
-    private void notifyPeersUnavailable(UUID unavailablePeerId, List<ControlNode> peers) {
+    private void notifyPeersUnavailable(
+            UUID unavailablePeerId,
+            List<ControlNode> peers
+    ) {
         for (ControlNode peer : peers) {
             notifyPeerUnavailable(peer, unavailablePeerId);
         }
@@ -276,6 +373,9 @@ public final class PhysicalControlNetwork implements AutoCloseable {
 
     @Override
     public synchronized void close() {
+        pendingReplayRoots.clear();
+        replayScheduled = false;
+
         for (UUID nodeId : List.copyOf(activeNodes.keySet())) {
             controlBus.unregister(nodeId);
         }

@@ -2,67 +2,51 @@ package io.github.wickidcow.gridworks.inventory;
 
 import io.github.wickidcow.gridworks.GridWorks;
 import io.github.wickidcow.gridworks.content.block.InventorySensorBlock;
-import java.util.Collections;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Set;
-import java.util.logging.Level;
-import org.bukkit.scheduler.BukkitTask;
+import io.github.wickidcow.gridworks.sampling.ScheduledSensorSampler;
 
 public final class InventorySensorManager implements AutoCloseable {
-    private final GridWorks plugin;
-    private final Set<InventorySensorBlock> sensors =
-            Collections.newSetFromMap(new IdentityHashMap<>());
-    private final BukkitTask task;
+    private final ScheduledSensorSampler<InventorySensorBlock> sampler;
 
-    public InventorySensorManager(GridWorks plugin, long intervalTicks) {
-        this.plugin = plugin;
-        this.task = plugin.getServer().getScheduler().runTaskTimer(
+    public InventorySensorManager(
+            GridWorks plugin,
+            long intervalTicks,
+            int maxSamplesPerTick
+    ) {
+        sampler = new ScheduledSensorSampler<>(
                 plugin,
-                this::sampleAll,
                 intervalTicks,
-                intervalTicks
+                maxSamplesPerTick,
+                InventorySensorBlock::sampleNow,
+                sensor -> "Inventory Sensor " + sensor.getNodeId()
         );
     }
 
     public void register(InventorySensorBlock sensor) {
-        sensors.add(sensor);
-        sample(sensor);
+        sampler.register(sensor);
     }
 
     public void unregister(InventorySensorBlock sensor) {
-        sensors.remove(sensor);
+        sampler.unregister(sensor);
     }
 
     public int loadedSensorCount() {
-        return sensors.size();
+        return sampler.loadedCount();
+    }
+
+    public long estimatedSweepTicks() {
+        return sampler.estimatedSweepTicks();
+    }
+
+    public int maxSamplesPerTick() {
+        return sampler.maxSamplesPerTick();
     }
 
     public boolean isScheduled() {
-        return !task.isCancelled();
-    }
-
-    private void sampleAll() {
-        for (InventorySensorBlock sensor : List.copyOf(sensors)) {
-            sample(sensor);
-        }
-    }
-
-    private void sample(InventorySensorBlock sensor) {
-        try {
-            sensor.sampleNow();
-        } catch (RuntimeException exception) {
-            plugin.getLogger().log(
-                    Level.SEVERE,
-                    "Inventory Sensor " + sensor.getNodeId() + " failed to sample its target",
-                    exception
-            );
-        }
+        return sampler.isScheduled();
     }
 
     @Override
     public void close() {
-        task.cancel();
-        sensors.clear();
+        sampler.close();
     }
 }

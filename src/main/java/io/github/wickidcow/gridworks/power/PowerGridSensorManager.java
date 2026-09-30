@@ -2,67 +2,102 @@ package io.github.wickidcow.gridworks.power;
 
 import io.github.wickidcow.gridworks.GridWorks;
 import io.github.wickidcow.gridworks.content.block.PowerGridSensorBlock;
-import java.util.Collections;
-import java.util.IdentityHashMap;
+import io.github.wickidcow.gridworks.sampling.RoundRobinSamplePlanner;
 import java.util.List;
-import java.util.Set;
 import java.util.logging.Level;
 import org.bukkit.scheduler.BukkitTask;
 
 public final class PowerGridSensorManager implements AutoCloseable {
     private final GridWorks plugin;
-    private final Set<PowerGridSensorBlock> sensors =
-            Collections.newSetFromMap(new IdentityHashMap<>());
+    private final RoundRobinSamplePlanner<PowerGridSensorBlock> planner;
     private final BukkitTask task;
 
     private boolean providerAvailable;
+    private int unavailableSweepRemaining;
 
-    public PowerGridSensorManager(GridWorks plugin, long intervalTicks) {
+    public PowerGridSensorManager(
+            GridWorks plugin,
+            long intervalTicks,
+            int maxSamplesPerTick
+    ) {
         this.plugin = plugin;
+        this.planner = new RoundRobinSamplePlanner<>(
+                intervalTicks,
+                maxSamplesPerTick
+        );
         this.providerAvailable = plugin.getPowerGridBridge().isAvailable();
         this.task = plugin.getServer().getScheduler().runTaskTimer(
                 plugin,
-                this::sampleAll,
-                intervalTicks,
-                intervalTicks
+                this::sampleTick,
+                1L,
+                1L
         );
     }
 
     public void register(PowerGridSensorBlock sensor) {
-        sensors.add(sensor);
-        sample(sensor);
+        if (!planner.add(sensor)) {
+            return;
+        }
+
+        if (!providerAvailable) {
+            unavailableSweepRemaining++;
+        }
     }
 
     public void unregister(PowerGridSensorBlock sensor) {
-        sensors.remove(sensor);
+        if (!planner.remove(sensor)) {
+            return;
+        }
+
+        if (planner.size() == 0) {
+            unavailableSweepRemaining = 0;
+        }
     }
 
     public int loadedSensorCount() {
-        return sensors.size();
+        return planner.size();
+    }
+
+    public long estimatedSweepTicks() {
+        return planner.estimatedSweepTicks();
+    }
+
+    public int maxSamplesPerTick() {
+        return planner.maxSamplesPerTick();
     }
 
     public boolean isScheduled() {
         return !task.isCancelled();
     }
 
-    private void sampleAll() {
+    private void sampleTick() {
         boolean available = plugin.getPowerGridBridge().isAvailable();
 
-        if (!available) {
-            if (providerAvailable) {
-                // Publish one transition to unavailable, then stop touching each
-                // sensor until a provider returns.
-                for (PowerGridSensorBlock sensor : List.copyOf(sensors)) {
-                    sample(sensor);
-                }
+        if (available != providerAvailable) {
+            providerAvailable = available;
+            planner.requestFullSweep();
+
+            if (available) {
+                unavailableSweepRemaining = 0;
+            } else {
+                unavailableSweepRemaining = planner.size();
             }
-            providerAvailable = false;
+        }
+
+        if (!available && unavailableSweepRemaining <= 0) {
             return;
         }
 
-        providerAvailable = true;
-        for (PowerGridSensorBlock sensor : List.copyOf(sensors)) {
+        List<PowerGridSensorBlock> batch = planner.nextTickBatch();
+        for (PowerGridSensorBlock sensor : batch) {
             sample(sensor);
+        }
+
+        if (!available) {
+            unavailableSweepRemaining = Math.max(
+                    0,
+                    unavailableSweepRemaining - batch.size()
+            );
         }
     }
 
@@ -83,6 +118,7 @@ public final class PowerGridSensorManager implements AutoCloseable {
     @Override
     public void close() {
         task.cancel();
-        sensors.clear();
+        planner.clear();
+        unavailableSweepRemaining = 0;
     }
 }

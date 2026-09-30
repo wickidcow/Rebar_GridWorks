@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.github.wickidcow.gridworks.api.control.ControlChannel;
 import io.github.wickidcow.gridworks.api.control.ControlDispatchResult;
 import io.github.wickidcow.gridworks.api.control.ControlNode;
+import io.github.wickidcow.gridworks.api.control.ControlPublication;
 import io.github.wickidcow.gridworks.api.control.ControlSignal;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import java.util.ArrayList;
@@ -117,6 +118,101 @@ class GraphControlBusTest {
 
         assertEquals(0, result.delivered());
         assertTrue(receiver.received.isEmpty());
+    }
+
+    @Test
+    void batchedPublicationBuildsOneRouteAndPreservesSignalOrder() {
+        GraphControlBus bus = new GraphControlBus(64);
+        TestNode source = new TestNode();
+        TestNode receiver = new TestNode();
+        register(bus, source, receiver);
+        bus.connect(source.id(), receiver.id());
+
+        List<ControlDispatchResult> results = bus.publishBatch(
+                source.id(),
+                List.of(
+                        ControlPublication.of(CHANNEL, ControlValue.of(1.0)),
+                        ControlPublication.of(CHANNEL, ControlValue.of(2.0)),
+                        ControlPublication.of(CHANNEL, ControlValue.of(3.0))
+                )
+        );
+
+        assertEquals(3, results.size());
+        assertEquals(1L, bus.dispatchRouteBuildCount());
+        assertEquals(3, receiver.received.size());
+        assertEquals(ControlValue.of(1.0), receiver.received.get(0).value());
+        assertEquals(ControlValue.of(2.0), receiver.received.get(1).value());
+        assertEquals(ControlValue.of(3.0), receiver.received.get(2).value());
+        assertTrue(
+                receiver.received.get(0).sequence()
+                        < receiver.received.get(1).sequence()
+        );
+        assertTrue(
+                receiver.received.get(1).sequence()
+                        < receiver.received.get(2).sequence()
+        );
+    }
+
+    @Test
+    void repeatedPublishesReuseCachedDispatchRouteUntilTopologyChanges() {
+        GraphControlBus bus = new GraphControlBus(64);
+        TestNode a = new TestNode();
+        TestNode b = new TestNode();
+        TestNode c = new TestNode();
+        register(bus, a, b, c);
+        bus.connect(a.id(), b.id());
+        bus.connect(b.id(), c.id());
+
+        assertEquals(0L, bus.dispatchRouteBuildCount());
+
+        bus.publish(a.id(), CHANNEL, ControlValue.of(true));
+        assertEquals(1L, bus.dispatchRouteBuildCount());
+        assertEquals(1, bus.dispatchRouteCacheSize());
+
+        bus.publish(a.id(), CHANNEL, ControlValue.of(false));
+        bus.publish(a.id(), CHANNEL, ControlValue.of(true));
+        assertEquals(1L, bus.dispatchRouteBuildCount());
+
+        TestNode d = new TestNode();
+        bus.register(d);
+        bus.connect(c.id(), d.id());
+
+        assertEquals(0, bus.dispatchRouteCacheSize());
+
+        bus.publish(a.id(), CHANNEL, ControlValue.of(false));
+        assertEquals(2L, bus.dispatchRouteBuildCount());
+    }
+
+    @Test
+    void largeGraphDispatchRemainsBoundedByPropagationCap() {
+        GraphControlBus bus = new GraphControlBus(256);
+        List<TestNode> nodes = new ArrayList<>();
+
+        for (int i = 0; i < 5000; i++) {
+            TestNode node = new TestNode();
+            nodes.add(node);
+            bus.register(node);
+        }
+        for (int i = 0; i < nodes.size() - 1; i++) {
+            bus.connect(nodes.get(i).id(), nodes.get(i + 1).id());
+        }
+
+        ControlDispatchResult result = bus.publish(
+                nodes.getFirst().id(),
+                CHANNEL,
+                ControlValue.of(true)
+        );
+
+        assertEquals(256, result.delivered());
+        assertTrue(result.truncated());
+        assertEquals(1L, bus.dispatchRouteBuildCount());
+
+        bus.publish(
+                nodes.getFirst().id(),
+                CHANNEL,
+                ControlValue.of(false)
+        );
+        assertEquals(1L, bus.dispatchRouteBuildCount());
     }
 
     @Test

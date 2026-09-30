@@ -14,6 +14,8 @@ GridWorks is designed as an automation layer for the Rebar ecosystem rather than
 8. **Keep upstream-sensitive code isolated.** Rebar electricity has merged upstream but is not yet present in the pinned released dependency, so electricity-specific code belongs behind a bridge instead of leaking into the core API.
 9. **Persist topology separately from live routing.** A saved physical link can exist while one or both endpoint chunks are unloaded; the live graph contains loaded endpoints only.
 10. **Centralize block lifecycle behavior.** Physical GridWorks node blocks inherit UUID persistence, activation, unload, break cleanup, and last-signal capture from one base class.
+11. **Spread unavoidable polling work.** Shared round-robin sensor planners enforce per-tick probe ceilings and gracefully extend sweep time under overload.
+12. **Coalesce burst work.** Multi-field sensor snapshots use batched Control Bus publication, topology state replay is coalesced per tick/component, and monitor/alarm UI refreshes collapse same-tick bursts.
 
 ## Layers
 
@@ -38,11 +40,13 @@ The core implementation is an undirected graph of registered `ControlNode` endpo
 
 A breadth-first traversal snapshots reachable recipients. The source is not sent its own signal. Cycles are de-duplicated by node UUID. Receiver exceptions are isolated and reported in `ControlDispatchResult` without preventing delivery to healthy recipients.
 
+Bounded dispatch routes are cached per source while topology remains unchanged. A link/unlink/unregister mutation invalidates cached routes; registering an isolated node does not disturb unrelated routes. `publishBatch` resolves one cached recipient snapshot for an entire multi-field publication, while its public default implementation preserves compatibility for alternate Control Bus implementations.
+
 ## Physical control network
 
 Every physical GridWorks node inherits `PhysicalControlNodeBlock`. The base class owns a UUID persisted in its Rebar block PDC and handles live graph activation, chunk unload, block break cleanup, and last-signal capture.
 
-Connections between UUIDs are stored in `control-network.txt`.
+Connections between UUIDs are stored in `control-network.txt`. The persisted link set is mirrored into an in-memory adjacency index, so neighbor/component operations no longer rescan every saved link.
 
 The persistent connection store and the live graph intentionally represent different things:
 
@@ -51,11 +55,17 @@ The persistent connection store and the live graph intentionally represent diffe
 
 When a control node loads, it registers and reconnects only to persistent neighbors that are already active. When it unloads, it is removed from the live graph without deleting persistent links. No lookup path loads a chunk.
 
+Production state-replay requests are scheduled for the next server tick and coalesced by resulting component. This prevents mass chunk activation from replaying the same component once per block. The test constructor retains immediate replay semantics for deterministic unit tests.
+
 Connection-file writes use a temporary sibling file and atomic replacement where the filesystem supports it. Mutations are rolled back in memory if a write fails.
 
 ## Sensors
 
-Sensors should publish only on meaningful state changes whenever an event exists. The Redstone Sensor is the reference implementation: it listens to `BlockRedstoneEvent` and publishes both analog strength and boolean powered state. It does not participate in a per-tick sensor loop.
+Sensors should publish only on meaningful state changes whenever an event exists. The Redstone Sensor is the reference implementation: it listens to `BlockRedstoneEvent` and publishes both analog strength and boolean powered state.
+
+Inventory, fluid, machine, and power sensors use shared `RoundRobinSamplePlanner` scheduling. Each population has a desired sweep interval plus a hard per-tick sample budget. Newly loaded sensors receive initial credits but still respect the ceiling. Under overload, sweep time stretches instead of creating a large synchronous probe burst.
+
+A topology replay never calls an unsampled sensor's target probe directly. It republishes a cached snapshot only when one exists; otherwise the normal bounded sampler establishes the first current state.
 
 ## Public API
 

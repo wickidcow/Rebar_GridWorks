@@ -83,7 +83,8 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
                             Level.SEVERE,
                             "A GridWorks physical-node availability callback failed",
                             exception
-                    )
+                    ),
+                    replay -> getServer().getScheduler().runTask(this, replay)
             );
         } catch (IOException exception) {
             throw new IllegalStateException("Could not load GridWorks control-network data", exception);
@@ -91,17 +92,20 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
 
         inventorySensorManager = new InventorySensorManager(
                 this,
-                settings.inventorySampleIntervalTicks()
+                settings.inventorySampleIntervalTicks(),
+                settings.inventoryMaxSamplesPerTick()
         );
 
         fluidSensorManager = new FluidSensorManager(
                 this,
-                settings.fluidSampleIntervalTicks()
+                settings.fluidSampleIntervalTicks(),
+                settings.fluidMaxSamplesPerTick()
         );
 
         machineSensorManager = new MachineSensorManager(
                 this,
-                settings.machineSampleIntervalTicks()
+                settings.machineSampleIntervalTicks(),
+                settings.machineMaxSamplesPerTick()
         );
 
         // Resolve power data through Bukkit services. Released Rebar does not
@@ -114,7 +118,8 @@ public final class GridWorks extends JavaPlugin implements RebarAddon {
 
         powerGridSensorManager = new PowerGridSensorManager(
                 this,
-                settings.powerSampleIntervalTicks()
+                settings.powerSampleIntervalTicks(),
+                settings.powerMaxSamplesPerTick()
         );
 
         powerBranchBridge = new ServicePowerBranchBridge(

@@ -4,6 +4,7 @@ import io.github.wickidcow.gridworks.api.control.ControlBus;
 import io.github.wickidcow.gridworks.api.control.ControlChannel;
 import io.github.wickidcow.gridworks.api.control.ControlDispatchResult;
 import io.github.wickidcow.gridworks.api.control.ControlNode;
+import io.github.wickidcow.gridworks.api.control.ControlPublication;
 import io.github.wickidcow.gridworks.api.control.ControlSignal;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import java.util.ArrayDeque;
@@ -17,6 +18,7 @@ import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -26,17 +28,33 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * <p>The topology lock is never held while addon callbacks execute. A dispatch
  * therefore observes a stable snapshot of its route without allowing a slow or
  * re-entrant receiver to block topology updates.</p>
+ *
+ * <p>Dispatch and component routes are cached per source while topology is
+ * unchanged. Sensor-heavy networks therefore pay the breadth-first traversal
+ * cost once per source instead of once per published metric. Batched snapshot
+ * publication also reuses one recipient snapshot for every field in that
+ * snapshot.</p>
  */
 public final class GraphControlBus implements ControlBus {
     private final Map<UUID, ControlNode> nodes = new HashMap<>();
     private final Map<UUID, Set<UUID>> edges = new HashMap<>();
-    private final ReentrantReadWriteLock topologyLock = new ReentrantReadWriteLock();
+    private final ReentrantReadWriteLock topologyLock =
+            new ReentrantReadWriteLock();
     private final AtomicLong sequence = new AtomicLong();
+    private final AtomicLong dispatchRouteBuilds = new AtomicLong();
+
+    private final Map<UUID, DispatchRoute> dispatchRouteCache =
+            new ConcurrentHashMap<>();
+    private final Map<UUID, List<UUID>> componentRouteCache =
+            new ConcurrentHashMap<>();
+
     private final int maxPropagationNodes;
 
     public GraphControlBus(int maxPropagationNodes) {
         if (maxPropagationNodes < 1) {
-            throw new IllegalArgumentException("maxPropagationNodes must be at least 1");
+            throw new IllegalArgumentException(
+                    "maxPropagationNodes must be at least 1"
+            );
         }
         this.maxPropagationNodes = maxPropagationNodes;
     }
@@ -54,8 +72,15 @@ public final class GraphControlBus implements ControlBus {
         try {
             ControlNode existing = nodes.putIfAbsent(id, node);
             if (existing != null && existing != node) {
-                throw new IllegalArgumentException("A control node with id " + id + " is already registered");
+                throw new IllegalArgumentException(
+                        "A control node with id " + id
+                                + " is already registered"
+                );
             }
+
+            // Registering an isolated node cannot change routes between
+            // already registered nodes. Avoid invalidating hot route caches
+            // until a real edge mutation occurs.
             edges.computeIfAbsent(id, ignored -> new LinkedHashSet<>());
         } finally {
             topologyLock.writeLock().unlock();
@@ -81,6 +106,7 @@ public final class GraphControlBus implements ControlBus {
                     }
                 }
             }
+            invalidateRouteCaches();
             return true;
         } finally {
             topologyLock.writeLock().unlock();
@@ -92,15 +118,20 @@ public final class GraphControlBus implements ControlBus {
         Objects.requireNonNull(first, "first");
         Objects.requireNonNull(second, "second");
         if (first.equals(second)) {
-            throw new IllegalArgumentException("A control node cannot connect to itself");
+            throw new IllegalArgumentException(
+                    "A control node cannot connect to itself"
+            );
         }
 
         topologyLock.writeLock().lock();
         try {
             requireRegistered(first);
             requireRegistered(second);
-            edges.get(first).add(second);
-            edges.get(second).add(first);
+            boolean changed = edges.get(first).add(second);
+            changed |= edges.get(second).add(first);
+            if (changed) {
+                invalidateRouteCaches();
+            }
         } finally {
             topologyLock.writeLock().unlock();
         }
@@ -118,6 +149,9 @@ public final class GraphControlBus implements ControlBus {
             boolean changed = firstEdges != null && firstEdges.remove(second);
             if (secondEdges != null) {
                 changed |= secondEdges.remove(first);
+            }
+            if (changed) {
+                invalidateRouteCaches();
             }
             return changed;
         } finally {
@@ -159,7 +193,7 @@ public final class GraphControlBus implements ControlBus {
         topologyLock.readLock().lock();
         try {
             requireRegistered(nodeId);
-            return Set.copyOf(walkComponent(nodeId, Integer.MAX_VALUE));
+            return Set.copyOf(componentRoute(nodeId));
         } finally {
             topologyLock.readLock().unlock();
         }
@@ -190,50 +224,54 @@ public final class GraphControlBus implements ControlBus {
     }
 
     @Override
-    public ControlDispatchResult publish(UUID source, ControlChannel channel, ControlValue value) {
-        Objects.requireNonNull(source, "source");
+    public ControlDispatchResult publish(
+            UUID source,
+            ControlChannel channel,
+            ControlValue value
+    ) {
         Objects.requireNonNull(channel, "channel");
         Objects.requireNonNull(value, "value");
 
-        List<ControlNode> candidates = new ArrayList<>();
-        boolean truncated;
+        DispatchRoute route = snapshotDispatchRoute(source);
+        ControlSignal signal = new ControlSignal(
+                source,
+                channel,
+                value,
+                sequence.getAndIncrement()
+        );
+        return deliver(route, signal);
+    }
 
-        topologyLock.readLock().lock();
-        try {
-            requireRegistered(source);
-
-            int traversalLimit = (int) Math.min(Integer.MAX_VALUE, (long) maxPropagationNodes + 2L);
-            List<UUID> route = walkComponent(source, traversalLimit);
-            int reachableRecipients = Math.max(0, route.size() - 1);
-            truncated = reachableRecipients > maxPropagationNodes;
-
-            int recipientLimit = Math.min(reachableRecipients, maxPropagationNodes);
-            for (int i = 1; i <= recipientLimit; i++) {
-                ControlNode node = nodes.get(route.get(i));
-                if (node != null) {
-                    candidates.add(node);
-                }
-            }
-        } finally {
-            topologyLock.readLock().unlock();
+    @Override
+    public List<ControlDispatchResult> publishBatch(
+            UUID source,
+            List<ControlPublication> publications
+    ) {
+        Objects.requireNonNull(source, "source");
+        Objects.requireNonNull(publications, "publications");
+        if (publications.isEmpty()) {
+            return List.of();
         }
 
-        ControlSignal signal = new ControlSignal(source, channel, value, sequence.getAndIncrement());
-        List<ControlDispatchResult.DeliveryFailure> failures = new ArrayList<>();
-        int delivered = 0;
-
-        for (ControlNode candidate : candidates) {
-            try {
-                if (candidate.accepts(channel)) {
-                    candidate.onSignal(signal);
-                    delivered++;
-                }
-            } catch (RuntimeException ex) {
-                failures.add(new ControlDispatchResult.DeliveryFailure(candidate.id(), ex));
-            }
+        for (ControlPublication publication : publications) {
+            Objects.requireNonNull(publication, "publication");
         }
 
-        return new ControlDispatchResult(delivered, truncated, failures);
+        DispatchRoute route = snapshotDispatchRoute(source);
+        List<ControlDispatchResult> results =
+                new ArrayList<>(publications.size());
+
+        for (ControlPublication publication : publications) {
+            ControlSignal signal = new ControlSignal(
+                    source,
+                    publication.channel(),
+                    publication.value(),
+                    sequence.getAndIncrement()
+            );
+            results.add(deliver(route, signal));
+        }
+
+        return List.copyOf(results);
     }
 
     @Override
@@ -242,10 +280,123 @@ public final class GraphControlBus implements ControlBus {
         try {
             nodes.clear();
             edges.clear();
+            invalidateRouteCaches();
             sequence.set(0);
+            dispatchRouteBuilds.set(0);
         } finally {
             topologyLock.writeLock().unlock();
         }
+    }
+
+    long dispatchRouteBuildCount() {
+        return dispatchRouteBuilds.get();
+    }
+
+    int dispatchRouteCacheSize() {
+        return dispatchRouteCache.size();
+    }
+
+    private DispatchRoute snapshotDispatchRoute(UUID source) {
+        Objects.requireNonNull(source, "source");
+
+        topologyLock.readLock().lock();
+        try {
+            requireRegistered(source);
+            return dispatchRoute(source);
+        } finally {
+            topologyLock.readLock().unlock();
+        }
+    }
+
+    private ControlDispatchResult deliver(
+            DispatchRoute route,
+            ControlSignal signal
+    ) {
+        List<ControlDispatchResult.DeliveryFailure> failures =
+                new ArrayList<>();
+        int delivered = 0;
+
+        for (ControlNode candidate : route.candidates()) {
+            try {
+                if (candidate.accepts(signal.channel())) {
+                    candidate.onSignal(signal);
+                    delivered++;
+                }
+            } catch (RuntimeException ex) {
+                failures.add(
+                        new ControlDispatchResult.DeliveryFailure(
+                                candidate.id(),
+                                ex
+                        )
+                );
+            }
+        }
+
+        return new ControlDispatchResult(
+                delivered,
+                route.truncated(),
+                failures
+        );
+    }
+
+    private DispatchRoute dispatchRoute(UUID source) {
+        DispatchRoute cached = dispatchRouteCache.get(source);
+        if (cached != null) {
+            return cached;
+        }
+
+        int traversalLimit = (int) Math.min(
+                Integer.MAX_VALUE,
+                (long) maxPropagationNodes + 2L
+        );
+        List<UUID> route = walkComponent(source, traversalLimit);
+        int reachableRecipients = Math.max(0, route.size() - 1);
+        boolean truncated = reachableRecipients > maxPropagationNodes;
+
+        List<ControlNode> candidates = new ArrayList<>(
+                Math.min(reachableRecipients, maxPropagationNodes)
+        );
+        for (UUID nodeId : route) {
+            if (nodeId.equals(source)) {
+                continue;
+            }
+            if (candidates.size() >= maxPropagationNodes) {
+                break;
+            }
+
+            ControlNode node = nodes.get(nodeId);
+            if (node != null) {
+                candidates.add(node);
+            }
+        }
+
+        DispatchRoute built = new DispatchRoute(
+                List.copyOf(candidates),
+                truncated
+        );
+        dispatchRouteBuilds.incrementAndGet();
+
+        DispatchRoute raced = dispatchRouteCache.putIfAbsent(
+                source,
+                built
+        );
+        return raced == null ? built : raced;
+    }
+
+    private List<UUID> componentRoute(UUID source) {
+        List<UUID> cached = componentRouteCache.get(source);
+        if (cached != null) {
+            return cached;
+        }
+
+        List<UUID> built = List.copyOf(
+                walkComponent(source, Integer.MAX_VALUE)
+        );
+        List<UUID> raced = componentRouteCache.putIfAbsent(
+                source,
+                built
+        );
+        return raced == null ? built : raced;
     }
 
     private List<UUID> walkComponent(UUID source, int limit) {
@@ -259,7 +410,10 @@ public final class GraphControlBus implements ControlBus {
             UUID current = queue.remove();
             route.add(current);
 
-            for (UUID neighbor : edges.getOrDefault(current, Set.of())) {
+            for (UUID neighbor : edges.getOrDefault(
+                    current,
+                    Set.of()
+            )) {
                 if (visited.add(neighbor)) {
                     queue.add(neighbor);
                 }
@@ -268,9 +422,25 @@ public final class GraphControlBus implements ControlBus {
         return route;
     }
 
+    private void invalidateRouteCaches() {
+        dispatchRouteCache.clear();
+        componentRouteCache.clear();
+    }
+
     private void requireRegistered(UUID nodeId) {
         if (!nodes.containsKey(nodeId)) {
-            throw new IllegalArgumentException("Unknown control node: " + nodeId);
+            throw new IllegalArgumentException(
+                    "Unknown control node: " + nodeId
+            );
+        }
+    }
+
+    private record DispatchRoute(
+            List<ControlNode> candidates,
+            boolean truncated
+    ) {
+        private DispatchRoute {
+            candidates = List.copyOf(candidates);
         }
     }
 }

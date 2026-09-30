@@ -175,6 +175,27 @@ public final class GridWorksCommand implements CommandExecutor, TabCompleter {
         );
         line(
                 sender,
+                "Sensor sweep estimate",
+                "inventory "
+                        + plugin.getInventorySensorManager().estimatedSweepTicks()
+                        + "t @ "
+                        + plugin.getInventorySensorManager().maxSamplesPerTick()
+                        + "/t, fluid "
+                        + plugin.getFluidSensorManager().estimatedSweepTicks()
+                        + "t @ "
+                        + plugin.getFluidSensorManager().maxSamplesPerTick()
+                        + "/t, machine "
+                        + plugin.getMachineSensorManager().estimatedSweepTicks()
+                        + "t @ "
+                        + plugin.getMachineSensorManager().maxSamplesPerTick()
+                        + "/t, power "
+                        + plugin.getPowerGridSensorManager().estimatedSweepTicks()
+                        + "t @ "
+                        + plugin.getPowerGridSensorManager().maxSamplesPerTick()
+                        + "/t"
+        );
+        line(
+                sender,
                 "Power grid provider",
                 availability(
                         plugin.getPowerGridBridge().isAvailable(),

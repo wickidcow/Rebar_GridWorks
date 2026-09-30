@@ -9,18 +9,21 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 
 public final class PersistentConnectionStore {
-    private static final String HEADER = "# GridWorks persistent Control Interface links";
+    private static final String HEADER =
+            "# GridWorks persistent Control Interface links";
 
     private final Path path;
     private final Set<ControlLink> links = new LinkedHashSet<>();
+    private final Map<UUID, LinkedHashSet<UUID>> adjacency = new HashMap<>();
 
     public PersistentConnectionStore(Path path) throws IOException {
         this.path = path;
@@ -32,13 +35,11 @@ public final class PersistentConnectionStore {
     }
 
     public synchronized Set<UUID> neighbors(UUID nodeId) {
-        Set<UUID> neighbors = new LinkedHashSet<>();
-        for (ControlLink link : links) {
-            if (link.contains(nodeId)) {
-                neighbors.add(link.other(nodeId));
-            }
+        Set<UUID> neighbors = adjacency.get(nodeId);
+        if (neighbors == null || neighbors.isEmpty()) {
+            return Set.of();
         }
-        return Collections.unmodifiableSet(neighbors);
+        return Collections.unmodifiableSet(new LinkedHashSet<>(neighbors));
     }
 
     public synchronized Set<UUID> componentOf(UUID nodeId) {
@@ -50,12 +51,12 @@ public final class PersistentConnectionStore {
 
         while (!queue.isEmpty()) {
             UUID current = queue.remove();
-            for (ControlLink link : links) {
-                if (!link.contains(current)) {
-                    continue;
-                }
+            Set<UUID> currentNeighbors = adjacency.get(current);
+            if (currentNeighbors == null) {
+                continue;
+            }
 
-                UUID next = link.other(current);
+            for (UUID next : currentNeighbors) {
                 if (visited.add(next)) {
                     queue.add(next);
                 }
@@ -66,23 +67,32 @@ public final class PersistentConnectionStore {
     }
 
     public synchronized int edgeCount(Set<UUID> nodes) {
-        int count = 0;
-        for (ControlLink link : links) {
-            if (nodes.contains(link.first()) && nodes.contains(link.second())) {
-                count++;
+        long total = 0L;
+        for (UUID nodeId : nodes) {
+            Set<UUID> currentNeighbors = adjacency.get(nodeId);
+            if (currentNeighbors == null) {
+                continue;
+            }
+
+            for (UUID neighbor : currentNeighbors) {
+                if (nodes.contains(neighbor)) {
+                    total++;
+                }
             }
         }
-        return count;
+        return Math.toIntExact(total / 2L);
     }
 
-    public synchronized boolean toggle(UUID first, UUID second) throws IOException {
+    public synchronized boolean toggle(UUID first, UUID second)
+            throws IOException {
         ControlLink link = new ControlLink(first, second);
         boolean added;
 
-        if (links.remove(link)) {
+        if (links.contains(link)) {
+            removeIndexed(link);
             added = false;
         } else {
-            links.add(link);
+            addIndexed(link);
             added = true;
         }
 
@@ -91,31 +101,41 @@ public final class PersistentConnectionStore {
             return added;
         } catch (IOException exception) {
             if (added) {
-                links.remove(link);
+                removeIndexed(link);
             } else {
-                links.add(link);
+                addIndexed(link);
             }
             throw exception;
         }
     }
 
     public synchronized int removeNode(UUID nodeId) throws IOException {
-        List<ControlLink> removed = links.stream()
-                .filter(link -> link.contains(nodeId))
-                .toList();
-
-        if (removed.isEmpty()) {
+        Set<UUID> neighbors = adjacency.get(nodeId);
+        if (neighbors == null || neighbors.isEmpty()) {
             return 0;
         }
 
-        links.removeAll(removed);
+        List<ControlLink> removed = neighbors.stream()
+                .map(neighbor -> new ControlLink(nodeId, neighbor))
+                .toList();
+
+        for (ControlLink link : removed) {
+            removeIndexed(link);
+        }
+
         try {
             save();
             return removed.size();
         } catch (IOException exception) {
-            links.addAll(removed);
+            for (ControlLink link : removed) {
+                addIndexed(link);
+            }
             throw exception;
         }
+    }
+
+    public synchronized int linkCount() {
+        return links.size();
     }
 
     public synchronized Set<ControlLink> links() {
@@ -139,20 +159,63 @@ public final class PersistentConnectionStore {
 
             String[] parts = line.split(",", -1);
             if (parts.length != 2) {
-                throw new IOException("Invalid GridWorks control-network entry on line " + lineNumber);
+                throw new IOException(
+                        "Invalid GridWorks control-network entry on line "
+                                + lineNumber
+                );
             }
 
             try {
-                links.add(new ControlLink(
+                ControlLink link = new ControlLink(
                         UUID.fromString(parts[0].trim()),
                         UUID.fromString(parts[1].trim())
-                ));
+                );
+                if (!links.contains(link)) {
+                    addIndexed(link);
+                }
             } catch (IllegalArgumentException exception) {
                 throw new IOException(
-                        "Invalid GridWorks control-network UUID on line " + lineNumber,
+                        "Invalid GridWorks control-network UUID on line "
+                                + lineNumber,
                         exception
                 );
             }
+        }
+    }
+
+    private void addIndexed(ControlLink link) {
+        if (!links.add(link)) {
+            return;
+        }
+
+        adjacency.computeIfAbsent(
+                link.first(),
+                ignored -> new LinkedHashSet<>()
+        ).add(link.second());
+        adjacency.computeIfAbsent(
+                link.second(),
+                ignored -> new LinkedHashSet<>()
+        ).add(link.first());
+    }
+
+    private void removeIndexed(ControlLink link) {
+        if (!links.remove(link)) {
+            return;
+        }
+
+        removeNeighbor(link.first(), link.second());
+        removeNeighbor(link.second(), link.first());
+    }
+
+    private void removeNeighbor(UUID nodeId, UUID neighbor) {
+        LinkedHashSet<UUID> neighbors = adjacency.get(nodeId);
+        if (neighbors == null) {
+            return;
+        }
+
+        neighbors.remove(neighbor);
+        if (neighbors.isEmpty()) {
+            adjacency.remove(nodeId);
         }
     }
 
@@ -167,9 +230,13 @@ public final class PersistentConnectionStore {
         links.stream()
                 .sorted((left, right) -> {
                     int first = left.first().compareTo(right.first());
-                    return first != 0 ? first : left.second().compareTo(right.second());
+                    return first != 0
+                            ? first
+                            : left.second().compareTo(right.second());
                 })
-                .forEach(link -> lines.add(link.first() + "," + link.second()));
+                .forEach(link -> lines.add(
+                        link.first() + "," + link.second()
+                ));
 
         Path temp = path.resolveSibling(path.getFileName() + ".tmp");
         Files.write(temp, lines, StandardCharsets.UTF_8);
@@ -182,7 +249,11 @@ public final class PersistentConnectionStore {
                     StandardCopyOption.REPLACE_EXISTING
             );
         } catch (AtomicMoveNotSupportedException exception) {
-            Files.move(temp, path, StandardCopyOption.REPLACE_EXISTING);
+            Files.move(
+                    temp,
+                    path,
+                    StandardCopyOption.REPLACE_EXISTING
+            );
         }
     }
 }

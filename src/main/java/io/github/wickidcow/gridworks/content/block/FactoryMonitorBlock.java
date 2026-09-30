@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Material;
@@ -115,6 +116,9 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
     private final Map<UUID, MonitorPage> selectedPages = new ConcurrentHashMap<>();
     private final Map<ControlChannel, SignalValueItem> signalItems = createSignalItems();
     private final PageSignalItem[] pageSignalItems = createPageSignalItems();
+    private final Set<Integer> dirtySlotIndexes = ConcurrentHashMap.newKeySet();
+    private final AtomicBoolean addressedDirty = new AtomicBoolean();
+    private final AtomicBoolean notificationScheduled = new AtomicBoolean();
     private final AddressedSignalItem addressedSignalItem = new AddressedSignalItem();
     private final SourceSelectorItem sourceSelectorItem = new SourceSelectorItem();
     private final RefreshItem refreshItem = new RefreshItem();
@@ -135,6 +139,9 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
         telemetry.clear();
         selectedSources.clear();
         selectedPages.clear();
+        dirtySlotIndexes.clear();
+        addressedDirty.set(false);
+        notificationScheduled.set(false);
     }
 
     @Override
@@ -150,24 +157,48 @@ public final class FactoryMonitorBlock extends PhysicalControlNodeBlock implemen
         }
 
         if (ControlAddress.isAddressedChannel(signal.channel())) {
-            runOnServerThreadIfActive(() -> {
-                addressedSignalItem.notifyWindows();
-                sourceSelectorItem.notifyWindows();
-                refreshItem.notifyWindows();
-            });
+            addressedDirty.set(true);
+        } else {
+            Integer slotIndex = CHANNEL_SLOT_INDEX.get(signal.channel());
+            if (slotIndex == null) {
+                return;
+            }
+            dirtySlotIndexes.add(slotIndex);
+        }
+
+        scheduleSignalNotifications();
+    }
+
+    private void scheduleSignalNotifications() {
+        if (!notificationScheduled.compareAndSet(false, true)) {
             return;
         }
 
-        Integer slotIndex = CHANNEL_SLOT_INDEX.get(signal.channel());
-        if (slotIndex == null) {
-            return;
-        }
-
-        runOnServerThreadIfActive(() -> {
-            pageSignalItems[slotIndex].notifyWindows();
-            sourceSelectorItem.notifyWindows();
-            refreshItem.notifyWindows();
+        GridWorks plugin = GridWorks.getInstance();
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            notificationScheduled.set(false);
+            runOnServerThreadIfActive(this::flushSignalNotifications);
         });
+    }
+
+    private void flushSignalNotifications() {
+        Set<Integer> slots = new java.util.HashSet<>(dirtySlotIndexes);
+        dirtySlotIndexes.removeAll(slots);
+
+        for (int slotIndex : slots) {
+            pageSignalItems[slotIndex].notifyWindows();
+        }
+
+        if (addressedDirty.getAndSet(false)) {
+            addressedSignalItem.notifyWindows();
+        }
+
+        sourceSelectorItem.notifyWindows();
+        refreshItem.notifyWindows();
+
+        if (!dirtySlotIndexes.isEmpty() || addressedDirty.get()) {
+            scheduleSignalNotifications();
+        }
     }
 
     @Override

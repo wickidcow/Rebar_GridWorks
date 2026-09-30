@@ -138,6 +138,43 @@ class PhysicalControlNetworkTest {
     }
 
     @Test
+    void scheduledReplayCoalescesManyActivationsIntoOneComponentPass()
+            throws Exception {
+        GraphControlBus bus = new GraphControlBus(128);
+        PersistentConnectionStore store = new PersistentConnectionStore(
+                tempDir.resolve("network.txt")
+        );
+
+        StatefulTestNode source = new StatefulTestNode(bus, true);
+        TestNode middle = new TestNode();
+        TestNode receiver = new TestNode();
+
+        store.toggle(source.id(), middle.id());
+        store.toggle(middle.id(), receiver.id());
+
+        List<Runnable> scheduled = new ArrayList<>();
+        PhysicalControlNetwork network = new PhysicalControlNetwork(
+                bus,
+                store,
+                ignored -> {},
+                scheduled::add
+        );
+
+        network.activate(source);
+        network.activate(middle);
+        network.activate(receiver);
+
+        assertEquals(1, scheduled.size());
+        assertEquals(0, source.publishCount);
+
+        scheduled.getFirst().run();
+
+        assertEquals(1, source.publishCount);
+        assertEquals(1, receiver.received.size());
+        assertEquals(ControlValue.of(true), receiver.received.getFirst().value());
+    }
+
+    @Test
     void peerCallbackFailuresDoNotBreakTopologyChanges() throws Exception {
         GraphControlBus bus = new GraphControlBus(32);
         PersistentConnectionStore store = new PersistentConnectionStore(tempDir.resolve("network.txt"));
@@ -169,6 +206,7 @@ class PhysicalControlNetworkTest {
         private final UUID id = UUID.randomUUID();
         private final GraphControlBus bus;
         private final boolean state;
+        private int publishCount;
 
         private StatefulTestNode(GraphControlBus bus, boolean state) {
             this.bus = bus;
@@ -186,6 +224,7 @@ class PhysicalControlNetworkTest {
 
         @Override
         public void publishCurrentState() {
+            publishCount++;
             bus.publish(
                     id,
                     ControlChannel.of("gridworks", "test/state"),

@@ -2,6 +2,7 @@ package io.github.wickidcow.gridworks.content.block;
 
 import io.github.pylonmc.rebar.block.context.BlockCreateContext;
 import io.github.wickidcow.gridworks.GridWorks;
+import io.github.wickidcow.gridworks.api.control.ControlPublication;
 import io.github.wickidcow.gridworks.api.control.ControlStateSource;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.api.control.GridWorksChannels;
@@ -50,9 +51,7 @@ public final class FluidSensorBlock extends PhysicalControlNodeBlock implements 
 
     @Override
     public void publishCurrentState() {
-        if (lastSnapshot == null) {
-            sampleNow();
-        } else {
+        if (lastSnapshot != null) {
             publish(lastSnapshot);
         }
     }
@@ -129,44 +128,41 @@ public final class FluidSensorBlock extends PhysicalControlNodeBlock implements 
     }
 
     private void publish(FluidSnapshot snapshot) {
-        var bus = GridWorks.getInstance().getControlBus();
-
-        bus.publish(
-                getNodeId(),
+        var publications = new java.util.ArrayList<ControlPublication>(6);
+        publications.add(ControlPublication.of(
                 GridWorksChannels.FLUID_AVAILABLE,
                 ControlValue.of(snapshot.available())
-        );
+        ));
 
-        if (!snapshot.available()) {
-            return;
+        if (snapshot.available()) {
+            publications.add(ControlPublication.of(
+                    GridWorksChannels.FLUID_PRESENT,
+                    ControlValue.of(snapshot.hasFluid())
+            ));
+            publications.add(ControlPublication.of(
+                    GridWorksChannels.FLUID_TYPE,
+                    ControlValue.of(snapshot.fluidKey())
+            ));
+            publications.add(ControlPublication.of(
+                    GridWorksChannels.FLUID_AMOUNT,
+                    ControlValue.of(snapshot.amount())
+            ));
+            publications.add(ControlPublication.of(
+                    GridWorksChannels.FLUID_CAPACITY,
+                    ControlValue.of(snapshot.capacity())
+            ));
+            publications.add(ControlPublication.of(
+                    GridWorksChannels.FLUID_FILL_RATIO,
+                    ControlValue.of(snapshot.fillRatio())
+            ));
         }
 
-        bus.publish(
+        GridWorks.getInstance().getControlBus().publishBatch(
                 getNodeId(),
-                GridWorksChannels.FLUID_PRESENT,
-                ControlValue.of(snapshot.hasFluid())
-        );
-        bus.publish(
-                getNodeId(),
-                GridWorksChannels.FLUID_TYPE,
-                ControlValue.of(snapshot.fluidKey())
-        );
-        bus.publish(
-                getNodeId(),
-                GridWorksChannels.FLUID_AMOUNT,
-                ControlValue.of(snapshot.amount())
-        );
-        bus.publish(
-                getNodeId(),
-                GridWorksChannels.FLUID_CAPACITY,
-                ControlValue.of(snapshot.capacity())
-        );
-        bus.publish(
-                getNodeId(),
-                GridWorksChannels.FLUID_FILL_RATIO,
-                ControlValue.of(snapshot.fillRatio())
+                publications
         );
     }
+
 
     private static String format(double value) {
         return String.format(Locale.ROOT, "%.1f", value);

@@ -1,35 +1,37 @@
 control-bus:
   # Safety cap for the number of recipient nodes a single signal may traverse.
   # This prevents a malformed or unexpectedly huge control network from doing
-  # unbounded work in one dispatch.
+  # unbounded work in one dispatch. GridWorks also caches unchanged routes.
   max-propagation-nodes: 4096
 
 sensors:
   inventory:
-    # Inventory mutations do not have one universal Bukkit event. GridWorks
-    # therefore uses one shared sampler for loaded Inventory Sensors only.
-    # 10 ticks = 0.5 seconds at 20 TPS.
+    # Desired full-sweep interval for loaded Inventory Sensors.
+    # Work is round-robin distributed across ticks instead of all sensors
+    # waking up together. 10 ticks = 0.5 seconds at 20 TPS.
     sample-interval-ticks: 10
 
+    # Hard ceiling on Inventory Sensor probes in one server tick.
+    # If the loaded population exceeds interval * budget, the sweep interval
+    # stretches gracefully instead of causing one large tick spike.
+    max-samples-per-tick: 128
+
   fluid:
-    # Rebar's released fluid tank API exposes state cleanly, but does not emit
-    # one universal change event for every tank implementation. GridWorks uses
-    # one shared sampler for loaded Fluid Sensors only.
-    # 10 ticks = 0.5 seconds at 20 TPS.
+    # Desired full-sweep interval for loaded Fluid Sensors.
     sample-interval-ticks: 10
+    max-samples-per-tick: 128
 
   machine:
     # Released Rebar processor APIs expose state but no universal state-change
-    # event, so loaded Machine Sensors share one conservative sampler.
-    # 20 ticks = 1 second at 20 TPS.
+    # event, so loaded Machine Sensors use one distributed shared sampler.
     sample-interval-ticks: 20
+    max-samples-per-tick: 64
 
   power:
-    # Power providers may need to inspect an electricity network graph, so the
-    # provider-neutral Power Grid Sensor samples more conservatively by default.
-    # One shared task services loaded Power Grid Sensors only.
-    # 20 ticks = 1 second at 20 TPS.
+    # Provider queries may need to inspect an electricity graph, so power
+    # sampling uses the smallest default per-tick budget.
     sample-interval-ticks: 20
+    max-samples-per-tick: 32
 
 cargo:
   isolator:

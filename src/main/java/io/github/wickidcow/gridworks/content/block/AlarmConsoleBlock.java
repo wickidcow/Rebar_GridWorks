@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Material;
@@ -43,6 +44,7 @@ public final class AlarmConsoleBlock extends PhysicalControlNodeBlock implements
     private final Map<UUID, AlarmTelemetryState> alarms = new ConcurrentHashMap<>();
     private volatile List<AlarmTelemetryState.Snapshot> visibleAlarms = List.of();
     private volatile AlarmConsoleFilter filter;
+    private final AtomicBoolean rebuildScheduled = new AtomicBoolean();
 
     private final List<AlarmSlotItem> alarmSlots = createSlots();
     private final RefreshItem refreshItem = new RefreshItem();
@@ -84,8 +86,22 @@ public final class AlarmConsoleBlock extends PhysicalControlNodeBlock implements
             return;
         }
 
-        rebuildVisibleAlarms();
-        runOnServerThreadIfActive(this::notifyItems);
+        scheduleRebuild();
+    }
+
+    private void scheduleRebuild() {
+        if (!rebuildScheduled.compareAndSet(false, true)) {
+            return;
+        }
+
+        GridWorks plugin = GridWorks.getInstance();
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            rebuildScheduled.set(false);
+            runOnServerThreadIfActive(() -> {
+                rebuildVisibleAlarms();
+                notifyItems();
+            });
+        });
     }
 
     @Override
@@ -95,18 +111,22 @@ public final class AlarmConsoleBlock extends PhysicalControlNodeBlock implements
 
     @Override
     protected void afterDeactivated() {
+        rebuildScheduled.set(false);
         alarms.clear();
         visibleAlarms = List.of();
     }
 
     @Override
     protected void afterRemoved() {
+        rebuildScheduled.set(false);
         alarms.clear();
         visibleAlarms = List.of();
     }
 
     @Override
     public @NotNull Gui createGui() {
+        rebuildVisibleAlarms();
+
         return Gui.builder()
                 .setStructure(
                         "0 1 2 3 4 5 6 7 8",
