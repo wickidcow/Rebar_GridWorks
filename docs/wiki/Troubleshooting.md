@@ -6,7 +6,7 @@ Check:
 
 1. Paper is on the supported 26.2 line.
 2. Java 25 is being used.
-3. Rebar 1.0.0-20260929.193904-140 is installed and enabled.
+3. Rebar 0.44.4-26.2 is installed and enabled.
 4. The GridWorks JAR matches the current development line.
 5. `config.yml` does not contain an invalid numeric value.
 
@@ -50,9 +50,7 @@ Observed Cycles tracks observed processing-to-idle activity. It is not guarantee
 
 ## Power device says provider unavailable
 
-Power integration requires another addon/provider to register GridWorks' provider-neutral power service.
-
-Rebar 1.0.0-20260929.193904-140 does not yet ship the native electricity API GridWorks is waiting to adapt.
+GridWorks includes a native Rebar electricity provider plus a provider-neutral service contract. Check that Rebar 0.44.4-26.2 is installed, and confirm the target is a loaded electrical block on one unambiguous network. A separate electricity content addon may be needed for survival generators and wires.
 
 ## What to include in a bug report
 

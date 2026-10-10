@@ -4,7 +4,7 @@
 
 GridWorks is a Rebar addon focused on making factories smarter rather than simply making machines faster. Its long-term goal is to connect sensors, controllers, power systems, cargo, fluids, machines, and redstone through a common automation layer.
 
-Native Rebar electricity is integrated using the pinned development API `1.0.0-20260929.193904-140` from upstream commit `5e34938`. Use a matching Rebar development server JAR; the stable `0.43.0-26.2` JAR lacks this API. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
+Native Rebar electricity is integrated against published **Rebar 0.44.4-26.2**. Use that released server JAR (verified by pinned SHA-256 in CI) with Paper 26.2 and Java 25. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
 
 ## Timer Controller
 
@@ -228,11 +228,11 @@ Control Bus callbacks deliberately run on the publisher's thread. Physical GridW
 
 ## Power-grid bridge status
 
-Native Rebar electricity is integrated using the pinned development API `1.0.0-20260929.193904-140` from upstream commit `5e34938`. Use a matching Rebar development server JAR; the stable `0.43.0-26.2` JAR lacks this API. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
+Native Rebar electricity is integrated against published **Rebar 0.44.4-26.2**. Use that released server JAR (verified by pinned SHA-256 in CI) with Paper 26.2 and Java 25. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
 
 The neutral snapshot already defines the measurements GridWorks needs: node/producer/consumer counts, powered/unpowered consumers, production capacity, demand, load ratio, reserve watts, and powered-consumer ratio. `PowerGridTelemetry` maps those values onto stable `gridworks:power/*` Control Bus channels, and the Factory Monitor already has bounded display slots for the most useful power signals.
 
-Native Rebar electricity is integrated using the pinned development API `1.0.0-20260929.193904-140` from upstream commit `5e34938`. Use a matching Rebar development server JAR; the stable `0.43.0-26.2` JAR lacks this API. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
+Native Rebar electricity is integrated against published **Rebar 0.44.4-26.2**. Use that released server JAR (verified by pinned SHA-256 in CI) with Paper 26.2 and Java 25. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
 
 ### Power Grid Sensor
 
@@ -258,7 +258,7 @@ All four hysteresis thresholds are configurable in the controller GUI: optional 
 
 Saved tier routes are also repaired through a deterministic collision-safe route set. Even if legacy/corrupt PDC contains duplicate addresses—or one duplicate happens to equal the first generated fallback—the controller generates a distinct replacement before it can publish conflicting Essential/Normal/Optional states.
 
-Native Rebar electricity is integrated using the pinned development API `1.0.0-20260929.193904-140` from upstream commit `5e34938`. Use a matching Rebar development server JAR; the stable `0.43.0-26.2` JAR lacks this API. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
+Native Rebar electricity is integrated against published **Rebar 0.44.4-26.2**. Use that released server JAR (verified by pinned SHA-256 in CI) with Paper 26.2 and Java 25. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
 
 ## Large-server scaling
 
@@ -280,7 +280,7 @@ See the Wiki's **Performance and Optimization** page for the scaling model and t
 
 - Paper 26.2
 - Java 25
-- Rebar 1.0.0-20260929.193904-140
+- Rebar 0.44.4-26.2
 
 Pylon is the primary gameplay ecosystem GridWorks is being designed to complement, but the foundation depends only on Rebar.
 
@@ -299,7 +299,7 @@ GridWorks is licensed under the GNU General Public License v3.0. See [LICENSE](L
 
 ## Part 3 — Smart electrical branch control
 
-Native Rebar electricity is integrated using the pinned development API `1.0.0-20260929.193904-140` from upstream commit `5e34938`. Use a matching Rebar development server JAR; the stable `0.43.0-26.2` JAR lacks this API. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
+Native Rebar electricity is integrated against published **Rebar 0.44.4-26.2**. Use that released server JAR (verified by pinned SHA-256 in CI) with Paper 26.2 and Java 25. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
 
 GridWorks now exposes a second Bukkit service contract, `PowerBranchProvider`, for controllable electrical branches. A provider resolves a branch on a specific loaded block face and can apply an idempotent open/closed state. The snapshot model also reserves a validated optional watt-limit value so the Power Limiter can use the same provider boundary.
 
@@ -309,7 +309,7 @@ The **Smart Breaker** faces one adjacent provider-exposed electrical branch. `tr
 
 The desired branch state is persisted. If the provider or target chunk is temporarily unavailable, the desired command is retained and reapplied when it returns. Provider registration/unregistration and target chunk load/unload are handled with Bukkit events; there is no Smart Breaker polling task.
 
-Native Rebar electricity is integrated using the pinned development API `1.0.0-20260929.193904-140` from upstream commit `5e34938`. Use a matching Rebar development server JAR; the stable `0.43.0-26.2` JAR lacks this API. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
+Native Rebar electricity is integrated against published **Rebar 0.44.4-26.2**. Use that released server JAR (verified by pinned SHA-256 in CI) with Paper 26.2 and Java 25. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
 
 
 ### Power Limiter
@@ -368,7 +368,7 @@ Each physical actuator still owns its domain-specific fail-safe action, but it o
 
 The current 0.4.x development line now includes the provider-neutral electrical branch-control API, Smart Breaker, Power Limiter, released-API Fluid Valve, released-API Cargo Isolator, unified actuator input routing, and survival crafting recipes for the full current GridWorks set.
 
-Native Rebar electricity is integrated using the pinned development API `1.0.0-20260929.193904-140` from upstream commit `5e34938`. Use a matching Rebar development server JAR; the stable `0.43.0-26.2` JAR lacks this API. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
+Native Rebar electricity is integrated against published **Rebar 0.44.4-26.2**. Use that released server JAR (verified by pinned SHA-256 in CI) with Paper 26.2 and Java 25. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
 
 
 ## Development build download
@@ -439,9 +439,9 @@ The validated snapshot drives the Control Bus propagation cap, all four shared s
 
 ## Released Rebar API boundary
 
-Native Rebar electricity is integrated using the pinned development API `1.0.0-20260929.193904-140` from upstream commit `5e34938`. Use a matching Rebar development server JAR; the stable `0.43.0-26.2` JAR lacks this API. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
+Native Rebar electricity is integrated against published **Rebar 0.44.4-26.2**. Use that released server JAR (verified by pinned SHA-256 in CI) with Paper 26.2 and Java 25. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
 
-Native Rebar electricity is integrated using the pinned development API `1.0.0-20260929.193904-140` from upstream commit `5e34938`. Use a matching Rebar development server JAR; the stable `0.43.0-26.2` JAR lacks this API. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
+Native Rebar electricity is integrated against published **Rebar 0.44.4-26.2**. Use that released server JAR (verified by pinned SHA-256 in CI) with Paper 26.2 and Java 25. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
 
 
 ## Byte-for-byte development release verification
