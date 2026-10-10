@@ -7,7 +7,7 @@
 | GridWorks | 0.4.0-SNAPSHOT |
 | Minecraft / Paper | 26.2 |
 | Java | 25 |
-| Rebar | 1.0.0-20260929.193904-140 |
+| Rebar | 0.44.4-26.2 |
 
 The repository's Gradle properties and CI are authoritative if this page ever trails a newer development commit.
 
