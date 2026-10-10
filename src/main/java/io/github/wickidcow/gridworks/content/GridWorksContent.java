@@ -27,6 +27,7 @@ import io.github.wickidcow.gridworks.content.block.SequenceControllerBlock;
 import io.github.wickidcow.gridworks.content.block.SmartBreakerBlock;
 import io.github.wickidcow.gridworks.content.block.StatusLightBlock;
 import io.github.wickidcow.gridworks.content.block.StockControllerBlock;
+import io.github.wickidcow.gridworks.content.block.TimerControllerBlock;
 import io.github.wickidcow.gridworks.content.item.ControlLinker;
 import io.github.wickidcow.gridworks.content.listener.RedstoneSensorListener;
 import io.github.wickidcow.gridworks.content.listener.StatusLightListener;
@@ -54,6 +55,7 @@ public final class GridWorksContent {
     public static NamespacedKey POWER_GRID_SENSOR;
     public static NamespacedKey POWER_LIMITER;
     public static NamespacedKey FACTORY_CONTROLLER;
+    public static NamespacedKey TIMER_CONTROLLER;
     public static NamespacedKey BATCH_CONTROLLER;
     public static NamespacedKey SEQUENCE_CONTROLLER;
     public static NamespacedKey LOAD_SHEDDING_CONTROLLER;
@@ -79,6 +81,7 @@ public final class GridWorksContent {
     public static ItemStack POWER_GRID_SENSOR_ITEM;
     public static ItemStack POWER_LIMITER_ITEM;
     public static ItemStack FACTORY_CONTROLLER_ITEM;
+    public static ItemStack TIMER_CONTROLLER_ITEM;
     public static ItemStack BATCH_CONTROLLER_ITEM;
     public static ItemStack SEQUENCE_CONTROLLER_ITEM;
     public static ItemStack LOAD_SHEDDING_CONTROLLER_ITEM;
@@ -110,6 +113,7 @@ public final class GridWorksContent {
         POWER_GRID_SENSOR = new NamespacedKey(plugin, "power_grid_sensor");
         POWER_LIMITER = new NamespacedKey(plugin, "power_limiter");
         FACTORY_CONTROLLER = new NamespacedKey(plugin, "factory_controller");
+        TIMER_CONTROLLER = new NamespacedKey(plugin, "timer_controller");
         BATCH_CONTROLLER = new NamespacedKey(plugin, "batch_controller");
         SEQUENCE_CONTROLLER = new NamespacedKey(plugin, "sequence_controller");
         LOAD_SHEDDING_CONTROLLER = new NamespacedKey(plugin, "load_shedding_controller");
@@ -140,6 +144,7 @@ public final class GridWorksContent {
         RebarBlock.register(POWER_GRID_SENSOR, Material.LIGHTNING_ROD, PowerGridSensorBlock.class);
         RebarBlock.register(POWER_LIMITER, Material.COMPARATOR, PowerLimiterBlock.class);
         RebarBlock.register(FACTORY_CONTROLLER, Material.CHISELED_COPPER, FactoryControllerBlock.class);
+        RebarBlock.register(TIMER_CONTROLLER, Material.COPPER_BULB, TimerControllerBlock.class);
         RebarBlock.register(BATCH_CONTROLLER, Material.CRAFTER, BatchControllerBlock.class);
         RebarBlock.register(SEQUENCE_CONTROLLER, Material.COPPER_BULB, SequenceControllerBlock.class);
         RebarBlock.register(
@@ -176,6 +181,7 @@ public final class GridWorksContent {
         POWER_GRID_SENSOR_ITEM = ItemStackBuilder.rebar(Material.LIGHTNING_ROD, POWER_GRID_SENSOR).build();
         POWER_LIMITER_ITEM = ItemStackBuilder.rebar(Material.COMPARATOR, POWER_LIMITER).build();
         FACTORY_CONTROLLER_ITEM = ItemStackBuilder.rebar(Material.CHISELED_COPPER, FACTORY_CONTROLLER).build();
+        TIMER_CONTROLLER_ITEM = ItemStackBuilder.rebar(Material.COPPER_BULB, TIMER_CONTROLLER).build();
         BATCH_CONTROLLER_ITEM = ItemStackBuilder.rebar(Material.CRAFTER, BATCH_CONTROLLER).build();
         SEQUENCE_CONTROLLER_ITEM = ItemStackBuilder.rebar(Material.COPPER_BULB, SEQUENCE_CONTROLLER).build();
         LOAD_SHEDDING_CONTROLLER_ITEM = ItemStackBuilder.rebar(
@@ -211,6 +217,7 @@ public final class GridWorksContent {
         RebarItem.register(RebarItem.class, POWER_GRID_SENSOR_ITEM, POWER_GRID_SENSOR);
         RebarItem.register(RebarItem.class, POWER_LIMITER_ITEM, POWER_LIMITER);
         RebarItem.register(RebarItem.class, FACTORY_CONTROLLER_ITEM, FACTORY_CONTROLLER);
+        RebarItem.register(RebarItem.class, TIMER_CONTROLLER_ITEM, TIMER_CONTROLLER);
         RebarItem.register(RebarItem.class, BATCH_CONTROLLER_ITEM, BATCH_CONTROLLER);
         RebarItem.register(RebarItem.class, SEQUENCE_CONTROLLER_ITEM, SEQUENCE_CONTROLLER);
         RebarItem.register(
