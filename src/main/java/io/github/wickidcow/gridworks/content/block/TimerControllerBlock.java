@@ -146,7 +146,9 @@ public final class TimerControllerBlock extends PhysicalControlNodeBlock
 
     @Override
     protected void afterActivated() {
-        setVisual(false);
+        // Activation may already have replayed a current input. Reflect the
+        // engine's actual state instead of blindly darkening the visual.
+        setVisual(engine.state().output());
         publishCurrentState();
     }
 
