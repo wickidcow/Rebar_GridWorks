@@ -18,6 +18,7 @@ Each mode needs a **new real OFF-to-ON input transition** to start. The first ob
 | --- | --- |
 | Mode | Left/right cycles One-shot, Repeating Pulse, Duty Cycle |
 | Input | Select Redstone, Default, A, B, C or D input circuit |
+| Input source | Select AUTO or a directly linked loaded peer; selected UUID persists through chunk unload |
 | Output Mode | Choose Circuit or Address |
 | Output Circuit | Choose Default or A-D |
 | Output Address | Edit a name such as \`farm_timer\` when Address mode is selected |

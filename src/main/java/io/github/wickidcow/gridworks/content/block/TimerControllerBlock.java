@@ -15,6 +15,9 @@ import io.github.wickidcow.gridworks.api.control.ControlSignal;
 import io.github.wickidcow.gridworks.api.control.ControlStateSource;
 import io.github.wickidcow.gridworks.api.control.ControlValue;
 import io.github.wickidcow.gridworks.control.TimerCycleEngine;
+import io.github.wickidcow.gridworks.control.TimerInputSelector;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
@@ -52,6 +55,7 @@ public final class TimerControllerBlock extends PhysicalControlNodeBlock
     private static final NamespacedKey ON_KEY = key("timer_on_ticks");
     private static final NamespacedKey OFF_KEY = key("timer_off_ticks");
     private static final NamespacedKey INPUT_KEY = key("timer_input_mode");
+    private static final NamespacedKey SOURCE_KEY = key("timer_input_source");
     private static final NamespacedKey OUTPUT_KEY = key("timer_output_circuit");
     private static final NamespacedKey OUTPUT_MODE_KEY = key("timer_output_mode");
     private static final NamespacedKey OUTPUT_ADDRESS_KEY = key("timer_output_address");
@@ -68,11 +72,12 @@ public final class TimerControllerBlock extends PhysicalControlNodeBlock
     private ControlCommandChannel outputCircuit;
     private ControlOutputMode outputMode;
     private ControlAddress outputAddress;
-    private UUID sourceId;
+    private final TimerInputSelector sourceSelector;
     private BukkitTask scheduled;
 
     private final ControllerItem modeItem = new ControllerItem("mode");
     private final ControllerItem inputItem = new ControllerItem("input");
+    private final ControllerItem sourceItem = new ControllerItem("source");
     private final ControllerItem outputModeItem = new ControllerItem("output_mode");
     private final ControllerItem circuitItem = new ControllerItem("circuit");
     private final ControllerItem addressItem = new ControllerItem("address");
@@ -93,6 +98,7 @@ public final class TimerControllerBlock extends PhysicalControlNodeBlock
         outputMode = ControlOutputMode.CIRCUIT;
         outputAddress = ControlAddress.defaultFor(getNodeId(), "timer");
         engine = new TimerCycleEngine(TimerCycleEngine.Mode.ONE_SHOT, initialTicks, onTicks, offTicks);
+        sourceSelector = new TimerInputSelector(null);
     }
 
     public TimerControllerBlock(@NotNull Block block, @NotNull PersistentDataContainer pdc) {
@@ -113,6 +119,7 @@ public final class TimerControllerBlock extends PhysicalControlNodeBlock
         }
         // Old data, if any, is never allowed to revive a pending task.
         engine = new TimerCycleEngine(mode, initialTicks, onTicks, offTicks);
+        sourceSelector = new TimerInputSelector(uuidFromStored(pdc.get(SOURCE_KEY, PersistentDataType.STRING)));
         inputMode = BooleanInputMode.fromStored(pdc.get(INPUT_KEY, PersistentDataType.STRING));
         // This is a new item: default to Redstone-only when the setting is missing.
         if (!pdc.has(INPUT_KEY, PersistentDataType.STRING)) {
@@ -134,7 +141,7 @@ public final class TimerControllerBlock extends PhysicalControlNodeBlock
     protected void beforeActivated() {
         cancelScheduled();
         engine.resetAfterLoad();
-        sourceId = null;
+        sourceSelector.resetActive();
     }
 
     @Override
@@ -152,14 +159,8 @@ public final class TimerControllerBlock extends PhysicalControlNodeBlock
             }
             // Source selection is tied to direct physical links so losing that
             // peer can fail safely OFF. No world scan or remote chunk loading.
-            if (!GridWorks.getInstance().getPhysicalControlNetwork()
-                    .isLinked(getNodeId(), signal.source())) {
-                return;
-            }
-            if (sourceId == null) {
-                sourceId = signal.source();
-            }
-            if (!sourceId.equals(signal.source())) {
+            if (!sourceSelector.accept(signal.source(), GridWorks.getInstance()
+                    .getPhysicalControlNetwork().isLinked(getNodeId(), signal.source()))) {
                 return;
             }
             boolean before = engine.state().output();
@@ -171,9 +172,8 @@ public final class TimerControllerBlock extends PhysicalControlNodeBlock
     @Override
     public void onControlPeerUnavailable(@NotNull UUID peerId) {
         runOnServerThreadIfActive(() -> {
-            if (peerId.equals(sourceId)) {
+            if (sourceSelector.peerUnavailable(peerId)) {
                 boolean before = engine.state().output();
-                sourceId = null;
                 engine.resetAfterLoad();
                 reconcile(before);
             }
@@ -201,21 +201,21 @@ public final class TimerControllerBlock extends PhysicalControlNodeBlock
             publishTo(currentOutputChannel(), false);
         }
         engine.resetAfterLoad();
-        sourceId = null;
+        sourceSelector.resetActive();
     }
 
     @Override
     protected void afterDeactivated() {
         cancelScheduled();
         engine.resetAfterLoad();
-        sourceId = null;
+        sourceSelector.resetActive();
     }
 
     @Override
     protected void afterRemoved() {
         cancelScheduled();
         engine.resetAfterLoad();
-        sourceId = null;
+        sourceSelector.resetActive();
     }
 
     @Override
@@ -225,6 +225,11 @@ public final class TimerControllerBlock extends PhysicalControlNodeBlock
         pdc.set(ON_KEY, PersistentDataType.LONG, onTicks);
         pdc.set(OFF_KEY, PersistentDataType.LONG, offTicks);
         pdc.set(INPUT_KEY, PersistentDataType.STRING, inputMode.name());
+        if (sourceSelector.preferredSource() == null) {
+            pdc.remove(SOURCE_KEY);
+        } else {
+            pdc.set(SOURCE_KEY, PersistentDataType.STRING, sourceSelector.preferredSource().toString());
+        }
         pdc.set(OUTPUT_KEY, PersistentDataType.STRING, outputCircuit.name());
         pdc.set(OUTPUT_MODE_KEY, PersistentDataType.STRING, outputMode.name());
         pdc.set(OUTPUT_ADDRESS_KEY, PersistentDataType.STRING, outputAddress.value());
@@ -240,7 +245,7 @@ public final class TimerControllerBlock extends PhysicalControlNodeBlock
         Objects.requireNonNull(mode, "mode");
         runOnServerThreadIfActive(() -> {
             inputMode = mode;
-            sourceId = null;
+            sourceSelector.resetActive();
             boolean before = engine.state().output();
             engine.resetAfterLoad();
             reconcile(before);
@@ -256,10 +261,11 @@ public final class TimerControllerBlock extends PhysicalControlNodeBlock
     @Override
     public @NotNull Gui createGui() {
         return Gui.builder()
-                .setStructure("m i t c a d n f x", "# # # u # z # # #")
+                .setStructure("m i t c a d n f x", "# # # u # z # s #")
                 .addIngredient('#', GuiItems.background())
                 .addIngredient('m', modeItem)
                 .addIngredient('i', inputItem)
+                .addIngredient('s', sourceItem)
                 .addIngredient('t', outputModeItem)
                 .addIngredient('c', circuitItem)
                 .addIngredient('a', addressItem)
@@ -306,8 +312,28 @@ public final class TimerControllerBlock extends PhysicalControlNodeBlock
 
     private void reconfigure(TimerCycleEngine.Mode next) {
         boolean before = engine.state().output();
-        sourceId = null;
+        sourceSelector.resetActive();
         engine.configure(next, initialTicks, onTicks, offTicks);
+        reconcile(before);
+        GridWorks.getInstance().getPhysicalControlNetwork().replayStateSources(getNodeId());
+    }
+
+    private void cycleSource(int direction) {
+        List<UUID> loaded = GridWorks.getInstance()
+                .getPhysicalControlNetwork().activeLinkedNodes(getNodeId());
+        List<UUID> choices = new ArrayList<>();
+        choices.add(null); // AUTO
+        choices.addAll(loaded);
+        int current = choices.indexOf(sourceSelector.preferredSource());
+        int next = Math.floorMod((current < 0 ? 0 : current)
+                + (direction >= 0 ? 1 : -1), choices.size());
+        UUID selected = choices.get(next);
+        if (Objects.equals(selected, sourceSelector.preferredSource())) {
+            return;
+        }
+        boolean before = engine.state().output();
+        sourceSelector.select(selected);
+        engine.resetAfterLoad();
         reconcile(before);
         GridWorks.getInstance().getPhysicalControlNetwork().replayStateSources(getNodeId());
     }
@@ -429,6 +455,7 @@ public final class TimerControllerBlock extends PhysicalControlNodeBlock
         onItem.notifyWindows();
         offItem.notifyWindows();
         statusItem.notifyWindows();
+        sourceItem.notifyWindows();
     }
 
     private void openAddressWindow(Player player) {
@@ -469,6 +496,21 @@ public final class TimerControllerBlock extends PhysicalControlNodeBlock
         }
     }
 
+    private static String shortId(UUID id) {
+        return id.toString().substring(0, 8);
+    }
+
+    private static UUID uuidFromStored(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return UUID.fromString(raw);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
+    }
+
     private static long currentTick() {
         return Integer.toUnsignedLong(Bukkit.getCurrentTick());
     }
@@ -500,8 +542,19 @@ public final class TimerControllerBlock extends PhysicalControlNodeBlock
                         .lore(Component.text("Left/right: cycle One-shot / Pulse / Duty", NamedTextColor.YELLOW));
                 case "input" -> builder = item(Material.OBSERVER, "Input: " + inputMode.displayName())
                         .lore(Component.text("Left/right: cycle Control Bus input", NamedTextColor.YELLOW),
-                                Component.text("One directly linked source; first state is baseline",
-                                        NamedTextColor.GRAY));
+                                Component.text("First state establishes a baseline", NamedTextColor.GRAY));
+                case "source" -> {
+                    UUID preferred = sourceSelector.preferredSource();
+                    UUID active = sourceSelector.activeSource();
+                    builder = item(Material.COMPASS, "Input source: "
+                            + (preferred == null ? "AUTO" : shortId(preferred)))
+                            .lore(Component.text("Left/right: choose a loaded direct link",
+                                    NamedTextColor.YELLOW),
+                                    Component.text("Active: " + (active == null ? "WAITING" : shortId(active)),
+                                            NamedTextColor.GRAY),
+                                    Component.text("An explicit source stays selected during unload",
+                                            NamedTextColor.DARK_GRAY));
+                }
                 case "output_mode" -> builder = item(Material.ENDER_EYE,
                         "Output mode: " + outputMode.displayName())
                         .lore(Component.text("Click to switch Circuit / Address", NamedTextColor.YELLOW));
@@ -532,8 +585,8 @@ public final class TimerControllerBlock extends PhysicalControlNodeBlock
                             .lore(Component.text("Output: " + (state.output() ? "ON" : "OFF"),
                                             NamedTextColor.GRAY),
                                     Component.text("Cycles: " + state.completedCycles(), NamedTextColor.GRAY),
-                                    Component.text("Source: " + (sourceId == null ? "WAITING"
-                                            : sourceId.toString().substring(0, 8)), NamedTextColor.GRAY));
+                                    Component.text("Source: " + (sourceSelector.activeSource() == null ? "WAITING"
+                                            : shortId(sourceSelector.activeSource())), NamedTextColor.GRAY));
                 }
                 case "start" -> builder = item(Material.LIME_CONCRETE, "Manual Start")
                         .lore(Component.text("Restart the schedule now", NamedTextColor.YELLOW));
@@ -568,6 +621,7 @@ public final class TimerControllerBlock extends PhysicalControlNodeBlock
                 switch (kind) {
                     case "mode" -> setMode(direction);
                     case "input" -> setBooleanInputMode(inputMode.cycle(direction));
+                    case "source" -> cycleSource(direction);
                     case "output_mode" -> toggleOutputMode();
                     case "circuit" -> {
                         if (outputMode == ControlOutputMode.CIRCUIT) {

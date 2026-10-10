@@ -24,7 +24,7 @@ Every mode permits an initial delay (including zero), with subsequent ON/OFF per
 
 The Timer Controller extends `PhysicalControlNodeBlock` and implements `ControlStateSource`, `GuiRebarBlock` and `BooleanInputConfigurable`.
 
-- One directly linked, currently loaded sensor/controller source drives the selected input channel. Losing that source stops the schedule.
+- One directly linked, currently loaded source drives the selected input channel. Choose AUTO or an explicit linked peer UUID; the preference persists through restart. Losing the active peer shuts OFF, and an explicitly selected unloaded peer waits instead of switching to another factory line.
 - The GUI configures mode, initial delay, ON/OFF durations, input routing, Default/A-D or named output routing, and manual Start/Stop.
 - The physical block never persists an active task: only settings survive a restart/chunk reload, with the command output reset OFF until a fresh rising edge.
 - Before unload/break, a shared physical-block lifecycle hook lets the Timer publish OFF **while recipients are still linked**, preventing a previously ON output from being stranded when its source disappears.
