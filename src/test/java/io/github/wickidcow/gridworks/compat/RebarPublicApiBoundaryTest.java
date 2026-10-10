@@ -53,7 +53,7 @@ class RebarPublicApiBoundaryTest {
     }
 
     @Test
-    void rebarDependencyPinsTheReviewedElectricitySnapshot()
+    void rebarDependencyPinsTheReviewedElectricityRelease()
             throws IOException {
         Properties properties = new Properties();
         try (Reader reader = Files.newBufferedReader(Path.of("gradle.properties"))) {
@@ -66,8 +66,8 @@ class RebarPublicApiBoundaryTest {
         assertTrue(rebarVersion != null && !rebarVersion.isBlank());
         assertTrue(minecraftVersion != null && !minecraftVersion.isBlank());
 
-        assertEquals("1.0.0-20260929.193904-140", rebarVersion,
-                "Electricity builds pin the immutable upstream API snapshot");
+        assertEquals("0.44.4-26.2", rebarVersion,
+                "Electricity builds pin the verified published Rebar release");
         assertEquals("26.2", minecraftVersion);
 
     }
