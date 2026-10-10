@@ -54,6 +54,7 @@ The current development line includes:
 - Default/A/B/C/D circuits and addressed commands;
 - redstone, inventory, fluid, machine, and provider-neutral power sensing;
 - Factory Controller rules and Factory Monitor;
+- Timer Controller with one-shot, repeating pulse and duty-cycle schedules;
 - alarms and Alarm Console;
 - Machine Sensor cycle telemetry;
 - Batch Controller target/watchdog/pace/ETA;
@@ -71,18 +72,6 @@ The current development line includes:
 ## Next control devices
 
 The strongest remaining additions are deliberately control-oriented rather than more processing machines.
-
-### Timer / Clock Controller
-
-Generate replay-safe scheduled control events:
-
-- one-shot delay;
-- repeating interval;
-- duty cycle;
-- optional Minecraft-time window;
-- named/circuit output.
-
-It should own only the minimum delayed task required by its current schedule and must never replay a false timer edge after restart.
 
 ### Counter Controller
 

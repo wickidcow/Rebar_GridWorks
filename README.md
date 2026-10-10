@@ -6,6 +6,12 @@ GridWorks is a Rebar addon focused on making factories smarter rather than simpl
 
 Native Rebar electricity is integrated using the pinned development API `1.0.0-20260929.193904-140` from upstream commit `5e34938`. Use a matching Rebar development server JAR; the stable `0.43.0-26.2` JAR lacks this API. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
 
+## Timer Controller
+
+A craftable **Timer Controller** now provides one-shot delays, repeating one-tick pulses and programmable ON/OFF duty cycles. Its 2-row GUI selects timing, boolean input routing and Default/A-D or addressed Control Bus output. It accepts one directly linked loaded input source, schedules at most one pending task, and always fails OFF after restart, chunk unload, or input loss.
+
+See [Timer Controller](docs/wiki/Timer-Controller.md) for the recipe and controls.
+
 ## Current systems
 
 The Control Bus provides namespaced typed signals, cycle-safe graph propagation, a configurable safety cap, receiver isolation, and a Bukkit service API for other addons.

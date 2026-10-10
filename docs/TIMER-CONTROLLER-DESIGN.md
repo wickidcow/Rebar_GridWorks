@@ -1,6 +1,6 @@
 # Timer / Clock Controller – event engine (phase 1)
 
-GridWorks' new `TimerCycleEngine` is a **testable scheduling core**, not yet a craftable Rebar block. The current release and player-facing content IDs do not change in this phase.
+GridWorks' `TimerCycleEngine` is now used by the craftable physical **Timer Controller** (`timer_controller`) introduced on this feature branch. It includes a Rebar block, Control Bus routing, an InvUI menu, English item metadata, a recipe, and a guide entry.
 
 ## Modes and behavior
 
@@ -20,15 +20,16 @@ Every mode permits an initial delay (including zero), with subsequent ON/OFF per
 - Deadlines are calculated with saturating arithmetic, so long uptimes cannot wrap negative.
 - The engine is pure Java; no Bukkit calls, polling loops, global scan, chunk load, or task creation.
 
-## Next physical integration
+## Physical integration
 
-The eventual Timer Controller adapter should:
+The Timer Controller extends `PhysicalControlNodeBlock` and implements `ControlStateSource`, `GuiRebarBlock` and `BooleanInputConfigurable`.
 
-1. Extend `PhysicalControlNodeBlock` and implement `ControlStateSource`.
-2. Use persisted mode/duration/input routing, but **never persist an active scheduler task** or start a task during component replay.
-3. Schedule **only one** Bukkit delayed task for the engine's `nextDueTick`, while loaded and active. Cancel it on unload, break, restart, configuration changes and missing Control Bus peers.
-4. Publish OFF on activation before receiving fresh input; propagate ON/OFF only on actual engine transitions. Keep output channels and addressed command routing compatible with existing receivers.
-5. Expose mode/duration/manual-start controls through the Rebar GUI; add a recipe, English item metadata, guide entry, and content-catalog integrity check together.
-6. Regression-test the live block on Paper/Rebar for restart, chunk reload, sudden peer loss, and heavy lag. Only then introduce it as a craftable item.
+- One directly linked, currently loaded sensor/controller source drives the selected input channel. Losing that source stops the schedule.
+- The GUI configures mode, initial delay, ON/OFF durations, input routing, Default/A-D or named output routing, and manual Start/Stop.
+- The physical block never persists an active task: only settings survive a restart/chunk reload, with the command output reset OFF until a fresh rising edge.
+- The current schedule owns at most one delayed Bukkit task, guarded against unloaded/broken nodes.
+- The copper bulb acts as a status light; vanilla redstone output requires a linked Control Relay or Addressed Relay.
 
-This keeps Timer separate from Rebar's actual electricity network simulation: GridWorks decides when control signals switch, while Rebar owns electrical power delivery.
+## Required release validation
+
+Unit and catalog tests, production JAR validation, Paper/Rebar startup and `/gridworks doctor` must pass. Also manually verify, on an actual client, GUI interaction, first-on replay, link loss during ON, chunk unload/reload during ON, changing an output address, and in-game recipe display before merging or releasing.
