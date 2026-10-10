@@ -7,7 +7,7 @@
 | GridWorks | 0.4.0-SNAPSHOT |
 | Minecraft / Paper | 26.2 |
 | Java | 25 |
-| Rebar | 1.0.0-20260929.193904-140 |
+| Rebar | 0.44.4-26.2 |
 
 The repository's Gradle properties and CI are authoritative if this page ever trails a newer development commit.
 
@@ -44,7 +44,7 @@ GridWorks owns the automation around that system:
 - alarm on shortages;
 - coordinate production with available power.
 
-Native Rebar electricity is integrated using the pinned development API `1.0.0-20260929.193904-140` from upstream commit `5e34938`. Use a matching Rebar development server JAR; the stable `0.43.0-26.2` JAR lacks this API. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
+Native Rebar electricity is integrated against published **Rebar 0.44.4-26.2**. Use that released server JAR (verified by pinned SHA-256 in CI) with Paper 26.2 and Java 25. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
 
 ## Implemented foundation
 
@@ -54,6 +54,7 @@ The current development line includes:
 - Default/A/B/C/D circuits and addressed commands;
 - redstone, inventory, fluid, machine, and provider-neutral power sensing;
 - Factory Controller rules and Factory Monitor;
+- Timer Controller with one-shot, repeating pulse and duty-cycle schedules;
 - alarms and Alarm Console;
 - Machine Sensor cycle telemetry;
 - Batch Controller target/watchdog/pace/ETA;
@@ -71,18 +72,6 @@ The current development line includes:
 ## Next control devices
 
 The strongest remaining additions are deliberately control-oriented rather than more processing machines.
-
-### Timer / Clock Controller
-
-Generate replay-safe scheduled control events:
-
-- one-shot delay;
-- repeating interval;
-- duty cycle;
-- optional Minecraft-time window;
-- named/circuit output.
-
-It should own only the minimum delayed task required by its current schedule and must never replay a false timer edge after restart.
 
 ### Counter Controller
 

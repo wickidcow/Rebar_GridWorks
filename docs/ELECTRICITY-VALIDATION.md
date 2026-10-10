@@ -1,3 +1,5 @@
+> Current development CI runs Paper 26.2 and the SHA-256-pinned released Rebar 0.44.4-26.2 JAR. The earlier Rebar build 2064 validation below is historical.
+
 # Electricity validation — 2026-09-30
 
 Tested with Java 25, Paper 26.2 build 129, and the unmodified upstream Rebar server artifact `rebar-2064.jar`, from successful workflow run 36620712190 at commit `5e34938f044dc63c103213e80b07484bf4994639`.

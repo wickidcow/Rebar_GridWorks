@@ -9,7 +9,7 @@ GridWorks is a Rebar addon built around one goal: make Minecraft factories **sma
 > **Current development line:** 0.4.x
 > **Minecraft / Paper:** 26.2  
 > **Java:** 25  
-> **Rebar:** 1.0.0-20260929.193904-140
+> **Rebar:** 0.44.4-26.2
 
 ## Where should I start?
 

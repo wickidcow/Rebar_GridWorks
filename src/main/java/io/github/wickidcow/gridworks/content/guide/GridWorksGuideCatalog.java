@@ -19,6 +19,7 @@ public final class GridWorksGuideCatalog {
             )),
             new Category("logic_production", List.of(
                     "factory_controller",
+                    "timer_controller",
                     "batch_controller",
                     "sequence_controller",
                     "load_shedding_controller",

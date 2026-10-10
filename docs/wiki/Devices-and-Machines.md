@@ -1,6 +1,6 @@
 # Devices and Machines
 
-GridWorks currently validates a canonical catalog of **25 player-facing content IDs**. All current devices are intended to participate in normal Rebar recipe/guide visibility.
+GridWorks currently validates a canonical catalog of **26 player-facing content IDs**. All current devices are intended to participate in normal Rebar recipe/guide visibility.
 
 ## Foundation
 
@@ -44,6 +44,7 @@ See [[Sensors and Telemetry]] for the shared sensor model.
 | Device | Purpose |
 | --- | --- |
 | [[Factory Controller]] | Up to two sensor conditions with AND/OR logic |
+| [[Timer Controller]] | One-shot, repeating pulse or duty-cycle timed Control Bus output |
 | [[Stock Controller]] | Maintains inventory stock inside a low/high hysteresis band |
 | [[Batch Controller]] | Aggregates new machine cycles toward a target |
 | [[Sequence Controller]] | Persistent four-stage production workflow |

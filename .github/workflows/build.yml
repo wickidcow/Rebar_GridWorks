@@ -95,9 +95,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .upstream/rebar
-          curl --fail --location --retry 3 https://nightly.link/pylonmc/rebar/actions/runs/36620712190/rebar-2064.zip -o .upstream/rebar/server.zip
-          echo 'ed9bbaf30511b804beaf2daf1b3024e0612056bac8b3d78f0550460d9b1394d0  .upstream/rebar/server.zip' | sha256sum -c -
-          unzip .upstream/rebar/server.zip -d .upstream/rebar
+          curl --fail --location --retry 3 https://github.com/pylonmc/rebar/releases/download/0.44.4-26.2/rebar-0.44.4-26.2.jar -o .upstream/rebar/rebar.jar
+          echo 'fd7573a3124b9836641a4e15fc85ff998b3fed894f58f5eb8002eff44d3a884b  .upstream/rebar/rebar.jar' | sha256sum -c -
 
       - name: Smoke test Paper + Rebar + GridWorks
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
@@ -114,7 +113,7 @@ jobs:
           rm -f "$INPUT_PIPE" "$LOG_FILE"
           mkfifo "$INPUT_PIPE"
 
-          ./gradlew runServer -Prebar.serverJar="$GITHUB_WORKSPACE/.upstream/rebar/rebar-2064.jar" --stacktrace --no-daemon < "$INPUT_PIPE" > "$LOG_FILE" 2>&1 &
+          ./gradlew runServer -Prebar.serverJar="$GITHUB_WORKSPACE/.upstream/rebar/rebar.jar" --stacktrace --no-daemon < "$INPUT_PIPE" > "$LOG_FILE" 2>&1 &
           SERVER_PID=$!
 
           exec 3>"$INPUT_PIPE"
