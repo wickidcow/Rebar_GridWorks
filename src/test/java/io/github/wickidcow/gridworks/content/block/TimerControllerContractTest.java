@@ -17,6 +17,9 @@ class TimerControllerContractTest {
         assertTrue(code.contains("private BukkitTask scheduled;"));
         assertTrue(code.contains("runTaskLater(plugin"));
         assertTrue(code.contains("protected void beforeActivated()"));
+        assertTrue(code.contains("protected void beforeDeactivated()"));
+        assertTrue(code.contains("protected void beforeRemoved()"));
+        assertTrue(code.contains("sendOffBeforeDisconnect()"));
         assertTrue(code.contains("protected void afterDeactivated()"));
         assertTrue(code.contains("protected void afterRemoved()"));
         assertTrue(code.contains("engine.resetAfterLoad()"));

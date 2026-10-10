@@ -27,6 +27,7 @@ The Timer Controller extends `PhysicalControlNodeBlock` and implements `ControlS
 - One directly linked, currently loaded sensor/controller source drives the selected input channel. Losing that source stops the schedule.
 - The GUI configures mode, initial delay, ON/OFF durations, input routing, Default/A-D or named output routing, and manual Start/Stop.
 - The physical block never persists an active task: only settings survive a restart/chunk reload, with the command output reset OFF until a fresh rising edge.
+- Before unload/break, a shared physical-block lifecycle hook lets the Timer publish OFF **while recipients are still linked**, preventing a previously ON output from being stranded when its source disappears.
 - The current schedule owns at most one delayed Bukkit task, guarded against unloaded/broken nodes.
 - The copper bulb acts as a status light; vanilla redstone output requires a linked Control Relay or Addressed Relay.
 

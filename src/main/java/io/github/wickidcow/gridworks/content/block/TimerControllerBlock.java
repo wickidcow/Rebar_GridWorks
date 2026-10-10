@@ -186,6 +186,25 @@ public final class TimerControllerBlock extends PhysicalControlNodeBlock
     }
 
     @Override
+    protected void beforeDeactivated() {
+        sendOffBeforeDisconnect();
+    }
+
+    @Override
+    protected void beforeRemoved() {
+        sendOffBeforeDisconnect();
+    }
+
+    private void sendOffBeforeDisconnect() {
+        cancelScheduled();
+        if (GridWorks.getInstance().getPhysicalControlNetwork().isActive(getNodeId())) {
+            publishTo(currentOutputChannel(), false);
+        }
+        engine.resetAfterLoad();
+        sourceId = null;
+    }
+
+    @Override
     protected void afterDeactivated() {
         cancelScheduled();
         engine.resetAfterLoad();
