@@ -122,8 +122,14 @@ public abstract class PhysicalControlNodeBlock extends RebarBlock
 
     @Override
     public final void onUnload(@NotNull RebarBlockUnloadEvent event, @NotNull EventPriority priority) {
+        // A stateful source may need to publish its fail-safe OFF transition
+        // before the Control Bus disconnects its live recipients.
+        invokeShutdownHook(this::beforeDeactivated, "before unload");
         GridWorks.getInstance().getPhysicalControlNetwork().deactivate(nodeId, this);
         afterDeactivated();
+    }
+
+    protected void beforeDeactivated() {
     }
 
     protected void afterDeactivated() {
@@ -131,6 +137,7 @@ public abstract class PhysicalControlNodeBlock extends RebarBlock
 
     @Override
     public final void onPostBlockBreak(@NotNull BlockBreakContext context) {
+        invokeShutdownHook(this::beforeRemoved, "before break");
         try {
             GridWorks.getInstance().getPhysicalControlNetwork().remove(nodeId, this);
         } catch (IOException exception) {
@@ -141,7 +148,22 @@ public abstract class PhysicalControlNodeBlock extends RebarBlock
         afterRemoved();
     }
 
+    protected void beforeRemoved() {
+    }
+
     protected void afterRemoved() {
+    }
+
+    private void invokeShutdownHook(Runnable action, String phase) {
+        try {
+            action.run();
+        } catch (RuntimeException exception) {
+            GridWorks.getInstance().getLogger().log(
+                    java.util.logging.Level.SEVERE,
+                    "Control node " + nodeId + " failed " + phase + " cleanup; continuing physical unlink",
+                    exception
+            );
+        }
     }
 
     /**

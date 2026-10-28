@@ -36,6 +36,7 @@ Monitoring & Alarms
 
 Logic & Production
 - [[Factory Controller]]
+- [[Timer Controller]]
 - [[Batch Controller]]
 - [[Sequence Controller]]
 - [[Load Shedding Controller]]

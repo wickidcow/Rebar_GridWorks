@@ -1,10 +1,8 @@
 # Native Electricity
 
-GridWorks 0.4 uses Seggan's native Rebar electricity API. The build pins published API snapshot `1.0.0-20260929.193904-140`, matching Rebar commit `5e34938f044dc63c103213e80b07484bf4994639` (electricity PR #711).
+GridWorks 0.4 uses native Rebar electricity via the public API included in [Rebar 0.44.4-26.2](https://github.com/pylonmc/rebar/releases/tag/0.44.4-26.2). The earlier development API from electricity PR #711 is no longer needed for this build.
 
-Matching upstream server: [Rebar build 2064](https://github.com/pylonmc/rebar/actions/runs/36620712190). CI verifies the downloaded artifact against GitHub’s SHA-256 digest. Upstream Actions artifacts can expire; an expired artifact must be replaced with a reviewed API/server pin before publishing another build.
-
-**Requires Paper 26.2, Java 25, and an electricity-enabled Rebar development server JAR from that commit.** The stable Rebar 0.43.0-26.2 release does not contain electricity. The Maven API JAR is a compile dependency, not a replacement for the Rebar server JAR. Existing GridWorks IDs, recipes and persisted control settings remain unchanged; Power Coupler is a new item.
+**Requires Paper 26.2, Java 25, and the released Rebar 0.44.4-26.2 server JAR.** CI downloads that JAR and checks SHA-256 `fd7573a3124b9836641a4e15fc85ff998b3fed894f58f5eb8002eff44d3a884b` before the real-server smoke test. The Maven API JAR is only a compile dependency; do not install it as the Rebar server plugin. Existing GridWorks item IDs and saved controls remain unchanged.
 
 ## Connect a powered branch
 
@@ -14,7 +12,7 @@ Matching upstream server: [Rebar build 2064](https://github.com/pylonmc/rebar/ac
 4. Optionally place a Power Limiter facing the same coupler from another side and enter its watt cap. BYPASS removes only the coupler's cap. It does not close an open breaker or raise a wire's rating.
 5. Face a Power Grid Sensor toward a generator or another electrical block on the grid. A closed coupler can also be sampled; an open coupler separates two grids and is intentionally reported unavailable. Link it to a Factory Monitor or Load Shedding Controller.
 
-The coupler disconnects its own internal edge while OPEN (or capped at zero). Closing reconnects that edge and restores its configured limit in both directions. This avoids an upstream zero-capacity routing loop in Rebar build 2064. Rebar retains cable ratings, directions and network simulation. A separate bypass wire around the coupler bypasses its control, so place all loads you intend to control behind it.
+The coupler disconnects its own internal edge while OPEN (or capped at zero). Closing reconnects that edge and restores its configured limit in both directions. This avoids zero-capacity routing loops while preserving Rebar's native electricity graph. Rebar retains cable ratings, directions and network simulation. A separate bypass wire around the coupler bypasses its control, so place all loads you intend to control behind it.
 
 Switch state and watt cap persist independently. A limiter cannot reopen a breaker. The native electricity tick applies power changes on Rebar's next scheduled update. Multiple independent controllers aimed at the same coupler can issue conflicting commands; use one breaker and one limiter per coupler.
 

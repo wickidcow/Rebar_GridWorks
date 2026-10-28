@@ -68,7 +68,7 @@ A replayed already-ON stage trigger establishes a baseline only. A real false-to
 
 GridWorks' electricity layer is provider-neutral.
 
-Native Rebar electricity is integrated using the pinned development API `1.0.0-20260929.193904-140` from upstream commit `5e34938`. Use a matching Rebar development server JAR; the stable `0.43.0-26.2` JAR lacks this API. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
+Native Rebar electricity is integrated against published **Rebar 0.44.4-26.2**. Use that released server JAR (verified by pinned SHA-256 in CI) with Paper 26.2 and Java 25. See [Native Electricity](https://github.com/wickidcow/Rebar_GridWorks/blob/main/docs/wiki/Native-Electricity.md).
 
 ## Is GridWorks safe to update during development?
 

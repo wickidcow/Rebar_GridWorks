@@ -131,6 +131,16 @@ item:
       <arrow> AUTO-bind or explicitly choose directly linked sources
       <arrow> Right click to configure rules, presets, sources, and output routing
 
+  timer_controller:
+    name: "Timer Controller"
+    lore: |-
+      <arrow> One-shot, repeating-pulse, and duty-cycle factory automation
+      <arrow> Right click to configure ON/OFF/start-delay timing and routing
+      <arrow> Sends Control Bus commands to circuits or named addresses
+      <arrow> One delayed task per active timer, never a per-block polling loop
+      <arrow> Restart and chunk reload cancel the schedule safely OFF
+      <arrow> Replayed ON input sets a baseline rather than firing
+
   batch_controller:
     name: "Batch Controller"
     lore: |-

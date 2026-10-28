@@ -8,7 +8,7 @@ The current GridWorks development line requires:
 | --- | --- |
 | Paper | 26.2 |
 | Java | 25 |
-| Rebar | 1.0.0-20260929.193904-140 |
+| Rebar | 0.44.4-26.2 |
 | GridWorks | 0.4.x development line |
 
 Pylon is the primary ecosystem GridWorks is designed to complement, but GridWorks currently depends directly on Rebar.
@@ -16,7 +16,7 @@ Pylon is the primary ecosystem GridWorks is designed to complement, but GridWork
 ## Installation
 
 1. Stop the server normally.
-2. Install the matching electricity-enabled Rebar development server build.
+2. Install the official electricity-enabled Rebar 0.44.4-26.2 server JAR.
 3. Download the current GridWorks development JAR.
 4. Place both JARs in the server's `plugins/` directory.
 5. Start the server.
@@ -41,6 +41,6 @@ The doctor command verifies important runtime invariants rather than merely prin
 
 Use a normal server stop/start when replacing GridWorks or Rebar. Avoid server/plugin reload systems while testing persistent control networks.
 
-GridWorks development builds are smoke-tested on a real Paper server with the pinned Rebar electricity development build before the rolling development JAR is published.
+GridWorks development builds are tested on real Paper 26.2 with the SHA-256-verified Rebar 0.44.4 release before publishing.
 
 Next: [[Getting Started]]

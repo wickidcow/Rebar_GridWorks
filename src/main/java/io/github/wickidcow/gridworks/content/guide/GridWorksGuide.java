@@ -98,6 +98,7 @@ public final class GridWorksGuide {
             case "power_coupler" -> GridWorksContent.POWER_COUPLER_ITEM;
             case "power_limiter" -> GridWorksContent.POWER_LIMITER_ITEM;
             case "factory_controller" -> GridWorksContent.FACTORY_CONTROLLER_ITEM;
+            case "timer_controller" -> GridWorksContent.TIMER_CONTROLLER_ITEM;
             case "batch_controller" -> GridWorksContent.BATCH_CONTROLLER_ITEM;
             case "sequence_controller" -> GridWorksContent.SEQUENCE_CONTROLLER_ITEM;
             case "load_shedding_controller" ->
