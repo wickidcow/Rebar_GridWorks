@@ -607,6 +607,13 @@ public final class TimerControllerBlock extends PhysicalControlNodeBlock
         @Override
         public void handleClick(@NotNull ClickType clickType,
                                 @NotNull Player player, @NotNull Click click) {
+            // Buttons are controls, not virtual slots. Ignore number-key, swap,
+            // drop, double-click, creative clone and other synthetic actions:
+            // only a deliberate normal/shift left or right click may edit.
+            if (clickType != ClickType.LEFT && clickType != ClickType.RIGHT
+                    && clickType != ClickType.SHIFT_LEFT && clickType != ClickType.SHIFT_RIGHT) {
+                return;
+            }
             if ("address".equals(kind)) {
                 if (outputMode != ControlOutputMode.ADDRESS) {
                     return;

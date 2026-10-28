@@ -28,6 +28,19 @@ class TimerControllerContractTest {
     }
 
     @Test
+    void unsupportedInventoryClickTypesCannotEditTimersOrOpenAddressEditor() throws Exception {
+        String code = Files.readString(SOURCE);
+        int handler = code.indexOf("public void handleClick(");
+        int guard = code.indexOf("clickType != ClickType.LEFT && clickType != ClickType.RIGHT", handler);
+        int address = code.indexOf("if (\"address\".equals(kind))", handler);
+        int switchActions = code.indexOf("switch (kind)", handler);
+        assertTrue(handler >= 0 && guard > handler && address > guard && switchActions > guard,
+                "Unsupported clicks must return before address editing or mutating timer controls");
+        assertTrue(code.contains("clickType != ClickType.SHIFT_LEFT && clickType != ClickType.SHIFT_RIGHT"),
+                "Intentional shift-click timing adjustments remain supported");
+    }
+
+    @Test
     void persistentSettingsDoNotIncludePendingTaskOrInputBaseline() throws Exception {
         String code = Files.readString(SOURCE);
         assertTrue(code.contains("writeNodeData"));
