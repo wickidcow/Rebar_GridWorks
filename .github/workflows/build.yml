@@ -59,6 +59,8 @@ jobs:
             "META-INF/LICENSE-GridWorks"
             "io/github/wickidcow/gridworks/GridWorks.class"
             "io/github/wickidcow/gridworks/content/GridWorksContentCatalog.class"
+            "io/github/wickidcow/gridworks/content/block/TimerControllerBlock.class"
+            "io/github/wickidcow/gridworks/control/TimerCycleEngine.class"
           )
           for REQUIRED in "${REQUIRED_ENTRIES[@]}"; do
             if ! grep -Fxq "$REQUIRED" <<<"$ENTRIES"; then
@@ -90,7 +92,7 @@ jobs:
           echo "Packaged GridWorks JAR contents verified."
 
       - name: Download verified upstream electricity server
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
         shell: bash
         run: |
           set -euo pipefail
@@ -99,7 +101,7 @@ jobs:
           echo 'fd7573a3124b9836641a4e15fc85ff998b3fed894f58f5eb8002eff44d3a884b  .upstream/rebar/rebar.jar' | sha256sum -c -
 
       - name: Smoke test Paper + Rebar + GridWorks
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
         shell: bash
         run: |
           set -euo pipefail
@@ -120,7 +122,7 @@ jobs:
 
           READY=0
           for _ in $(seq 1 120); do
-            if grep -Fq "Validated 25 GridWorks content entries and survival recipes." "$LOG_FILE" \
+            if grep -Fq "Validated 26 GridWorks content entries and survival recipes." "$LOG_FILE" \
               && grep -Fq "GridWorks control bus initialized" "$LOG_FILE" \
               && grep -Fq "Done (" "$LOG_FILE"; then
               READY=1
@@ -212,10 +214,19 @@ jobs:
           fi
 
           echo "GridWorks Paper smoke test passed."
-          grep -F "Validated 25 GridWorks content entries and survival recipes." "$LOG_FILE"
+          grep -F "Validated 26 GridWorks content entries and survival recipes." "$LOG_FILE"
           grep -F "GridWorks control bus initialized" "$LOG_FILE"
           grep -F "Done (" "$LOG_FILE"
           grep -F "GridWorks Doctor result: PASS" "$LOG_FILE"
+
+      - name: Upload PR review JAR after live-server smoke test
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: GridWorks-PR-${{ github.event.pull_request.number }}
+          path: build/libs/Rebar_GridWorks-*.jar
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Record smoke-tested raw JAR digest
         id: tested-jar
